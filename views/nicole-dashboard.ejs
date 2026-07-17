@@ -2446,7 +2446,7 @@
       try{
         if(typeof loadBookings === 'function' && typeof todayInfo === 'function' && typeof iso === 'function' && typeof today === 'function'){
           var t = iso(today()), arr = 0, dep = 0;
-          loadBookings().forEach(function(b){ var i = todayInfo(b, t); if(i.arrives) arr++; if(i.departs) dep++; });
+          loadBookings().forEach(function(b){ if(b.cancelled) return; var i = todayInfo(b, t); if(i.arrives) arr++; if(i.departs) dep++; });
           set('nhSub', 'You have ' + arr + ' arrival' + (arr === 1 ? '' : 's') + ' and ' + dep + ' checkout' + (dep === 1 ? '' : 's') + ' today.');
         }
       }catch(e){}

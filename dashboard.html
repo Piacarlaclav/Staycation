@@ -326,7 +326,7 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
 .dp-foot span:hover{ text-decoration:underline; }
 
 .timeline{ overflow-x:auto; }
-.tl-grid{ display:grid; min-width:760px; }
+.tl-grid{ display:grid; min-width:760px; position:relative; }
 .tl-cell{
     border-bottom:1px solid #f0f0f0;
     border-right:1px solid #f5f5f5;
@@ -382,10 +382,14 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
 #monthBody .mc-dows, #monthBody .mc-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:8px; }
 #monthBody .mc-dows{ margin-bottom:6px; }
 #monthBody .mc-dow{ color:var(--hv-muted); font-size:12px; font-weight:600; padding-left:4px; }
-/* Cells GROW to fit their bookings. The partner calendar can clip (one room, few pills), but an
-   admin day can hold several havens — silently hiding a booking is far worse than a taller row. */
-#monthBody .mc-grid{ grid-auto-rows:minmax(118px,auto); }
-#monthBody .mc-cell{ border:1px solid var(--hv-line); border-radius:12px; padding:8px; background:#fff; }
+/* Cells are a UNIFORM height so the month reads as an even grid instead of rows that balloon
+   around the busiest day. A day with more bookings than fit scrolls INSIDE its own cell
+   (.mc-cell overflow), so the grid stays proportioned and no booking is ever hidden. */
+#monthBody .mc-grid{ grid-auto-rows:160px; }
+#monthBody .mc-cell{ border:1px solid var(--hv-line); border-radius:12px; padding:8px; background:#fff;
+    overflow-y:auto; overscroll-behavior:contain; }
+#monthBody .mc-num{ position:sticky; top:-8px; background:inherit; z-index:2; }
+#monthBody .mc-cell.empty{ overflow:hidden; }
 #monthBody .mc-cell.empty{ background:transparent; border:none; }
 #monthBody .mc-cell.past{ background:#f4f2ef; }
 #monthBody .mc-num{ font-weight:700; font-size:15px; margin-bottom:5px; }
@@ -401,7 +405,7 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
     background:#e01e37; box-shadow:0 0 0 1.5px #fff; pointer-events:none; z-index:3; }
 #monthBody .legend{ margin-top:14px; }
 @media (max-width:760px){
-    #monthBody .mc-grid{ grid-auto-rows:minmax(92px,auto); gap:5px; }
+    #monthBody .mc-grid{ grid-auto-rows:132px; gap:5px; }
     #monthBody .mc-cell{ padding:5px; border-radius:9px; }
     #monthBody .mc-pill{ padding:3px 7px; font-size:10px; }
 }

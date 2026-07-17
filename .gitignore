@@ -25,3 +25,6 @@ Thumbs.db
 
 # Firebase service account secret — never commit
 serviceAccountKey.json
+
+# one-line copy of the service-account key for pasting into a host env var — NEVER commit
+serviceAccountKey.oneline.txt
