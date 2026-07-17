@@ -84,9 +84,14 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
     .topbar h1{ font-size:19px; }
     .panel{ padding:16px; margin-bottom:18px; border-radius:12px; }
     .panel-head h2{ font-size:16px; }
-    .cards{ gap:10px; margin-bottom:18px; }
-    .card{ padding:14px; }
-    .number{ font-size:24px; } .number.money{ font-size:19px; }
+    /* compact summary cards on mobile — the desktop rules below (.card .card-top + .number)
+       out-specify a bare .number, so match that specificity here or the shrink is ignored */
+    .cards{ gap:9px; margin-bottom:16px; grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .card{ padding:12px 13px; border-radius:12px; }
+    .card .card-label{ font-size:10px; letter-spacing:.4px; }
+    .card .card-ico svg{ width:17px; height:17px; }
+    .card .card-top + .number{ font-size:21px; margin-top:4px; }
+    .card .card-top + .number.money{ font-size:17px; }
     .form-grid{ grid-template-columns:1fr; }       /* stack form fields */
     .modal{ padding:20px; border-radius:14px; }
     .overlay{ padding:16px 10px; }
