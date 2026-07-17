@@ -386,10 +386,10 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
 @media (max-width:600px){
     .tl-grid{ min-width:0; }
     .tl-cell{ height:42px; }
-    /* keep the label column FROZEN while the timeline scrolls sideways. No overflow:hidden here —
-       on iOS Safari it can break the sticky; the labels fit 84px anyway. The right shadow marks
-       the frozen edge. */
-    .tl-haven{ font-size:10.5px; padding:0 8px; white-space:nowrap; box-shadow:2px 0 5px rgba(0,0,0,.05); }
+    /* Freeze the label column while the timeline scrolls sideways. iOS Safari doesn't honour
+       position:sticky on a grid cell in a horizontal scroller, so use position:relative and let
+       freezeHavenCol() translate it by scrollLeft (JS) instead. The right shadow marks the edge. */
+    .tl-haven{ position:relative; left:auto; font-size:10.5px; padding:0 8px; white-space:nowrap; box-shadow:2px 0 5px rgba(0,0,0,.05); }
     .tl-haven .tl-dot{ display:none; }
     .tl-head{ font-size:10px; padding:4px 1px; }
     #page-calendar .tl-head.tl-hr{ font-size:10px; padding:5px 0 6px 2px; }
@@ -5093,6 +5093,7 @@ function renderTimelineHours(){
             if(departsToday) drawCleaning();
         }
     });
+    freezeHavenCol();
 }
 
 function renderTimeline(){
@@ -5241,6 +5242,25 @@ function renderTimeline(){
         bar.style.bottom = "auto";
         grid.appendChild(bar);
     });
+    freezeHavenCol();
+}
+
+// iOS Safari doesn't reliably honour position:sticky on a grid cell inside a horizontal
+// scroller, so the frozen haven column drifts off. Pin it with JS instead: translate every
+// label cell by the scroller's scrollLeft so it visually stays at the left edge. Mobile only —
+// desktop keeps CSS sticky (x stays 0, so no transform is applied there).
+function freezeHavenCol(){
+    const scroller = document.querySelector('#calBody .timeline');
+    const grid = document.getElementById('timeline');
+    if(!scroller || !grid) return;
+    const mobile = window.innerWidth <= 600;
+    const paint = () => {
+        const x = mobile ? scroller.scrollLeft : 0;
+        const cells = grid.getElementsByClassName('tl-haven');
+        for(let i = 0; i < cells.length; i++) cells[i].style.transform = x ? `translateX(${x}px)` : '';
+    };
+    scroller.onscroll = paint;
+    paint();
 }
 
 function cssEscape(s){ return s.replace(/"/g, '\\"'); }
