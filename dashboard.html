@@ -5008,7 +5008,11 @@ function renderTimelineHours(){
     if(HE - HS < 2){ HE = Math.min(24, HS + 2); }                      // keep at least a 2-hour span
     const HOURS = HE - HS;
 
-    grid.style.gridTemplateColumns = `${window.innerWidth <= 600 ? 84 : 140}px repeat(${HOURS}, 1fr)`;
+    // Mobile: fixed uniform hour columns (like the multi-day view). 1fr columns collapse to the
+    // hour label's min-content under the mobile min-width:0, which makes them uneven and throws
+    // off the bars (measured from cell width). A fixed width keeps cells uniform and bars aligned.
+    const thMobile = window.innerWidth <= 600;
+    grid.style.gridTemplateColumns = `${thMobile ? 84 : 140}px repeat(${HOURS}, ${thMobile ? "50px" : "1fr"})`;
 
     let html = `<div class="tl-haven tl-head">Haven</div>`;
     for(let h = HS; h < HE; h++)
