@@ -378,7 +378,7 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
     background:#fafafa;
     position:sticky;
     left:0;
-    z-index:2;
+    z-index:4;   /* above the absolutely-positioned bars (z-index:1) so it stays readable while scrolling */
 }
 /* Compact timeline on mobile: shorter rows + narrow label column (JS sets the grid columns
    to a fixed 44px/day + 84px label to match). min-width:0 so the grid is exactly the sum of
@@ -386,7 +386,10 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
 @media (max-width:600px){
     .tl-grid{ min-width:0; }
     .tl-cell{ height:42px; }
-    .tl-haven{ font-size:10.5px; padding:0 6px; overflow:hidden; white-space:nowrap; }
+    /* keep the label column FROZEN while the timeline scrolls sideways. No overflow:hidden here —
+       on iOS Safari it can break the sticky; the labels fit 84px anyway. The right shadow marks
+       the frozen edge. */
+    .tl-haven{ font-size:10.5px; padding:0 8px; white-space:nowrap; box-shadow:2px 0 5px rgba(0,0,0,.05); }
     .tl-haven .tl-dot{ display:none; }
     .tl-head{ font-size:10px; padding:4px 1px; }
     #page-calendar .tl-head.tl-hr{ font-size:10px; padding:5px 0 6px 2px; }
