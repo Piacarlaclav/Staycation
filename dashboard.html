@@ -82,17 +82,19 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
     .topbar h1{ font-size:19px; }
     .panel{ padding:16px; margin-bottom:18px; border-radius:12px; }
     .panel-head h2{ font-size:16px; }
-    /* compact summary cards on mobile — the desktop rules below (.card .card-top + .number)
-       out-specify a bare .number, so match that specificity here or the shrink is ignored */
+    /* Compact summary cards on mobile. IMPORTANT: the desktop card rules live LATER in this
+       file at the SAME specificity (e.g. .card .card-top + .number = 0,3,0), so an equal-
+       specificity rule here loses on source order. Prefixing with `.cards ` bumps these to
+       0,4,0 so they win regardless of order — both summary containers are <div class="cards">. */
     .cards{ gap:8px; margin-bottom:14px; grid-template-columns:repeat(2,minmax(0,1fr)); }
-    .card{ padding:10px 11px; border-radius:11px; }
-    .card .card-label .cl-full{ display:none; }        /* drop the long "· Jul 1–Jul 31" label */
-    .card .card-label .cl-short{ display:inline; }
-    .card .card-label{ font-size:10.5px; letter-spacing:.3px; white-space:nowrap; }
-    .card .card-top{ align-items:center; }
-    .card .card-ico svg{ width:16px; height:16px; }
-    .card .card-top + .number{ font-size:19px; margin-top:3px; }
-    .card .card-top + .number.money{ font-size:16px; }
+    .cards .card{ padding:10px 12px; border-radius:11px; }
+    .cards .card .card-label .cl-full{ display:none; }     /* drop the long "· Jul 1–Jul 31" label */
+    .cards .card .card-label .cl-short{ display:inline; }   /* show the short one instead */
+    .cards .card .card-label{ font-size:10.5px; letter-spacing:.3px; white-space:nowrap; }
+    .cards .card .card-top{ align-items:center; }
+    .cards .card .card-ico svg{ width:16px; height:16px; }
+    .cards .card .card-top + .number{ font-size:20px; margin-top:2px; }
+    .cards .card .card-top + .number.money{ font-size:17px; }
     .form-grid{ grid-template-columns:1fr; }       /* stack form fields */
     .modal{ padding:20px; border-radius:14px; }
     .overlay{ padding:16px 10px; }
