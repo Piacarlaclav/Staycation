@@ -209,6 +209,20 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
 }
 .date-pill:hover::after{ color:#ff385c; }
 
+/* Mobile: lay the calendar toolbar out as an even 3-column grid instead of buttons wrapping
+   into ragged rows. Row 1 = Prev · date · Next, row 2 = Today · This month · Custom range,
+   then the haven filter and search each span the full width. Uses #calNav (id) so it beats
+   the .cal-nav flex rules regardless of source order. */
+@media (max-width:600px){
+    #calNav{ display:grid; grid-template-columns:repeat(3,1fr); gap:7px; align-items:stretch; width:100%; }
+    #calNav > *{ min-width:0; }
+    #calNav .btn{ width:100%; padding:9px 4px; font-size:12px; white-space:nowrap; display:flex; align-items:center; justify-content:center; gap:4px; }
+    #calNav .dp-wrap{ width:100%; }
+    #calNav .date-pill{ width:100%; min-width:0; padding:9px 6px; font-size:12px; box-sizing:border-box; }
+    #calNav #calHavenFilter{ grid-column:1 / -1; width:100%; }
+    #calNav #calSearchInput{ grid-column:1 / -1; width:100%; }
+}
+
 /* custom date picker popup */
 .dp-wrap{ position:relative; }
 .dp-popup{
@@ -2001,7 +2015,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   #page-calendar .cal-tab + .cal-tab{ border-left:1px solid var(--hv-line); }
   #page-calendar .cal-tab:hover{ background:#faf6ee; color:var(--hv-ink); }
   #page-calendar .cal-tab.active{ background:var(--hv-ink); color:#fff; }
-  @media (max-width:640px){ #page-calendar .cal-tab{ padding:9px 13px; font-size:13px; } }
+  @media (max-width:640px){
+      #page-calendar .cal-tabs{ display:flex; width:100%; }   /* full-width, three equal tabs */
+      #page-calendar .cal-tab{ flex:1; padding:9px 6px; font-size:13px; text-align:center; }
+  }
   #page-calendar .av-table{ width:100%; border-collapse:collapse; font-size:14px; }
   #page-calendar .av-table th{ text-align:left; font-size:11px; letter-spacing:.4px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; padding:10px 14px; border-bottom:1px solid var(--hv-line); }
   #page-calendar .av-table td{ padding:14px; border-bottom:1px solid var(--hv-line); vertical-align:middle; color:var(--hv-ink); }
