@@ -366,6 +366,18 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
     left:0;
     z-index:2;
 }
+/* Compact timeline on mobile: shorter rows + narrow label column (JS sets the grid columns
+   to a fixed 44px/day + 84px label to match). min-width:0 so the grid is exactly the sum of
+   its columns instead of being stretched to 760px with dead space on the right. */
+@media (max-width:600px){
+    .tl-grid{ min-width:0; }
+    .tl-cell{ height:42px; }
+    .tl-haven{ font-size:10.5px; padding:0 6px; overflow:hidden; white-space:nowrap; }
+    .tl-haven .tl-dot{ display:none; }
+    .tl-head{ font-size:10px; padding:4px 1px; }
+    #page-calendar .tl-head.tl-hr{ font-size:10px; padding:5px 0 6px 2px; }
+    #page-calendar .bar, .bar{ font-size:10px; padding:0 4px; }
+}
 .tl-haven.tl-head{ background:#fff; }
 
 .bar{
@@ -832,6 +844,15 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
 /* tab count + active accent (terracotta to match the panel) */
 .bk-tab-count{ display:inline-block; min-width:17px; padding:0 5px; margin-left:3px; font-size:11px; line-height:17px; text-align:center; border-radius:9px; background:#eee; color:#666; }
 .bk-tab.active .bk-tab-count{ background:#bd6e3f; color:#fff; }
+/* Mobile: keep the four tabs on ONE line (no wrapping "Proof of / Payment" or a stacked IDs
+   badge); scroll horizontally if they don't all fit. Placed AFTER the base .bk-tab rules so it
+   wins on source order — the top-of-file mobile block sits before them and would lose the tie. */
+@media (max-width:600px){
+    .bk-tabs{ gap:1px; margin-bottom:14px; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .bk-tabs::-webkit-scrollbar{ display:none; }
+    .bk-tab{ padding:8px 8px; font-size:12px; white-space:nowrap; flex:0 0 auto; }
+    .bk-tab-count{ min-width:14px; padding:0 4px; font-size:10px; line-height:15px; }
+}
 /* footer status note */
 .modal-foot-note{ margin-right:auto; align-self:center; font-size:12px; color:#7a6a55; }
 .modal-foot-note .dot{ display:inline-block; width:7px; height:7px; border-radius:50%; background:#3f9e6a; margin-right:6px; vertical-align:middle; }
@@ -4967,7 +4988,7 @@ function renderTimelineHours(){
     if(HE - HS < 2){ HE = Math.min(24, HS + 2); }                      // keep at least a 2-hour span
     const HOURS = HE - HS;
 
-    grid.style.gridTemplateColumns = `140px repeat(${HOURS}, 1fr)`;
+    grid.style.gridTemplateColumns = `${window.innerWidth <= 600 ? 84 : 140}px repeat(${HOURS}, 1fr)`;
 
     let html = `<div class="tl-haven tl-head">Haven</div>`;
     for(let h = HS; h < HE; h++)
@@ -5055,8 +5076,14 @@ function renderTimeline(){
     const dates = [];
     for(let i=0;i<viewDays;i++) dates.push(addDays(rangeStart, i));
 
-    // grid: first column = haven label, then one column per day
-    grid.style.gridTemplateColumns = `140px repeat(${viewDays}, 1fr)`;
+    // grid: first column = haven label, then one column per day.
+    // On mobile use a fixed, uniform day-column width (and a narrower label column) so the grid
+    // is compact AND the absolutely-positioned bars line up exactly — 1fr columns size to the
+    // header's min-content on a phone, which makes them uneven and oversized.
+    const tlMobile = window.innerWidth <= 600;
+    const havenColW = tlMobile ? 84 : 140;
+    const dayColW = tlMobile ? "44px" : "1fr";
+    grid.style.gridTemplateColumns = `${havenColW}px repeat(${viewDays}, ${dayColW})`;
 
     document.getElementById("rangeLabel").textContent =
         viewDays === 1
