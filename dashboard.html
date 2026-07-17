@@ -84,12 +84,15 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
     .panel-head h2{ font-size:16px; }
     /* compact summary cards on mobile — the desktop rules below (.card .card-top + .number)
        out-specify a bare .number, so match that specificity here or the shrink is ignored */
-    .cards{ gap:9px; margin-bottom:16px; grid-template-columns:repeat(2,minmax(0,1fr)); }
-    .card{ padding:12px 13px; border-radius:12px; }
-    .card .card-label{ font-size:10px; letter-spacing:.4px; }
-    .card .card-ico svg{ width:17px; height:17px; }
-    .card .card-top + .number{ font-size:21px; margin-top:4px; }
-    .card .card-top + .number.money{ font-size:17px; }
+    .cards{ gap:8px; margin-bottom:14px; grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .card{ padding:10px 11px; border-radius:11px; }
+    .card .card-label .cl-full{ display:none; }        /* drop the long "· Jul 1–Jul 31" label */
+    .card .card-label .cl-short{ display:inline; }
+    .card .card-label{ font-size:10.5px; letter-spacing:.3px; white-space:nowrap; }
+    .card .card-top{ align-items:center; }
+    .card .card-ico svg{ width:16px; height:16px; }
+    .card .card-top + .number{ font-size:19px; margin-top:3px; }
+    .card .card-top + .number.money{ font-size:16px; }
     .form-grid{ grid-template-columns:1fr; }       /* stack form fields */
     .modal{ padding:20px; border-radius:14px; }
     .overlay{ padding:16px 10px; }
@@ -1150,6 +1153,7 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
 <!-- ===== icon-chip summary cards + status dots (mockup look) ===== -->
 <style id="hv-cards">
   .card .card-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  .card .card-label .cl-short{ display:none; }   /* short label is mobile-only (see max-width:600px) */
   .card .card-label{ font-size:11px; letter-spacing:.6px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; }
   .card .card-ico{ display:flex; align-items:center; justify-content:center; flex:none; }
   .card .card-ico svg{ width:21px; height:21px; fill:none; stroke:var(--hv-terra); stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
@@ -4506,17 +4510,19 @@ function renderSummary(){
         cash:'<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>',
         clock:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
     };
+    // c[4] = short label shown ONLY on mobile (the full date-range label wraps to 3 lines
+    // on a phone and balloons the card; the short one keeps the card to a single line)
     const cards = [
-        [isToday ? "Today's Check-ins"  : `Check-ins · ${period}`, checkins, SVG.arrive, false],
-        [isToday ? "Today's Check-outs" : `Check-outs · ${period}`, checkouts, SVG.depart, false],
-        [`Occupied Havens${occLabel}`, occupied, SVG.bed, false],
-        [`Available Havens${occLabel}`, available, SVG.door, false],
-        [isToday ? "Collected Today" : `Collected · ${period}`, peso(revenue), SVG.cash, true],
-        [isToday ? "Pending Today"   : `Pending · ${period}`, peso(pending), SVG.clock, true]
+        [isToday ? "Today's Check-ins"  : `Check-ins · ${period}`, checkins, SVG.arrive, false, "Check in"],
+        [isToday ? "Today's Check-outs" : `Check-outs · ${period}`, checkouts, SVG.depart, false, "Check out"],
+        [`Occupied Havens${occLabel}`, occupied, SVG.bed, false, "Occupied"],
+        [`Available Havens${occLabel}`, available, SVG.door, false, "Available"],
+        [isToday ? "Collected Today" : `Collected · ${period}`, peso(revenue), SVG.cash, true, "Collected"],
+        [isToday ? "Pending Today"   : `Pending · ${period}`, peso(pending), SVG.clock, true, "Pending"]
     ];
     const cardsHtml = cards.map(c => `
         <div class="card">
-            <div class="card-top"><span class="card-label">${c[0]}</span><span class="card-ico">${c[2]}</span></div>
+            <div class="card-top"><span class="card-label"><span class="cl-full">${c[0]}</span><span class="cl-short">${c[4]}</span></span><span class="card-ico">${c[2]}</span></div>
             <div class="number${c[3] ? " money" : ""}">${c[1]}</div>
         </div>`).join("");
     document.getElementById("summaryCards").innerHTML = cardsHtml;
