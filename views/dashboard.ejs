@@ -846,13 +846,16 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
 /* tab count + active accent (terracotta to match the panel) */
 .bk-tab-count{ display:inline-block; min-width:17px; padding:0 5px; margin-left:3px; font-size:11px; line-height:17px; text-align:center; border-radius:9px; background:#eee; color:#666; }
 .bk-tab.active .bk-tab-count{ background:#bd6e3f; color:#fff; }
-/* Mobile: keep the four tabs on ONE line (no wrapping "Proof of / Payment" or a stacked IDs
-   badge); scroll horizontally if they don't all fit. Placed AFTER the base .bk-tab rules so it
-   wins on source order — the top-of-file mobile block sits before them and would lose the tie. */
+.bk-tab .bkt-short{ display:none; }   /* short tab labels are mobile-only (see max-width:600px) */
+/* Mobile: shorten the labels (Details / Payment / IDs / PDF) so all four fit on ONE line
+   without wrapping or scrolling. Placed AFTER the base .bk-tab rules so it wins on source
+   order — the top-of-file mobile block sits before them and would lose the tie. */
 @media (max-width:600px){
-    .bk-tabs{ gap:1px; margin-bottom:14px; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .bk-tabs{ gap:4px; margin-bottom:14px; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; }
     .bk-tabs::-webkit-scrollbar{ display:none; }
-    .bk-tab{ padding:8px 8px; font-size:12px; white-space:nowrap; flex:0 0 auto; }
+    .bk-tab{ padding:8px 10px; font-size:12.5px; white-space:nowrap; flex:0 0 auto; }
+    .bk-tab .bkt-full{ display:none; }
+    .bk-tab .bkt-short{ display:inline; }
     .bk-tab-count{ min-width:14px; padding:0 4px; font-size:10px; line-height:15px; }
 }
 /* footer status note */
@@ -3202,8 +3205,8 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <div class="modal-eyebrow" id="bkEyebrow"></div>
         <h2 id="modalTitle">Add Booking</h2>
         <div class="bk-tabs">
-            <span class="bk-tab active" id="bkTab1" onclick="bkGoPage(1)">Booking Details</span>
-            <span class="bk-tab" id="bkTab2" onclick="bkGoPage(2)">Proof of Payment</span>
+            <span class="bk-tab active" id="bkTab1" onclick="bkGoPage(1)"><span class="bkt-full">Booking Details</span><span class="bkt-short">Details</span></span>
+            <span class="bk-tab" id="bkTab2" onclick="bkGoPage(2)"><span class="bkt-full">Proof of Payment</span><span class="bkt-short">Payment</span></span>
             <span class="bk-tab" id="bkTab3" onclick="bkGoPage(3)">IDs <span class="bk-tab-count" id="bkIdCount"></span></span>
             <span class="bk-tab" id="bkTab4" onclick="bkGoPage(4)">PDF</span>
         </div>
