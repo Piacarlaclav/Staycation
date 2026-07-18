@@ -12352,8 +12352,11 @@ renderCleaners();
         if(window.shphDropPending) window.shphDropPending(CLEAN_KEY);          // stop the old too-large retry loop
         if(pushed){
             persistCleaning();                                                  // keep the offloaded refs locally too
-            console.log("[cleaning] rescued " + pushed + " locally-stranded cleaning record(s) to the server");
             renderCleaners();
+            // make the recovery VISIBLE: the cleaner sees a confirmation, and the shared
+            // Activity Log records it so the admin can see the rescue happened from any device
+            try{ logActivity("recovered " + pushed + " cleaning record(s) saved offline on this device"); }catch(e){}
+            alert("✅ Good news — " + pushed + " cleaning record(s) from this device were recovered and saved to the server.");
         }
     }catch(e){ console.warn("[cleaning] rescue skipped:", e && e.message); }
 })();
