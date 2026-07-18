@@ -234,7 +234,8 @@ const MERGE_LIST_KEYS = new Set([
   // violation records carry a uid() id, and seed-bridge already lists this in its MERGE_KEYS —
   // the two must match, or a whole-array push here would overwrite instead of merge.
   "shph_violations_v1",
-  "shph_applications_v1"   // partner/affiliate applications (id-keyed; written via /api/apply + /api/list)
+  "shph_applications_v1",  // partner/affiliate applications (id-keyed; written via /api/apply + /api/list)
+  "shph_affiliates_v1"     // approved affiliates: personal code + credit ledger (session-gated writes)
 ]);
 
 // write one key (body is the raw JSON value the browser stored)
@@ -1024,7 +1025,7 @@ const ADMIN_PAGE_ROUTES = {
   "guest-form":"dashboard", "collection-reports":"dashboard", "website":"dashboard",
   "booking-approval":"dashboard", "security-deposit":"dashboard", "violations-damages":"dashboard",
   "partner-list":"dashboard", "commissions":"dashboard", "bookings-by-partner":"dashboard",
-  "pr-rooms":"dashboard", "add-partner":"dashboard", "applications":"dashboard", "havens":"dashboard", "rates-addons":"dashboard",
+  "pr-rooms":"dashboard", "add-partner":"dashboard", "applications":"dashboard", "affiliates":"dashboard", "havens":"dashboard", "rates-addons":"dashboard",
   "housekeeping":"dashboard", "inventory":"dashboard", "finance":"dashboard", "payments":"dashboard",
   "payroll":"dashboard", "bills":"dashboard", "expenses":"dashboard", "analytics":"dashboard",
   "users":"dashboard", "employees":"dashboard", "assist":"dashboard", "log":"dashboard"

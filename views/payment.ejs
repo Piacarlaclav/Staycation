@@ -283,7 +283,16 @@ async function addToCalendar(b, proof){
         bookedBy: "Website",                    // guest self-booked → logs as WEBSITE, not an admin
         bookedAt: new Date().toISOString(),
         dpDate: (function(){ const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); })(),   // downpayment counts on the booking-made day
-        source: "website"
+        source: "website",
+        // affiliate referral: the ?ref=CODE captured on any earlier visit (30-day window) —
+        // ties this booking to the affiliate whose post brought the guest here
+        refCode: (function(){
+            try{
+                const r = JSON.parse(localStorage.getItem("shph_ref") || "null");
+                if(r && r.code && Date.now() - (r.at || 0) < 30 * 864e5) return r.code;
+            }catch(e){}
+            return null;
+        })()
     };
     arr.push(rec);
     localStorage.setItem(KEY, JSON.stringify(arr));   // local copy + background-sync backup

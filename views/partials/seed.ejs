@@ -3,6 +3,16 @@
 <script>window.__SEED__ = <%- JSON.stringify(seed).replace(/</g, "\\u003c") %>;</script>
 <script src="/js/seed-bridge.js"></script>
 <script>
+/* Referral capture: an affiliate's shared link carries ?ref=CODE. Remember it (30 days) so the
+   booking it inspired is credited to that affiliate even if the guest books on a later visit. */
+(function(){
+  try{
+    var rq = new URLSearchParams(location.search).get("ref");
+    if(rq && /^[A-Za-z0-9-]{3,24}$/.test(rq)){
+      localStorage.setItem("shph_ref", JSON.stringify({ code: rq.toUpperCase(), at: Date.now() }));
+    }
+  }catch(e){}
+})();
 /* Count a website visit once per browser per DAY — public guest pages only (not the dashboard). */
 (function(){
   try{

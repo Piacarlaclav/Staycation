@@ -1135,11 +1135,16 @@ async function renderApplications(){
         const chip = a.type === "partner"
             ? '<span style="background:#e8f0e6; color:#2e7d4f; padding:3px 10px; border-radius:999px; font-size:11.5px; font-weight:700;">Partner</span>'
             : '<span style="background:#f4ead9; color:#a9842b; padding:3px 10px; border-radius:999px; font-size:11.5px; font-weight:700;">Affiliate</span>';
-        const details = a.type === "partner"
+        let details = a.type === "partner"
             ? esc([a.location, a.unitType, a.hasCleaner === "yes" ? "has own cleaner" : "needs cleaning svc"].filter(Boolean).join(" · "))
             : esc(a.social || "—");
+        // show the minted affiliate code on approved affiliate rows
+        const affRec = a.type === "affiliate" ? _affiliates.find(x => x && !x.deleted && x.appId === a.id) : null;
+        if(affRec) details += ` <span style="background:#f4ead9; color:#a9842b; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:800;">${esc(affRec.code)}</span>`;
         const noteRow = a.notes ? `<br><span class="muted" style="font-size:12px;">${esc(a.notes)}</span>` : "";
         const email = a.email ? `<br><span class="muted" style="font-size:12px;">${esc(a.email)}</span>` : "";
+        const onboard = a.type === "partner" && a.status === "approved"
+            ? `<span class="edit" onclick="onboardPartnerApp(${a.id})" title="Open Add Partner pre-filled from this application">Onboard →</span> ` : "";
         return `<tr>
             <td>${when}</td>
             <td>${chip}</td>
@@ -1149,7 +1154,7 @@ async function renderApplications(){
             <td><select onchange="setApplicationStatus(${a.id}, this.value)" style="padding:6px 8px; border:1px solid #ddd; border-radius:8px; font-size:12.5px;">
                 ${["new","reviewing","approved","rejected"].map(st => `<option value="${st}" ${a.status === st ? "selected" : ""}>${st.charAt(0).toUpperCase() + st.slice(1)}</option>`).join("")}
             </select></td>
-            <td class="actions"><span class="edit" style="color:#c0283d;" onclick="deleteApplication(${a.id})">Delete</span></td>
+            <td class="actions">${onboard}<span class="edit" style="color:#c0283d;" onclick="deleteApplication(${a.id})">Delete</span></td>
         </tr>`;
     }).join("");
 }
@@ -1161,8 +1166,26 @@ async function setApplicationStatus(id, status){
         const r = await fetch("/api/list/shph_applications_v1", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ upsert: a }) });
         if(!r.ok) throw new Error();
         if(typeof logActivity === "function") logActivity(`marked ${a.type} application "${a.name}" as ${status}`);
+        // approving an AFFILIATE mints their personal code + record automatically
+        if(status === "approved" && a.type === "affiliate"){
+            const aff = await ensureAffiliateFor(a);
+            if(aff) alert(`✅ ${a.name} is now an affiliate!\n\nTheir personal link:\n${affLink(aff.code)}\n\nSend it to them — it's also on the Affiliates page (with a Copy button).`);
+        }
     }catch(e){ alert("Couldn't save the status — please try again."); }
     renderApplications();
+}
+// approved PARTNER application → open Add Partner pre-filled for onboarding
+function onboardPartnerApp(id){
+    const a = _applications.find(x => x && x.id === id);
+    if(!a) return;
+    openAddPartner();
+    const set = (fid, v) => { const el = document.getElementById(fid); if(el && v != null) el.value = v; };
+    set("pf_name", a.name);
+    set("pf_contact", a.contact);
+    set("pf_email", a.email);
+    set("pf_rate", 150);   // standard deal: ₱150 commission per booking
+    set("pf_notes", ["From website application", a.location ? "Unit: " + a.location : "", a.unitType || "",
+        a.hasCleaner === "yes" ? "Has own cleaner" : "Needs cleaning service (₱100/clean in M Place)", a.notes || ""].filter(Boolean).join(" · "));
 }
 async function deleteApplication(id){
     const a = _applications.find(x => x && x.id === id);
@@ -1175,8 +1198,129 @@ async function deleteApplication(id){
     renderApplications();
 }
 
+/* ---------- Affiliates: personal codes + ₱50-credit ledger (ecosystem Phase 2) ---------- */
+let _affiliates = [];
+async function loadAffiliatesFresh(){
+    try{
+        const r = await fetch("/api/kv/shph_affiliates_v1", { cache: "no-store" });
+        if(r.ok){ const j = await r.json(); if(Array.isArray(j)) _affiliates = j; }
+    }catch(e){ /* keep last copy */ }
+    return _affiliates;
+}
+function affLink(code){ return (location.origin || "https://www.staycationhaven-ph.com") + "/?ref=" + code; }
+function _affCode(name){
+    const base = String(name || "SHP").replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 8) || "SHP";
+    const CH = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";   // no easily-confused 0/O/1/I/L
+    let code;
+    do{
+        let sfx = "";
+        for(let i = 0; i < 3; i++) sfx += CH.charAt(Math.floor(Math.random() * CH.length));
+        code = base + "-" + sfx;
+    } while(_affiliates.some(a => a && a.code === code));
+    return code;
+}
+async function _saveAffiliate(a){
+    const r = await fetch("/api/list/shph_affiliates_v1", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ upsert: a }) });
+    if(!r.ok) throw new Error("save failed");
+}
+// mint an affiliate record (with a personal code) from an approved application — idempotent per app
+async function ensureAffiliateFor(app){
+    await loadAffiliatesFresh();
+    let aff = _affiliates.find(x => x && !x.deleted && x.appId === app.id);
+    if(aff) return aff;
+    aff = {
+        id: (typeof uid === "function") ? uid() : Date.now(),
+        appId: app.id,
+        name: app.name, contact: app.contact, email: app.email || "", social: app.social || "",
+        code: _affCode(app.name),
+        credits: [],                 // { amount, reason, at, by, used, usedAt }
+        createdAt: new Date().toISOString()
+    };
+    try{
+        await _saveAffiliate(aff);
+        _affiliates.push(aff);
+        if(typeof logActivity === "function") logActivity(`created affiliate code ${aff.code} for ${aff.name}`);
+    }catch(e){ alert("Couldn't create the affiliate record — please try again."); return null; }
+    return aff;
+}
+function _affBalance(a){ return (a.credits || []).filter(c => c && !c.used).reduce((s, c) => s + (Number(c.amount) || 0), 0); }
+async function renderAffiliates(){
+    const body = document.getElementById("affiliatesBody");
+    if(!body) return;
+    await loadAffiliatesFresh();
+    const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const list = _affiliates.filter(a => a && !a.deleted)
+        .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    if(!list.length){
+        body.innerHTML = `<tr><td colspan="6" class="empty">No affiliates yet — approve an affiliate application and their code is created automatically.</td></tr>`;
+        return;
+    }
+    const allBk = (typeof bookings !== "undefined" && Array.isArray(bookings)) ? bookings : [];
+    body.innerHTML = list.map(a => {
+        const referred = allBk.filter(b => b && !b.cancelled && String(b.refCode || "").toUpperCase() === a.code).length;
+        const earned = (a.credits || []).reduce((s, c) => s + (Number(c && c.amount) || 0), 0);
+        const bal = _affBalance(a);
+        return `<tr>
+            <td><strong>${esc(a.name)}</strong><br><span class="muted" style="font-size:12px;">${esc(a.contact)}${a.social ? " · " + esc(a.social) : ""}</span></td>
+            <td><span style="background:#f4ead9; color:#a9842b; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:800;">${esc(a.code)}</span><br>
+                <span class="edit" style="font-size:12px;" onclick="copyAffLink('${esc(a.code)}', this)">Copy link</span></td>
+            <td style="text-align:center;">${referred}</td>
+            <td>₱${earned} earned<br><strong style="color:${bal > 0 ? "#2e7d4f" : "#999"};">₱${bal} balance</strong></td>
+            <td class="actions">
+                <span class="edit" onclick="addAffiliateCredit(${a.id})" title="They posted content with their link — credit ₱50 toward their next stay">+ ₱50 credit</span>
+                ${bal > 0 ? `<span class="edit" style="color:#2e7d4f;" onclick="redeemAffiliateCredit(${a.id})" title="Applied to their booking — mark the oldest unused credit as used">Redeem</span>` : ""}
+            </td>
+            <td class="actions"><span class="edit" style="color:#c0283d;" onclick="deleteAffiliate(${a.id})">Delete</span></td>
+        </tr>`;
+    }).join("");
+}
+function copyAffLink(code, el){
+    const link = affLink(code);
+    const done = () => { if(el){ const t = el.textContent; el.textContent = "Copied ✓"; setTimeout(() => { el.textContent = t; }, 1400); } };
+    try{ navigator.clipboard.writeText(link).then(done, () => { prompt("Copy this link:", link); }); }
+    catch(e){ prompt("Copy this link:", link); }
+}
+async function addAffiliateCredit(id){
+    const a = _affiliates.find(x => x && x.id === id);
+    if(!a) return;
+    if(!confirm(`Credit ₱50 to ${a.name} for a verified post?\n(Check the post includes their link before confirming.)`)) return;
+    a.credits = a.credits || [];
+    a.credits.push({ amount: 50, reason: "verified post", at: new Date().toISOString(), by: (typeof _whoami === "function" ? _whoami() : "Admin"), used: false });
+    a.updatedAt = new Date().toISOString();
+    try{
+        await _saveAffiliate(a);
+        if(typeof logActivity === "function") logActivity(`credited ₱50 to affiliate ${a.name} (${a.code}) — verified post`);
+    }catch(e){ alert("Couldn't save the credit — please try again."); }
+    renderAffiliates();
+}
+async function redeemAffiliateCredit(id){
+    const a = _affiliates.find(x => x && x.id === id);
+    if(!a) return;
+    const c = (a.credits || []).find(x => x && !x.used);
+    if(!c){ alert("No unused credit."); return; }
+    if(!confirm(`Redeem ₱${c.amount} for ${a.name}?\nApply the discount to their booking first, then confirm here.`)) return;
+    c.used = true; c.usedAt = new Date().toISOString(); c.usedBy = (typeof _whoami === "function" ? _whoami() : "Admin");
+    a.updatedAt = new Date().toISOString();
+    try{
+        await _saveAffiliate(a);
+        if(typeof logActivity === "function") logActivity(`redeemed ₱${c.amount} credit for affiliate ${a.name} (${a.code})`);
+    }catch(e){ alert("Couldn't save — please try again."); }
+    renderAffiliates();
+}
+async function deleteAffiliate(id){
+    const a = _affiliates.find(x => x && x.id === id);
+    if(!a || !confirm(`Remove affiliate ${a.name}? Their link stops earning credits.`)) return;
+    try{
+        const r = await fetch("/api/list/shph_affiliates_v1", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ del: id }) });
+        if(!r.ok) throw new Error();
+        if(typeof logActivity === "function") logActivity(`removed affiliate ${a.name} (${a.code})`);
+    }catch(e){ alert("Couldn't delete — please try again."); }
+    renderAffiliates();
+}
+
 function partnersOnShowPage(page){
-    if(page === "applications") renderApplications();
+    if(page === "applications"){ loadAffiliatesFresh().then(renderApplications); }
+    if(page === "affiliates") renderAffiliates();
     // partner-list-backed pages: reconcile from the live server first so a stale local cache can't hide partners
     if(page === "partners") reconcilePartners(renderPartners);
     else if(page === "commissions") reconcilePartners(renderCommissions);
@@ -1193,6 +1337,7 @@ function partnersOnShowPage(page){
         { key:"partners",        label:"Partner List" },
         { key:"addpartner",      label:"Add Partner" },
         { key:"applications",    label:"Applications" },
+        { key:"affiliates",      label:"Affiliates" },
         { key:"commissions",     label:"Commissions" },
         { key:"partnerbookings", label:"Bookings by Partner" },
         { key:"prrooms",         label:"PR-Rooms" },
@@ -1210,6 +1355,7 @@ function partnersOnShowPage(page){
         partners:["Partners","Partner List"],
         addpartner:["Partners","Add Partner"],
         applications:["Partners","Applications"],
+        affiliates:["Partners","Affiliates"],
         commissions:["Partners","Commissions"],
         partnerbookings:["Partners","Bookings by Partner"],
         prrooms:["Partners","PR-Rooms"],
