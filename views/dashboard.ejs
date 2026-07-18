@@ -13415,6 +13415,24 @@ try { if(savedPage && document.getElementById("page-" + savedPage)) showPage(sav
 catch(_e){ console.error("[startup] showPage failed for", savedPage, _e); }
 try { applyPermissions(); }
 catch(_e){ console.error("[startup] applyPermissions failed", _e); }
+// Fresh login (or a remembered page this account isn't allowed to open) → land on the FIRST
+// page the user has access to, in sidebar order. Housekeeping staff (whose only dashboard
+// pages are Housekeeping / Inventory / Assist) therefore open straight on Housekeeping by
+// default instead of an unpermitted section. "today" is skipped — it hops to its own page —
+// unless it's the account's only allowed item. Admin/partner behavior is unchanged.
+try{
+    if(!window.__PARTNER__){
+        const _p = currentPerms(), _adm = isAdminUser();
+        const _ok = pg => (pg === "users" || pg === "log") ? _adm : _p.includes(pg);
+        const _curOk = savedPage && document.getElementById("page-" + savedPage) && _ok(savedPage);
+        if(!_curOk){
+            const _order = [...document.querySelectorAll(".sidebar .nav-item")].map(n => n.dataset.page).filter(Boolean);
+            const _first = _order.find(pg => pg !== "today" && _ok(pg) && document.getElementById("page-" + pg));
+            if(_first) showPage(_first, "replace");
+            else if(_ok("today")) window.location.href = "/admin/todays-booking";
+        }
+    }
+}catch(_e){ console.error("[startup] default-page pick failed", _e); }
 ensureSidebarNotEmpty();   // last-resort: a signed-in user is never left with a blank menu
 if(typeof renderMaintToggle === "function") renderMaintToggle();   // sync the Website Live/Maintenance switch
 

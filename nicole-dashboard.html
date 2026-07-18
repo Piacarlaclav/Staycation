@@ -910,6 +910,14 @@
     </label>
     <img id="payPreview" class="pay-preview" alt="proof" onclick="openProofImg(this.src)">
 
+    <label class="pay-upload" style="margin-top:8px;">
+      <span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>
+      <span class="pu-body"><b>Add 2nd photo</b><small class="pu-name" id="payFileName2">Optional — e.g. receipt of a 2nd payment method</small></span>
+      <input type="file" id="payFile2" accept="image/*" onchange="onProofChange2(this)">
+    </label>
+    <img id="payPreview2" class="pay-preview" alt="proof 2" onclick="openProofImg(this.src)" style="display:none;">
+    <span id="payProof2Del" onclick="removePayProof2()" style="display:none; color:#c0283d; font-size:12.5px; font-weight:700; cursor:pointer; margin-top:4px;">✕ Remove 2nd photo</span>
+
     <div class="modal-actions">
       <button class="btn secondary" id="paySaveAddBtn" onclick="savePay(true)" style="display:none; margin-right:auto;">+ Add another payment</button>
       <button class="btn secondary" id="payAddBtn" onclick="addFollowUpPayment()" style="display:none; margin-right:auto;">+ Add payment</button>
@@ -1656,7 +1664,19 @@
   }
 
   /* ---------- payment / collection popup ---------- */
-  let payBookingId = null, payProof = null, payEditing = false, payEditIndex = -1, payEditDown = false;
+  let payBookingId = null, payProof = null, payProof2 = null, payEditing = false, payEditIndex = -1, payEditDown = false;
+  // a payment can carry a 2nd photo (e.g. a balance split across two MOPs still needs
+  // each receipt on record) — keep its preview / remove-link / label in step with payProof2
+  function syncPay2UI(){
+    const prev2 = document.getElementById("payPreview2");
+    const del2 = document.getElementById("payProof2Del");
+    const nameEl2 = document.getElementById("payFileName2");
+    if(prev2){ prev2.src = payProof2 || ""; prev2.style.display = payProof2 ? "block" : "none"; }
+    if(del2) del2.style.display = payProof2 ? "inline-block" : "none";
+    if(nameEl2) nameEl2.textContent = payProof2 ? "2nd photo attached ✓" : "Optional — e.g. receipt of a 2nd payment method";
+    const f2 = document.getElementById("payFile2"); if(f2) f2.value = "";
+  }
+  function removePayProof2(){ payProof2 = null; syncPay2UI(); }
 
   // show the downpayment's uploaded proof photo (recorded on the booking) in the lightbox
   function viewDownProof(id){
@@ -1706,6 +1726,7 @@
       document.getElementById("payFor").value = p.category || "Balance";
       payDateSet(p.at ? iso(new Date(p.at)) : iso(today()));
       payProof = p.proof || null;
+      payProof2 = p.proof2 || null;
       if(nameEl) nameEl.textContent = payProof ? "Photo attached ✓" : "No file chosen";
       if(payProof){ prev.src = payProof; prev.style.display = "block"; } else { prev.src = ""; prev.style.display = "none"; }
     } else {
@@ -1713,9 +1734,10 @@
       document.getElementById("payMop").selectedIndex = 0;
       document.getElementById("payFor").value = "Balance";
       payDateSet(iso(today()));
-      payProof = null; prev.src = ""; prev.style.display = "none";
+      payProof = null; payProof2 = null; prev.src = ""; prev.style.display = "none";
       if(nameEl) nameEl.textContent = "No file chosen";
     }
+    syncPay2UI();
   }
   function updatePayButtons(editingExisting){
     document.getElementById("payDelBtn").style.display = editingExisting ? "inline-block" : "none";
@@ -1795,7 +1817,7 @@
     return c;
   }
   function openPay(id, edit){
-    payBookingId = id; payProof = null; payEditDown = false;
+    payBookingId = id; payProof = null; payProof2 = null; payEditDown = false;
     const b = bookings.find(x => x.id === id);
     if(!b) return;
     const pays = b.payments || [];
@@ -1836,10 +1858,12 @@
     document.getElementById("payFor").value = "Downpayment";
     payDateSet(b.dpDate || (b.bookedAt ? String(b.bookedAt).slice(0, 10) : (b.checkin || iso(today()))));
     payProof = b.downProof || null;
+    payProof2 = b.downProof2 || null;
     const prev = document.getElementById("payPreview"), nameEl = document.getElementById("payFileName");
     if(payProof){ prev.src = payProof; prev.style.display = "block"; } else { prev.src = ""; prev.style.display = "none"; }
     if(nameEl) nameEl.textContent = payProof ? "Photo attached ✓" : "No file chosen";
     document.getElementById("payFile").value = "";
+    syncPay2UI();
     // downpayment isn't a deletable payment row; show only a single Save
     document.getElementById("payDelBtn").style.display = "none";
     document.getElementById("payAddBtn").style.display = "none";
@@ -1929,6 +1953,11 @@
     if(input.files[0]) applyPayProofFile(input.files[0]);
     else payProof = null;
   }
+  function onProofChange2(input){
+    const f = input.files[0];
+    if(!f || !/^image\//.test(f.type)) return;
+    resizeImage(f, dataUrl => { payProof2 = dataUrl; syncPay2UI(); });
+  }
   // drag & drop onto the upload card
   (function initPayProofDnd(){
     const card = document.querySelector("#payOverlay .pay-upload");
@@ -1983,12 +2012,21 @@
         if(r.ok){ const j = await r.json(); if(j && j.url) proofRef = j.url; }
       }catch(e){}
     }
+    let proofRef2 = payProof2;
+    if(payProof2 && payProof2.indexOf("data:image") === 0){
+      try{
+        const r = await fetch("/api/img", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ data: payProof2 }) });
+        if(r.ok){ const j = await r.json(); if(j && j.url) proofRef2 = j.url; }
+      }catch(e){}
+    }
 
     // 1b) editing the booking's DOWNPAYMENT (not a payment record) → patch the booking's own fields.
     // Also route a "Downpayment"-category save here as a backstop so it can never become a phantom
     // payment record that double-counts the downpayment.
     if(payEditDown || category === "Downpayment"){
-      const set = { downpayment: amount, method: mop, dpDate: document.getElementById("payDate").value || null, downProof: proofRef || null };
+      // a lone 2nd photo is promoted to slot 1 so everything reading downProof still works
+      const set = { downpayment: amount, method: mop, dpDate: document.getElementById("payDate").value || null,
+                    downProof: proofRef || proofRef2 || null, downProof2: (proofRef && proofRef2) || null };
       let okDp = false;
       try{ const res = await fetch("/api/booking/" + encodeURIComponent(bookingId) + "/patch", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set }) }); okDp = res.ok; }catch(e){}
       if(!okDp){ alert("⚠️ The downpayment was NOT saved — the server didn't confirm (slow / offline). Please try again."); return; }
@@ -2006,8 +2044,8 @@
     const pmtId = () => { let t = Date.now() * 1000 + Math.floor(Math.random() * 1000); if(t <= _pmtIdLast) t = _pmtIdLast + 1; _pmtIdLast = t; return t; };
     const existingPid = editing ? b.payments[payEditIndex].pid : null;   // null for legacy → server uses index fallback
     const payment = editing
-      ? Object.assign({}, b.payments[payEditIndex], { pid: b.payments[payEditIndex].pid || pmtId(), amount, mop, category, proof: proofRef, at: payAtFromInput(), editedAt: new Date().toISOString(), editedBy: currentUser() })
-      : { pid: pmtId(), amount, mop, category, proof: proofRef, at: payAtFromInput(), by: currentUser() };
+      ? Object.assign({}, b.payments[payEditIndex], { pid: b.payments[payEditIndex].pid || pmtId(), amount, mop, category, proof: proofRef, proof2: proofRef2 || null, at: payAtFromInput(), editedAt: new Date().toISOString(), editedBy: currentUser() })
+      : { pid: pmtId(), amount, mop, category, proof: proofRef, proof2: proofRef2 || null, at: payAtFromInput(), by: currentUser() };
 
     // 3) PER-RECORD write — touches ONLY this booking on the server, so a payment can NEVER
     //    overwrite another booking (this replaces the old whole-array save that lost data).
