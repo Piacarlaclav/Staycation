@@ -231,9 +231,14 @@
     })).then(finish, finish);
   }
 
-  // warn before leaving if something still hasn't saved
+  // warn before leaving if something still hasn't saved. The activity log doesn't count:
+  // login/logout write a log entry and navigate immediately, so it's routinely in-flight at
+  // unload — and it persists locally (persistPending) and re-flushes on the next page anyway.
+  // Warning for it just shows a scary "Leave site?" prompt on every login. Real data still warns.
   window.addEventListener("beforeunload", function (e) {
-    if (unsavedCount() > 0) { e.preventDefault(); e.returnValue = ""; return ""; }
+    var real = 0;
+    for (var k in pending) if (pending.hasOwnProperty(k) && k !== "shph_activity_log") real++;
+    if (real > 0) { e.preventDefault(); e.returnValue = ""; return ""; }
   });
 
   // 1) prime localStorage from the server so synchronous reads work
