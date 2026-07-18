@@ -11965,7 +11965,7 @@ function fillCleanUser(){
 
 /* ---------- cleaners date window + floating calendar ---------- */
 let cleanStart = today();   // first day shown (Date)
-let cleanDays = 7;          // number of days in the window
+let cleanDays = 1;          // number of days in the window — Housekeeping opens on TODAY (the Week button widens it)
 const CLEAN_MAX_RANGE = 7;
 let cleanPickerMonth = today();
 let cleanPendingStart = null, cleanHoverIso = null;
