@@ -48,6 +48,118 @@ app.use("/api", (req, res, next) => {
   next();
 });
 
+/* ---------------- Sessions (server-side auth, 2026-07-18) ----------------
+   Login used to be checked IN THE BROWSER against a user list the browser had
+   already been handed — so the login screen protected nothing: anyone could
+   open /admin/<page> logged out and read every guest's details (and every
+   password) from the page source. Now the server verifies credentials and
+   issues a signed httpOnly cookie; protected pages redirect to the login page
+   when the cookie is absent/invalid, and the data seed is never injected for
+   anonymous visitors. Locked out? Run node tools/reset-admin.js (needs the
+   service-account key), then log in again. */
+const crypto = require("crypto");
+const SESSION_COOKIE = "shph_sess";
+const SESSION_DAYS = 30;
+// Cookie-signing secret: SESSION_SECRET env if set; else derived from the Firebase service
+// account (stable across serverless instances, no extra env var to manage); else a random
+// per-boot secret (local dev without creds — sessions just reset on restart).
+const SESSION_SECRET = process.env.SESSION_SECRET
+  || (process.env.FIREBASE_SERVICE_ACCOUNT
+      ? crypto.createHash("sha256").update("shph-sess:" + process.env.FIREBASE_SERVICE_ACCOUNT).digest("hex")
+      : crypto.randomBytes(32).toString("hex"));
+
+const b64u = (buf) => Buffer.from(buf).toString("base64url");
+const sign = (data) => crypto.createHmac("sha256", SESSION_SECRET).update(data).digest("base64url");
+
+function makeSessionCookie(payload) {
+  const body = b64u(JSON.stringify({ ...payload, exp: Date.now() + SESSION_DAYS * 864e5 }));
+  return body + "." + sign(body);
+}
+function readSession(req) {
+  const raw = String(req.headers.cookie || "").split(/;\s*/).find(c => c.startsWith(SESSION_COOKIE + "="));
+  if (!raw) return null;
+  const val = raw.slice(SESSION_COOKIE.length + 1);
+  const dot = val.lastIndexOf(".");
+  if (dot < 1) return null;
+  const body = val.slice(0, dot), mac = val.slice(dot + 1);
+  const expect = sign(body);
+  if (mac.length !== expect.length || !crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(expect))) return null;
+  try {
+    const s = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+    return (s && s.exp > Date.now()) ? s : null;
+  } catch (e) { return null; }
+}
+function setSessionCookie(req, res, payload) {
+  const secure = (req.headers["x-forwarded-proto"] || req.protocol) === "https" ? "; Secure" : "";
+  res.append("Set-Cookie",
+    `${SESSION_COOKIE}=${makeSessionCookie(payload)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}${secure}`);
+}
+function clearSessionCookie(res) {
+  res.append("Set-Cookie", `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+}
+
+// Staff login. Verifies against the LIVE user list server-side; the list never goes to the
+// browser. Bootstrap rule preserved from the old client flow: if NO admin exists yet, a
+// non-empty username with password "1234" creates the first admin account.
+app.post("/api/login", async (req, res) => {
+  try {
+    const username = String((req.body || {}).username || "").trim();
+    const password = String((req.body || {}).password || "");
+    if (!username || !password) return res.status(400).json({ ok: false, error: "missing credentials" });
+    let users = [];
+    try { users = await store.readFreshList("shph_users"); } catch (e) { users = store.get("shph_users") || []; }
+    if (!Array.isArray(users)) users = [];
+    let match = users.find(u => u && (u.name || "").toLowerCase() === username.toLowerCase()
+      && String(u.password) === password);
+    if (!match && !users.some(u => u && u.admin) && password === "1234") {
+      const nextId = (users.reduce((m, u) => Math.max(m, Number(u && u.id) || 0), 0) || 0) + 1;
+      match = { id: nextId, name: username, password: "1234", admin: true, perms: [] };
+      await store.upsertOne("shph_users", match);
+    }
+    if (!match) return res.status(401).json({ ok: false, error: "invalid login" });
+    setSessionCookie(req, res, { t: "staff", u: match.name, adm: !!match.admin });
+    res.json({ ok: true, name: match.name, admin: !!match.admin, perms: match.perms || [] });
+  } catch (e) {
+    console.error("[auth] login failed:", e.message);
+    res.status(500).json({ ok: false, error: "login failed" });
+  }
+});
+
+// Partner login (property partners) — same server-side check against the partner list.
+// An admin staff account also passes here as a partner "super admin" (sees every haven),
+// replacing the old hardcoded client-side super-admin credentials.
+app.post("/api/partner-login", async (req, res) => {
+  try {
+    const username = String((req.body || {}).username || "").trim();
+    const password = String((req.body || {}).password || "");
+    if (!username || !password) return res.status(400).json({ ok: false, error: "missing credentials" });
+    let users = [];
+    try { users = await store.readFreshList("shph_users"); } catch (e) { users = store.get("shph_users") || []; }
+    const admin = (Array.isArray(users) ? users : []).find(u => u && u.admin
+      && (u.name || "").toLowerCase() === username.toLowerCase() && String(u.password) === password);
+    if (admin) {
+      setSessionCookie(req, res, { t: "partner", u: admin.name, sa: true });
+      return res.json({ ok: true, session: { name: admin.name, login: admin.name, superAdmin: true } });
+    }
+    let partners = [];
+    try { partners = await store.readFreshList("shph_partners"); } catch (e) { partners = store.get("shph_partners") || []; }
+    const p = (Array.isArray(partners) ? partners : []).find(x => x
+      && (x.login || "").trim() !== ""
+      && (x.login || "").toLowerCase() === username.toLowerCase()
+      && String(x.pw || "") === password);
+    if (!p) return res.status(401).json({ ok: false, error: "invalid login" });
+    if (!p.haven) return res.status(403).json({ ok: false, error: "no haven assigned" });
+    setSessionCookie(req, res, { t: "partner", u: p.name || p.login, haven: p.haven, pid: p.id });
+    res.json({ ok: true, session: { id: p.id, name: p.name, login: p.login, haven: p.haven } });
+  } catch (e) {
+    console.error("[auth] partner login failed:", e.message);
+    res.status(500).json({ ok: false, error: "login failed" });
+  }
+});
+
+app.post("/api/logout", (req, res) => { clearSessionCookie(res); res.json({ ok: true }); });
+app.get("/api/logout", (req, res) => { clearSessionCookie(res); res.redirect("/admin"); });
+
 /* ---------------- REST API (the shared backend) ---------------- */
 const apiRouter = express.Router();
 
@@ -58,13 +170,21 @@ const apiRouter = express.Router();
 // reported { ok: true } even when the write failed, because store.set() swallows backend errors.
 // Nothing in the app ever called it. Restores go through POST /api/restore (token-guarded) instead.
 
-// read every shared key at once
-apiRouter.get("/kv", (req, res) => res.json(store.all()));
+// Keys that hold credentials — never served to a request without a valid session.
+// (Full API gating is a later stage; the public booking flow still needs the other keys.)
+const SESSION_ONLY_KEYS = new Set(["shph_users", "shph_partners"]);
+
+// read every shared key at once — the whole database, so session-only
+apiRouter.get("/kv", (req, res) => {
+  if (!readSession(req)) return res.status(401).json({ error: "login required" });
+  res.json(store.all());
+});
 
 // read one key
 apiRouter.get("/kv/:key", async (req, res) => {
   const key = req.params.key;
   if (!store.isShared(key)) return res.status(404).json({ error: "unknown key" });
+  if (SESSION_ONLY_KEYS.has(key) && !readSession(req)) return res.status(401).json({ error: "login required" });
   // For id-keyed list stores (bookings, etc.) read the LIVE Firestore doc, not this
   // serverless instance's in-memory cache — a warm instance can hold a stale copy that
   // is missing a record saved via another instance (e.g. a website booking), which is
@@ -90,6 +210,7 @@ const MERGE_LIST_KEYS = new Set([
 // write one key (body is the raw JSON value the browser stored)
 apiRouter.put("/kv/:key", async (req, res) => {
   if (!store.isShared(req.params.key)) return res.status(403).json({ error: "key not shared" });
+  if (SESSION_ONLY_KEYS.has(req.params.key) && !readSession(req)) return res.status(401).json({ error: "login required" });
   try {
     if (MERGE_LIST_KEYS.has(req.params.key) && Array.isArray(req.body)) {
       // ATOMIC per-item merge against the LIVE doc (transaction): two users saving at once
@@ -306,6 +427,8 @@ app.get("/img/:id", async (req, res) => {
 // delete one key (resets it)
 apiRouter.delete("/kv/:key", async (req, res) => {
   if (!store.isShared(req.params.key)) return res.status(403).json({ error: "key not shared" });
+  // deleting any shared key resets live data — never allow it without a session
+  if (!readSession(req)) return res.status(401).json({ error: "login required" });
   await store.remove(req.params.key);
   res.json({ ok: true });
 });
@@ -616,8 +739,32 @@ function maintenanceHtml() {
 </body></html>`;
 }
 
+// Views that hold the business's data — bookings, guests, money. Serving one of these to an
+// anonymous visitor hands over the whole seed, so they require a session. The login pages
+// (admin, partner-login) and the guest pages (index/havens/booknow/payment) stay open.
+const PROTECTED_PAGES = new Set(["dashboard", "todaysbooking", "Nicole", "nicole-dashboard", "payroll"]);
+
 function renderPage(name) {
   return async (req, res) => {
+    // ---- auth gate (2026-07-18): no valid session → login page, and NO data seed ----
+    if (PROTECTED_PAGES.has(name)) {
+      const sess = readSession(req);
+      if (!sess) {
+        const onPartnerPath = String(req.path || "").toLowerCase().startsWith("/partners");
+        return res.redirect(302, onPartnerPath ? "/partner-login" : "/admin");
+      }
+    }
+    // The login pages themselves render with a MINIMAL seed (site settings only): the server
+    // now checks credentials, so the browser no longer needs — and must not receive — the
+    // user/partner lists it used to compare passwords against.
+    if (name === "admin" || name === "partner-login") {
+      const s = { shph_settings: store.get("shph_settings") };
+      return res.render(name, { seed: s, page: name }, (err, html) => {
+        if (err) return res.status(500).send("Page render error: " + err.message);
+        res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+        res.send(html);
+      });
+    }
     const seed = store.all();
     // The bookings a page renders with (dashboard list, calendar, website
     // availability) must reflect the TRUE current list — not this serverless

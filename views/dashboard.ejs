@@ -8017,6 +8017,8 @@ async function saveBooking(){
 }
 
 function logout(){
+    // clear the server session cookie too — otherwise the browser stays signed in
+    try{ fetch("/api/logout", { method:"POST", keepalive:true }); }catch(e){}
     if(window.__PARTNER__){ localStorage.removeItem("shph_partner_session"); window.location.href = "/partner-login"; return; }
     logActivity("logged out"); localStorage.removeItem("shph_current_user"); window.location.href = "/admin.html";
 }

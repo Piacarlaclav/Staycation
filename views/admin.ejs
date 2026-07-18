@@ -88,53 +88,30 @@ async function login(){
 
     const username = document.getElementById("username").value.trim();
     const password = document.getElementById("password").value;
+    if(!username || !password){ alert("Enter your username and password."); return; }
 
-    // Pull the AUTHORITATIVE user list straight from the shared server first.
-    // A stale or empty local copy (e.g. right after a serverless cold start)
-    // must never drive the "recovery" below — otherwise logging in would
-    // overwrite real users on the server with a lone admin. Only fall back to
-    // localStorage if the server is genuinely unreachable.
-    let users = null;
+    // The SERVER checks the credentials now (2026-07-18) and answers with a signed
+    // httpOnly session cookie — the user list (and its passwords) never reaches the
+    // browser, and protected pages refuse to render without that cookie. The old
+    // in-browser check (and the first-admin "1234" bootstrap) moved to /api/login.
+    let res = null;
     try {
-        const res = await fetch("/api/kv/shph_users", { cache: "no-store" });
-        if(res.ok){ const j = await res.json(); if(Array.isArray(j)) users = j; }
-    } catch(e){ /* offline */ }
-    if(users === null){
-        try { users = JSON.parse(localStorage.getItem("shph_users")) || []; } catch(e){ users = []; }
-    } else {
-        try { localStorage.setItem("shph_users", JSON.stringify(users)); } catch(e){}
-    }
+        res = await fetch("/api/login", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password })
+        });
+    } catch(e){ alert("Can't reach the server. Check your connection and try again."); return; }
 
-    const match = users.find(u =>
-        (u.name || "").toLowerCase() === username.toLowerCase() && u.password === password);
-
-    if(match){
+    if(res.ok){
+        const j = await res.json().catch(() => ({}));
         localStorage.removeItem("shph_partner_session");   // the two sessions are mutually exclusive
-        localStorage.setItem("shph_current_user", match.name);
-        logLogin(match.name);
+        localStorage.setItem("shph_current_user", j.name || username);
+        logLogin(j.name || username);
         window.location.href = "/dashboard.html";
-    }
-    else if(!users.some(u => u.admin) && username !== "" && password === "1234"){
-        // genuine fresh setup: the SERVER confirms no administrator exists.
-        // create the default admin (added to any existing users) and make sure
-        // it reaches the server BEFORE navigating away.
-        const nextId = (users.reduce((m, u) => Math.max(m, Number(u.id) || 0), 0) || 0) + 1;
-        const adminUser = { id: nextId, name: username, password: "1234", admin: true, perms: [] };
-        users.push(adminUser);
-        try { localStorage.setItem("shph_users", JSON.stringify(users)); } catch(e){}
-        try {
-            await fetch("/api/kv/shph_users", {
-                method: "PUT", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(users)
-            });
-        } catch(e){ /* localStorage still holds it */ }
-        localStorage.removeItem("shph_partner_session");   // the two sessions are mutually exclusive
-        localStorage.setItem("shph_current_user", adminUser.name);
-        logLogin(adminUser.name);
-        window.location.href = "/dashboard.html";
-    }
-    else{
+    } else if(res.status === 401){
         alert("Invalid Login");
+    } else {
+        alert("Login failed (server error). Please try again in a moment.");
     }
 
 }

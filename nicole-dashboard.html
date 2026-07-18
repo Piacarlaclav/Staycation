@@ -1529,7 +1529,7 @@
     window.location.href = "/dashboard.html";
   }
   function currentUser(){ return localStorage.getItem("shph_current_user") || "Admin"; }
-  function logout(){ logActivity("logged out"); localStorage.removeItem("shph_current_user"); window.location.href = "/admin.html"; }
+  function logout(){ try{ fetch("/api/logout", { method:"POST", keepalive:true }); }catch(e){} logActivity("logged out"); localStorage.removeItem("shph_current_user"); window.location.href = "/admin.html"; }
   // shared activity log (viewable on the dashboard's Log page)
   function logActivity(action){
     try {
