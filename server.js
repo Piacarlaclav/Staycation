@@ -710,6 +710,11 @@ for (const slug in ADMIN_PAGE_ROUTES) {
   // mode from the path, so a partner must never sit on an /admin/<slug> URL: refreshing there would
   // load the page unscoped — no haven filter, no partner chrome — showing every haven's bookings.
   app.get("/partners/" + slug, renderPage(ADMIN_PAGE_ROUTES[slug]));
+  // The same pages under the signed-in user's OWN name — /<user>/<slug>, e.g. /Jedd/housekeeping.
+  // Registered last so /admin/<slug> and /partners/<slug> keep priority. The slug is a literal, so
+  // this can never swallow /api, /images or any single-segment page route. The name is cosmetic:
+  // access is still decided by the session, not by what's typed in the URL.
+  app.get("/:user/" + slug, renderPage(ADMIN_PAGE_ROUTES[slug]));
 }
 
 /* ---------------- Static assets ---------------- */

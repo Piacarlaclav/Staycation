@@ -1502,7 +1502,9 @@
       havens:"havens", booking:"rates-addons", cleaners:"housekeeping", inventory:"inventory",
       finance:"finance", payments:"payments", payroll:"payroll", bills:"bills", expenses:"expenses",
       analytics:"analytics", users:"users", employees:"employees", assist:"assist", log:"log" };
-    window.location.href = SLUGS[page] ? ("/admin/" + SLUGS[page]) : "/dashboard.html";
+    // pages live under the signed-in user's own name — /<name>/<slug>, e.g. /Jedd/housekeeping
+    var who = String(currentUser() || "").trim().split(/\s+/)[0].replace(/[^A-Za-z0-9_-]/g, "") || "admin";
+    window.location.href = SLUGS[page] ? ("/" + who + "/" + SLUGS[page]) : "/dashboard.html";
   }
   function currentUser(){ return localStorage.getItem("shph_current_user") || "Admin"; }
   function logout(){ logActivity("logged out"); localStorage.removeItem("shph_current_user"); window.location.href = "/admin.html"; }

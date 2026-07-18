@@ -8059,14 +8059,23 @@ const PAGE_SLUGS = {
 const SLUG_PAGES = {};
 for(const k in PAGE_SLUGS) SLUG_PAGES[PAGE_SLUGS[k]] = k;
 function pageFromPath(){
-    const m = String(location.pathname).match(/^\/(?:admin|partners)\/([a-z0-9-]+)/i);
+    // Any first segment: /admin/<slug>, /partners/<slug>, or the signed-in user's own
+    // /<name>/<slug> (e.g. /Jedd/housekeeping). The slug must still be a known page.
+    const m = String(location.pathname).match(/^\/[^\/]+\/([a-z0-9-]+)/i);
     return (m && SLUG_PAGES[m[1].toLowerCase()]) || null;
 }
 // the URL prefix this session's pages live under. A partner MUST stay under /partners/… — partner
 // mode is detected from the path, so an /admin/<slug> URL would reload without the haven filter or
 // the partner chrome, exposing every haven's bookings.
+// URL-safe name of whoever is signed in, so their pages live under /<name>/<slug>
+// (e.g. /Jedd/housekeeping). Falls back to "admin" when there's no usable name.
+function userUrlSeg(){
+    const raw = (typeof currentUser === "function" ? currentUser() : "") || "";
+    const seg = String(raw).trim().split(/\s+/)[0].replace(/[^A-Za-z0-9_-]/g, "");
+    return seg || "admin";
+}
 function pageUrlBase(){
-    return (window.__PARTNER__ || window.__ON_PARTNER_PATH__) ? "/partners/" : "/admin/";
+    return (window.__PARTNER__ || window.__ON_PARTNER_PATH__) ? "/partners/" : "/" + userUrlSeg() + "/";
 }
 // reflect the current page in the address bar (push = new history entry, replace = same entry)
 function syncPageUrl(page, replace){
