@@ -4000,6 +4000,17 @@ function actualCheckoutStr(b){
     const m = Number(b.actualCheckoutMin) || 0;
     return m > 0 ? minToTime(bookingCheckinMin(b) + m) : "";
 }
+// The time the haven is REALLY free: the recorded early check-out when there is one, else the
+// booked time. Housekeeping and any check-out ordering should use this, not checkoutTimeStr().
+function effectiveCheckoutStr(b){ return actualCheckoutStr(b) || checkoutTimeStr(b); }
+// Chronological sort key = check-out DATE + effective time-of-day as zero-padded minutes.
+// Sorting the formatted time string on its own is ALPHABETICAL, so "11:00 AM" lands before
+// "9:00 AM" and "1:00 PM" before both — which is why the departing list looked shuffled.
+function checkoutSortKey(b){
+    const day = b.checkout || b.checkin || "";
+    const min = parseTimeMin(effectiveCheckoutStr(b));
+    return day + String(min == null ? 0 : min).padStart(4, "0");
+}
 
 /* ---------- pricing ---------- */
 const PRICING = {
@@ -4489,7 +4500,7 @@ function renderToday(){
         .sort((a,c) => bookingCheckinMin(a) - bookingCheckinMin(c));
     // in-house + departing, excluding pure arrivals already shown above
     const others = tagged.filter(x => !x.info.arrives).map(x => x.b)
-        .sort((a,c) => checkoutTimeStr(a).localeCompare(checkoutTimeStr(c)));
+        .sort((a,c) => checkoutSortKey(a).localeCompare(checkoutSortKey(c)));
 
     // cards
     const departCount = tagged.filter(x => x.info.departs).length;
@@ -12081,7 +12092,9 @@ function renderCleaners(){
             return `<tr>
                 <td><span class="dot" style="background:${dot}"></span><a class="haven-link" onclick="scrollToCleanCard(${b.id})">${b.haven}</a></td>
                 <td>${checkinTimeStr(b)}</td>
-                <td>${checkoutTimeStr(b)}</td>
+                <td>${actualCheckoutStr(b)
+                    ? `<span style="text-decoration:line-through; color:var(--hv-muted);">${checkoutTimeStr(b)}</span> <b>${actualCheckoutStr(b)}</b>`
+                    : checkoutTimeStr(b)}</td>
                 <td>${retrieve}</td>
                 <td><span class="status ${stCls}">${stTxt}</span></td>
             </tr>`;
