@@ -35,6 +35,26 @@
 </style>
 
 <!-- Partner List -->
+<div class="page" id="page-applications">
+    <div class="panel">
+        <div class="panel-head">
+            <h2><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span>Applications</h2>
+            <select id="appTypeFilter" onchange="renderApplications()" style="padding:9px 11px; border:1px solid #ddd; border-radius:9px; font-size:13px; background:#fff;">
+                <option value="">All types</option>
+                <option value="partner">Property Partners</option>
+                <option value="affiliate">Affiliates</option>
+            </select>
+        </div>
+        <p class="muted" style="margin:0 0 14px;">People who applied through <strong>/be-a-partner</strong> and <strong>/become-an-affiliate</strong> on the website. Review, then onboard partners via Add Partner.</p>
+        <div style="overflow-x:auto;">
+            <table class="clean-summary-table">
+                <thead><tr><th>Date</th><th>Type</th><th>Name</th><th>Contact</th><th>Details</th><th>Status</th><th></th></tr></thead>
+                <tbody id="applicationsBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <div class="page" id="page-partners">
     <div class="panel">
         <div class="panel-head">

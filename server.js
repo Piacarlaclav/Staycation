@@ -58,6 +58,7 @@ app.use("/api", (req, res, next) => {
    anonymous visitors. Locked out? Run node tools/reset-admin.js (needs the
    service-account key), then log in again. */
 const crypto = require("crypto");
+const { hashPw, verifyPw, isHashed } = require("./lib/pw");
 const SESSION_COOKIE = "shph_sess";
 const SESSION_DAYS = 30;
 // Cookie-signing secret: SESSION_SECRET env if set; else derived from the Firebase service
@@ -110,11 +111,15 @@ app.post("/api/login", async (req, res) => {
     try { users = await store.readFreshList("shph_users"); } catch (e) { users = store.get("shph_users") || []; }
     if (!Array.isArray(users)) users = [];
     let match = users.find(u => u && (u.name || "").toLowerCase() === username.toLowerCase()
-      && String(u.password) === password);
+      && verifyPw(password, u.password));
     if (!match && !users.some(u => u && u.admin) && password === "1234") {
       const nextId = (users.reduce((m, u) => Math.max(m, Number(u && u.id) || 0), 0) || 0) + 1;
-      match = { id: nextId, name: username, password: "1234", admin: true, perms: [] };
+      match = { id: nextId, name: username, password: hashPw("1234"), admin: true, perms: [] };
       await store.upsertOne("shph_users", match);
+    }
+    // lazy migration: a legacy plain-text password that just verified is upgraded to a hash
+    if (match && !isHashed(match.password)) {
+      try { await store.upsertOne("shph_users", { ...match, password: hashPw(password) }); } catch (e) {}
     }
     if (!match) return res.status(401).json({ ok: false, error: "invalid login" });
     setSessionCookie(req, res, { t: "staff", u: match.name, adm: !!match.admin });
@@ -136,7 +141,7 @@ app.post("/api/partner-login", async (req, res) => {
     let users = [];
     try { users = await store.readFreshList("shph_users"); } catch (e) { users = store.get("shph_users") || []; }
     const admin = (Array.isArray(users) ? users : []).find(u => u && u.admin
-      && (u.name || "").toLowerCase() === username.toLowerCase() && String(u.password) === password);
+      && (u.name || "").toLowerCase() === username.toLowerCase() && verifyPw(password, u.password));
     if (admin) {
       setSessionCookie(req, res, { t: "partner", u: admin.name, sa: true });
       return res.json({ ok: true, session: { name: admin.name, login: admin.name, superAdmin: true } });
@@ -146,7 +151,7 @@ app.post("/api/partner-login", async (req, res) => {
     const p = (Array.isArray(partners) ? partners : []).find(x => x
       && (x.login || "").trim() !== ""
       && (x.login || "").toLowerCase() === username.toLowerCase()
-      && String(x.pw || "") === password);
+      && verifyPw(password, x.pw || ""));
     if (!p) return res.status(401).json({ ok: false, error: "invalid login" });
     if (!p.haven) return res.status(403).json({ ok: false, error: "no haven assigned" });
     setSessionCookie(req, res, { t: "partner", u: p.name || p.login, haven: p.haven, pid: p.id });
@@ -162,6 +167,25 @@ app.get("/api/logout", (req, res) => { clearSessionCookie(res); res.redirect("/a
 
 /* ---------------- REST API (the shared backend) ---------------- */
 const apiRouter = express.Router();
+
+/* ---- API auth gate (Stage 2, 2026-07-18). Everything requires a session EXCEPT the narrow
+   set the public guest flow genuinely needs. Before this, anyone could GET the full bookings
+   list (guest names, mobiles, payments) or write records anonymously. The allowlist:
+   - POST /visit             (public visit counter)
+   - POST /send-confirmation (guest booking confirmation email)
+   - POST /apply             (partner/affiliate application form)
+   - POST /list/…            (guest booking write — hardened per-route below)
+   - /backup, /restore       (guarded by their own CRON_SECRET / token, no cookie on a cron)
+   Everything else without a valid session cookie → 401. */
+apiRouter.use((req, res, next) => {
+  if (req.method === "OPTIONS") return next();
+  if (readSession(req)) return next();
+  const p = req.path;
+  if (req.method === "POST" && (p === "/visit" || p === "/send-confirmation" || p === "/apply")) return next();
+  if (req.method === "POST" && p.startsWith("/list/")) return next();   // per-route hardening below
+  if (p === "/backup" || p === "/restore" || p === "/retention") return next();  // own token guards
+  return res.status(401).json({ error: "login required" });
+});
 
 // REMOVED: POST /api/import (2026-07-17 audit).
 // It took { key: value, … } and called store.set() — a FULL OVERWRITE that bypassed the mergeById
@@ -209,13 +233,23 @@ const MERGE_LIST_KEYS = new Set([
   "shph_users", "shph_staff_v1", "staycation_havens", "shph_partners",
   // violation records carry a uid() id, and seed-bridge already lists this in its MERGE_KEYS —
   // the two must match, or a whole-array push here would overwrite instead of merge.
-  "shph_violations_v1"
+  "shph_violations_v1",
+  "shph_applications_v1"   // partner/affiliate applications (id-keyed; written via /api/apply + /api/list)
 ]);
 
 // write one key (body is the raw JSON value the browser stored)
 apiRouter.put("/kv/:key", async (req, res) => {
   if (!store.isShared(req.params.key)) return res.status(403).json({ error: "key not shared" });
   if (SESSION_ONLY_KEYS.has(req.params.key) && !readSession(req)) return res.status(401).json({ error: "login required" });
+  // Passwords are stored HASHED. The Users/Partners pages still send plain text when one is
+  // set or changed — hash it here before it ever touches the store; already-hashed values
+  // round-trip untouched (so editing a user's name/perms never invalidates their password).
+  if (req.params.key === "shph_users" && Array.isArray(req.body)) {
+    req.body.forEach(u => { if (u && u.password != null && u.password !== "" && !isHashed(u.password)) u.password = hashPw(u.password); });
+  }
+  if (req.params.key === "shph_partners" && Array.isArray(req.body)) {
+    req.body.forEach(p => { if (p && p.pw != null && p.pw !== "" && !isHashed(p.pw)) p.pw = hashPw(p.pw); });
+  }
   try {
     if (MERGE_LIST_KEYS.has(req.params.key) && Array.isArray(req.body)) {
       // ATOMIC per-item merge against the LIVE doc (transaction): two users saving at once
@@ -488,8 +522,24 @@ apiRouter.post("/list/:key", async (req, res) => {
   if (!MERGE_LIST_KEYS.has(key)) return res.status(400).json({ error: "not a per-record list" });
   const upsert = req.body && req.body.upsert;   // full item to insert/replace (by id)
   const del = req.body && req.body.del;          // id to soft-delete
+  // Anonymous callers (the public booking flow) may ONLY upsert bookings — never delete,
+  // never touch other lists — and may never replace a record that staff created: an existing
+  // id must belong to a website booking for an unauthenticated overwrite to be accepted.
+  if (!readSession(req)) {
+    if (key !== "shph_bookings_v3" || del != null || !upsert || upsert.id == null) {
+      return res.status(401).json({ error: "login required" });
+    }
+    try {
+      const list = await store.readFreshList(key);
+      const existing = (list || []).find(x => x && String(x.id) === String(upsert.id));
+      if (existing && existing.source !== "website") return res.status(401).json({ error: "login required" });
+    } catch (e) { /* fresh read failed → fall through; upsertOne itself is merge-safe */ }
+  }
   try {
     if (upsert && upsert.id != null) {
+      // hash any plain-text credential on a per-record save too (users/partners)
+      if (key === "shph_users" && upsert.password != null && upsert.password !== "" && !isHashed(upsert.password)) upsert.password = hashPw(upsert.password);
+      if (key === "shph_partners" && upsert.pw != null && upsert.pw !== "" && !isHashed(upsert.pw)) upsert.pw = hashPw(upsert.pw);
       await store.upsertOne(key, upsert);
     } else if (del != null) {
       const ok = await store.updateOneFresh(key, del, x => { x.deleted = true; if (!x.deletedAt) x.deletedAt = new Date().toISOString(); });
@@ -597,6 +647,103 @@ apiRouter.post("/cleaning/:bookingId", async (req, res) => {
   }
 });
 
+/* ---- Partner / affiliate application intake (public recruitment pages). Open by design —
+   it's the front door — but hardened: honeypot field drops bots silently, strict field
+   allowlist with length caps, and a validated type. Applications land in
+   shph_applications_v1 for review on the dashboard's Applications page. */
+apiRouter.post("/apply", async (req, res) => {
+  try {
+    const b = req.body || {};
+    if (b.website) return res.json({ ok: true });                    // honeypot: bots fill it, humans never see it
+    const type = b.type === "partner" ? "partner" : b.type === "affiliate" ? "affiliate" : null;
+    if (!type) return res.status(400).json({ ok: false, error: "invalid type" });
+    const s = (v, max) => String(v == null ? "" : v).slice(0, max).trim();
+    const app = {
+      id: Date.now() * 1000 + Math.floor(Math.random() * 1000),      // collision-safe timestamp id
+      type,
+      name:    s(b.name, 120),
+      contact: s(b.contact, 60),
+      email:   s(b.email, 120),
+      status:  "new",
+      createdAt: new Date().toISOString()
+    };
+    if (!app.name || !app.contact) return res.status(400).json({ ok: false, error: "name and contact are required" });
+    if (type === "partner") {
+      app.location   = s(b.location, 200);
+      app.unitType   = s(b.unitType, 80);
+      app.rooms      = s(b.rooms, 40);
+      app.hasCleaner = b.hasCleaner === "yes" ? "yes" : "no";
+      app.notes      = s(b.notes, 1000);
+    } else {
+      app.social     = s(b.social, 300);
+      app.notes      = s(b.notes, 1000);
+    }
+    await store.upsertOne("shph_applications_v1", app);
+    console.log(`[apply] new ${type} application from ${app.name}`);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("[apply] failed:", e.message);
+    res.status(502).json({ ok: false, error: "could not save — please try again" });
+  }
+});
+
+/* ---- ID-photo retention (data privacy). Runs daily via Vercel Cron (same CRON_SECRET guard
+   as the backup) or manually by a signed-in admin hitting /api/retention. Deletes GUEST ID
+   PHOTOS 30 days after check-out (settings.site.idRetentionDays overrides) for bookings that
+   are fully closed. NEVER touches money or client info: payment proofs, amounts, names and
+   contact details all stay. Skips any booking with an open balance, an unreturned security
+   deposit, or an unresolved violation. A photo whose content-hashed image is still referenced
+   by another record is left in storage (only the link on this booking is removed). Sets
+   idsPurged so the "missing ID photo" flag doesn't light up for purged stays. The daily
+   backup runs 30 minutes BEFORE this, so every purged photo is in that day's backup. */
+apiRouter.all("/retention", async (req, res) => {
+  if (!backupAuthorized(req) && !readSession(req)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  try {
+    const settings = (await store.readFreshKey("shph_settings")) || {};
+    const days = Number(settings.site && settings.site.idRetentionDays) || 30;
+    const cutoff = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
+    const bookings = await store.readFreshList("shph_bookings_v3");
+    let violations = [];
+    try { violations = await store.readFreshList("shph_violations_v1"); } catch (e) {}
+    const openViolation = new Set((violations || []).filter(v => v && !v.resolved && !v.waived).map(v => String(v.bookingId)));
+    // image ids still referenced by any OTHER record (ids/proofs/payments) — never delete those
+    const usedElsewhere = (skipId) => {
+      const s = new Set();
+      for (const ob of bookings) {
+        if (!ob || String(ob.id) === String(skipId)) continue;
+        String(JSON.stringify(ob)).replace(/\/img\/([A-Za-z0-9_-]+)/g, (m, i) => { s.add(i); return m; });
+      }
+      return s;
+    };
+    const out = { retentionDays: days, cutoff, purgedBookings: 0, photosDeleted: 0, skipped: [] };
+    for (const b of bookings) {
+      if (!b || !Array.isArray(b.ids) || !b.ids.length || b.idsPurged) continue;
+      const co = b.checkout || b.checkin;
+      if (!co || co >= cutoff) continue;
+      const paid = (Number(b.downpayment) || 0) + (b.payments || []).reduce((s, p) => s + (Number(p && p.amount) || 0), 0);
+      if (!b.cancelled && (Number(b.total) || 0) - paid > 0) { out.skipped.push(b.id + ":open-balance"); continue; }
+      if (!b.cancelled && Number(b.deposit) > 0 && !b.depositReturned) { out.skipped.push(b.id + ":deposit-held"); continue; }
+      if (openViolation.has(String(b.id))) { out.skipped.push(b.id + ":open-violation"); continue; }
+      const shared = usedElsewhere(b.id);
+      for (const ref of b.ids) {
+        const m = /^\/img\/([A-Za-z0-9_.-]+)$/.exec(String(ref || ""));
+        if (m && !shared.has(m[1])) { try { if (await store.deleteImageById(m[1])) out.photosDeleted++; } catch (e) {} }
+      }
+      const ok = await store.updateOneFresh("shph_bookings_v3", b.id, x => {
+        x.ids = [];
+        x.idsPurged = true;
+        x.idsPurgedAt = new Date().toISOString();
+      });
+      if (ok) out.purgedBookings++;
+    }
+    console.log(`[retention] purged ${out.purgedBookings} booking(s), ${out.photosDeleted} photo(s); cutoff ${cutoff}`);
+    res.json({ ok: true, ...out });
+  } catch (e) {
+    console.error("[retention] failed:", e.message);
+    res.status(502).json({ ok: false, error: e.message });
+  }
+});
+
 // lightweight per-booking status change — cancel / reinstate / delete.
 // The browser only sends the id + action (tiny), so a quick refresh can't lose it
 // (unlike re-uploading the whole bookings array, which carries base64 images).
@@ -693,11 +840,11 @@ app.use("/api", apiRouter);
 const PAGES = [
   "index", "havens", "booknow", "payment",
   "admin", "dashboard", "todaysbooking", "Nicole", "nicole-dashboard", "payroll",
-  "partner-login"
+  "partner-login", "be-a-partner"
 ];
 
 // Guest-facing pages that the website Maintenance switch takes offline.
-const PUBLIC_PAGES = new Set(["index", "havens", "booknow", "payment"]);
+const PUBLIC_PAGES = new Set(["index", "havens", "booknow", "payment", "be-a-partner"]);
 
 /* ---------- Public seed projection (2026-07-17 audit) ----------
    renderPage() injects the whole store as window.__SEED__ so the existing localStorage-based page
@@ -856,6 +1003,8 @@ app.get("/", renderPage("index"));
 // Partner mode is detected client-side from this path (see dashboard.html).
 app.get("/partners", renderPage("dashboard"));
 app.get("/partner-dashboard", renderPage("dashboard"));   // alias
+// Recruitment front doors — one page holds both offers; the affiliate URL deep-links to its section
+app.get("/become-an-affiliate", renderPage("be-a-partner"));
 
 // Nicole's branded shortcut URLs — the same back-office pages behind friendlier addresses.
 // No auth change: each page still requires a logged-in user (the client bounces to the login
@@ -875,7 +1024,7 @@ const ADMIN_PAGE_ROUTES = {
   "guest-form":"dashboard", "collection-reports":"dashboard", "website":"dashboard",
   "booking-approval":"dashboard", "security-deposit":"dashboard", "violations-damages":"dashboard",
   "partner-list":"dashboard", "commissions":"dashboard", "bookings-by-partner":"dashboard",
-  "pr-rooms":"dashboard", "add-partner":"dashboard", "havens":"dashboard", "rates-addons":"dashboard",
+  "pr-rooms":"dashboard", "add-partner":"dashboard", "applications":"dashboard", "havens":"dashboard", "rates-addons":"dashboard",
   "housekeeping":"dashboard", "inventory":"dashboard", "finance":"dashboard", "payments":"dashboard",
   "payroll":"dashboard", "bills":"dashboard", "expenses":"dashboard", "analytics":"dashboard",
   "users":"dashboard", "employees":"dashboard", "assist":"dashboard", "log":"dashboard"

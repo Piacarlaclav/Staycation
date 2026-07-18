@@ -4971,12 +4971,13 @@ function renderAvailability(){
 // (and hasn't opted out of IDs). Cancelled bookings aren't flagged.
 function bookingNeedsPhoto(b){
     if(!b || b.cancelled) return false;
-    return !b.downProof || (!(b.ids && b.ids.length) && !b.idOptOut);
+    // idsPurged = the retention job auto-deleted the ID photos after the stay closed — not missing
+    return !b.downProof || (!(b.ids && b.ids.length) && !b.idOptOut && !b.idsPurged);
 }
 function bookingFlagTitle(b){
     const bits = [];
     if(!b.downProof) bits.push("downpayment photo");
-    if(!(b.ids && b.ids.length) && !b.idOptOut) bits.push("ID photo");
+    if(!(b.ids && b.ids.length) && !b.idOptOut && !b.idsPurged) bits.push("ID photo");
     return bits.length ? "⚠ Missing " + bits.join(" & ") : "";
 }
 function addBarFlag(el, b){
@@ -7307,7 +7308,10 @@ function renderIdGrid(){
 function updateIdFootNote(){
     const note = document.getElementById("bkFootNote");
     if(!note) return;
-    note.innerHTML = `<span class="dot"></span>${idsData.length} of ${ID_MAX} IDs uploaded`;
+    const _purged = editingId != null && (bookings.find(x => x.id === editingId) || {}).idsPurged;
+    note.innerHTML = (!idsData.length && _purged)
+        ? `<span class="dot"></span>ID photos were auto-deleted after the retention period (privacy policy)`
+        : `<span class="dot"></span>${idsData.length} of ${ID_MAX} IDs uploaded`;
 }
 // add one or more image files (from picker, drag-drop, or paste), respecting the cap
 function addIdsFromFiles(files){
@@ -8117,7 +8121,7 @@ const PAGE_SLUGS = {
     collections:"collection-reports", website:"website", approval:"booking-approval",
     deposit:"security-deposit", violations:"violations-damages",
     partners:"partner-list", commissions:"commissions", partnerbookings:"bookings-by-partner",
-    prrooms:"pr-rooms", addpartner:"add-partner", havens:"havens", booking:"rates-addons",
+    prrooms:"pr-rooms", addpartner:"add-partner", applications:"applications", havens:"havens", booking:"rates-addons",
     cleaners:"housekeeping", inventory:"inventory", finance:"finance", payments:"payments",
     payroll:"payroll", bills:"bills", expenses:"expenses", analytics:"analytics",
     users:"users", employees:"employees", assist:"assist", log:"log"
@@ -12153,9 +12157,11 @@ function renderCleaners(){
     document.getElementById("cleanRangeLabel").textContent = label;
     document.getElementById("cleanScopeLabel").textContent = "— " + label;
 
-    // a turnover task = a booking whose check-out falls in the window
+    // a turnover task = a NON-CANCELLED booking whose check-out falls in the window.
+    // A cancelled stay never happened — no turnover, no towels to retrieve — but it used to
+    // still produce a task (and a duplicate haven row when the slot was rebooked).
     const tasks = bookings
-        .filter(b => b.checkout >= start && b.checkout < end)
+        .filter(b => !b.cancelled && b.checkout >= start && b.checkout < end)
         .sort((a, b) => (a.checkout || "").localeCompare(b.checkout || "") || a.haven.localeCompare(b.haven));
 
     const container = document.getElementById("cleanContainer");
@@ -13381,7 +13387,10 @@ function openUserModal(id){
         if(!u) return;
         g("userModalTitle").textContent = "Edit User";
         g("u_name").value = u.name;
-        g("u_pass").value = u.password || "";
+        // Passwords are stored HASHED on the server — never show (or re-submit) the hash.
+        // Blank field on save = keep the current password.
+        g("u_pass").value = String(u.password || "").startsWith("scrypt$") ? "" : (u.password || "");
+        g("u_pass").placeholder = String(u.password || "").startsWith("scrypt$") ? "unchanged — type to set a new password" : "password";
         g("u_admin").checked = !!u.admin;
         fillUserPerms(u.perms || []);
     } else {
@@ -13400,7 +13409,12 @@ function saveUser(){
     const g = i => document.getElementById(i);
     const name = g("u_name").value.trim();
     if(!name){ alert("Please enter a username."); return; }
-    const password = g("u_pass").value;
+    let password = g("u_pass").value;
+    // editing with a blank field = keep the user's current (hashed) password
+    if(!password && editingUserId){
+        const cur = users.find(u => u.id === editingUserId);
+        if(cur && cur.password) password = cur.password;
+    }
     if(!password){ alert("Please enter a password."); return; }
     if(users.some(u => (u.name || "").toLowerCase() === name.toLowerCase() && u.id !== editingUserId)){
         alert("That username already exists."); return;

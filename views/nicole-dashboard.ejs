@@ -1063,6 +1063,15 @@
     const m = Number(b.actualCheckoutMin) || 0;
     return m > 0 ? minToTime(bookingCheckinMin(b) + m) : "";
   }
+  // Chronological sort key for check-outs: date + effective time-of-day as padded minutes.
+  // Sorting the FORMATTED time string is alphabetical ("11:00 AM" < "9:00 AM"), which shuffled
+  // the departing list. Uses the recorded early check-out when there is one.
+  function checkoutSortKey(b){
+    const dur = Number(b.actualCheckoutMin) > 0 ? Number(b.actualCheckoutMin)
+              : ((Number(b.stayHours) || 21) + (Number(b.extend) || 0)) * 60;
+    const min = ((bookingCheckinMin(b) + dur) % 1440 + 1440) % 1440;
+    return (b.checkout || b.checkin || "") + String(min).padStart(4, "0");
+  }
   function endExcl(b){
     return b.checkout > b.checkin ? b.checkout : iso(addDays(new Date(b.checkin + "T00:00:00"), 1));
   }
@@ -1430,7 +1439,7 @@
     const arrivals = tagged.filter(x => x.info.arrives).map(x => x.b)
       .sort((a,c) => (a.checkin||"").localeCompare(c.checkin||"") || bookingCheckinMin(a) - bookingCheckinMin(c));
     const others = tagged.filter(x => !x.info.arrives).map(x => x.b)
-      .sort((a,c) => (a.checkout||"").localeCompare(c.checkout||"") || checkoutTimeStr(a).localeCompare(checkoutTimeStr(c)));
+      .sort((a,c) => checkoutSortKey(a).localeCompare(checkoutSortKey(c)));
 
     const departCount = tagged.filter(x => x.info.departs).length;
     const inHouseCount = tagged.filter(x => x.info.staying).length;

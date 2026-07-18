@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<%- include('partials/seed') %>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Partner With Us — Staycation Haven PH</title>
+    <link rel="icon" href="images/logo.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600..900&family=Inter:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+    :root{
+        --bp-bg:#faf6ef; --bp-ink:#1c1a17; --bp-muted:#7a6f60; --bp-gold:#a9842b; --bp-gold-2:#c99a3f;
+        --bp-line:#ece5d7; --bp-card:#ffffff; --bp-green:#2e7d4f;
+    }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    body{ background:var(--bp-bg); color:var(--bp-ink); font-family:'Inter','Manrope',system-ui,sans-serif; line-height:1.6; }
+    .bp-nav{ position:sticky; top:0; z-index:50; background:rgba(250,246,239,.92); backdrop-filter:blur(8px);
+        border-bottom:1px solid var(--bp-line); padding:14px clamp(20px,4vw,48px); display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .bp-brand{ display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--bp-ink); font-weight:800; font-family:'Manrope',sans-serif; }
+    .bp-brand img{ width:38px; height:38px; border-radius:10px; object-fit:contain; background:#fff; }
+    .bp-nav a.bp-back{ color:var(--bp-gold); text-decoration:none; font-weight:700; font-size:14px; }
+    .bp-hero{ text-align:center; padding:clamp(40px,7vw,84px) 20px 26px; max-width:820px; margin:0 auto; }
+    .bp-eyebrow{ font-size:12px; letter-spacing:2.5px; text-transform:uppercase; color:var(--bp-gold); font-weight:700; }
+    .bp-hero h1{ font-family:'Fraunces',Georgia,serif; font-size:clamp(30px,5.4vw,52px); line-height:1.12; margin:12px 0 14px; }
+    .bp-hero p{ color:var(--bp-muted); font-size:clamp(15px,2vw,17.5px); }
+    .bp-wrap{ max-width:1060px; margin:0 auto; padding:10px 20px 70px; display:grid; grid-template-columns:1fr 1fr; gap:26px; }
+    @media (max-width:860px){ .bp-wrap{ grid-template-columns:1fr; } }
+    .bp-card{ background:var(--bp-card); border:1px solid var(--bp-line); border-radius:20px; padding:clamp(22px,3.4vw,34px);
+        box-shadow:0 10px 34px rgba(80,60,30,.06); scroll-margin-top:90px; }
+    .bp-card h2{ font-family:'Fraunces',Georgia,serif; font-size:clamp(22px,3vw,28px); margin-bottom:6px; }
+    .bp-card .sub{ color:var(--bp-muted); font-size:14.5px; margin-bottom:16px; }
+    .bp-perks{ list-style:none; margin:0 0 20px; display:grid; gap:9px; }
+    .bp-perks li{ padding-left:26px; position:relative; font-size:14.5px; }
+    .bp-perks li::before{ content:"✓"; position:absolute; left:0; top:0; color:var(--bp-green); font-weight:800; }
+    .bp-perks li strong{ color:var(--bp-ink); }
+    label{ display:block; font-size:12px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:var(--bp-muted); margin:14px 0 5px; }
+    input[type=text], input[type=email], select, textarea{
+        width:100%; padding:12px 14px; border:1px solid var(--bp-line); border-radius:12px; background:#fdfbf7;
+        font-family:inherit; font-size:15px; color:var(--bp-ink); }
+    input:focus, select:focus, textarea:focus{ outline:2px solid var(--bp-gold-2); border-color:transparent; }
+    textarea{ min-height:84px; resize:vertical; }
+    .bp-radio{ display:flex; gap:18px; padding:4px 2px; font-size:14.5px; }
+    .bp-radio label{ display:flex; align-items:center; gap:7px; margin:0; text-transform:none; letter-spacing:0; font-size:14.5px; font-weight:600; color:var(--bp-ink); cursor:pointer; }
+    .bp-btn{ margin-top:20px; width:100%; padding:14px 18px; border:none; border-radius:12px; cursor:pointer;
+        background:linear-gradient(120deg,var(--bp-gold),var(--bp-gold-2)); color:#fff; font-weight:800; font-size:15.5px; font-family:'Manrope',sans-serif; letter-spacing:.3px; }
+    .bp-btn:disabled{ opacity:.6; cursor:default; }
+    .bp-msg{ margin-top:12px; font-size:14px; font-weight:600; display:none; }
+    .bp-ok{ text-align:center; padding:34px 10px; }
+    .bp-ok .big{ font-size:44px; }
+    .bp-ok h3{ font-family:'Fraunces',Georgia,serif; font-size:22px; margin:10px 0 6px; }
+    .bp-ok p{ color:var(--bp-muted); font-size:14.5px; }
+    .bp-hp{ position:absolute; left:-9999px; opacity:0; height:0; overflow:hidden; }   /* honeypot */
+</style>
+</head>
+<body>
+
+<nav class="bp-nav">
+    <a class="bp-brand" href="/"><img src="images/logo.png" alt="Staycation Haven PH" onerror="this.style.display='none'">Staycation Haven PH</a>
+    <a class="bp-back" href="/">← Back to the website</a>
+</nav>
+
+<header class="bp-hero">
+    <div class="bp-eyebrow">Grow With Us</div>
+    <h1>Earn with Staycation Haven</h1>
+    <p>Own a unit? Let us fill it. Love your stay? Share it and earn. Two ways to grow with us — pick yours below.</p>
+</header>
+
+<main class="bp-wrap">
+
+    <!-- ============ PROPERTY PARTNER ============ -->
+    <section class="bp-card" id="partner">
+        <h2>🏠 List Your Unit With Us</h2>
+        <div class="sub">You own the unit — we do the rest.</div>
+        <ul class="bp-perks">
+            <li><strong>Free marketing & website placement</strong> — your unit gets listed and promoted at no cost.</li>
+            <li><strong>We manage the bookings</strong> — inquiries, reservations, guest coordination, and payments.</li>
+            <li><strong>Simple fee: ₱150 per booking.</strong> No booking, no fee.</li>
+            <li><strong>Cleaning, your choice</strong> — use your own cleaner, or ours for ₱100/clean (within M Place).</li>
+        </ul>
+        <form id="partnerForm" autocomplete="on">
+            <input class="bp-hp" type="text" name="website" tabindex="-1" autocomplete="off">
+            <label>Your name *</label><input type="text" id="pName" required maxlength="120">
+            <label>Mobile number *</label><input type="text" id="pContact" required maxlength="60" inputmode="tel">
+            <label>Email</label><input type="email" id="pEmail" maxlength="120">
+            <label>Unit location (building / address) *</label><input type="text" id="pLocation" required maxlength="200" placeholder="e.g. M Place South Triangle, QC">
+            <label>Unit type</label>
+            <select id="pUnitType"><option>Studio</option><option>1 Bedroom</option><option>2 Bedroom</option><option>Loft</option><option>Other</option></select>
+            <label>Do you have your own cleaning service?</label>
+            <div class="bp-radio">
+                <label><input type="radio" name="pCleaner" value="yes" checked> Yes, I have my own</label>
+                <label><input type="radio" name="pCleaner" value="no"> No — I'd use yours</label>
+            </div>
+            <label>Anything else we should know?</label><textarea id="pNotes" maxlength="1000" placeholder="Furnishing status, availability, photos link…"></textarea>
+            <button class="bp-btn" type="submit" id="pBtn">Apply as a Property Partner</button>
+            <div class="bp-msg" id="pMsg"></div>
+        </form>
+        <div class="bp-ok" id="pOk" style="display:none;">
+            <div class="big">🎉</div>
+            <h3>Application received!</h3>
+            <p>Thank you — our team will review your unit and message you within a few days.</p>
+        </div>
+    </section>
+
+    <!-- ============ AFFILIATE ============ -->
+    <section class="bp-card" id="affiliate">
+        <h2>📣 Become an Affiliate</h2>
+        <div class="sub">Share your stay, earn on your next one.</div>
+        <ul class="bp-perks">
+            <li><strong>Post about your stay</strong> with your personal link on Facebook, IG, or TikTok.</li>
+            <li><strong>Earn ₱50 off your next booking</strong> for posting — automatically credited.</li>
+            <li><strong>No quota, no pressure</strong> — share when you want, earn when you do.</li>
+        </ul>
+        <form id="affForm" autocomplete="on">
+            <input class="bp-hp" type="text" name="website" tabindex="-1" autocomplete="off">
+            <label>Your name *</label><input type="text" id="aName" required maxlength="120">
+            <label>Mobile number *</label><input type="text" id="aContact" required maxlength="60" inputmode="tel">
+            <label>Email</label><input type="email" id="aEmail" maxlength="120">
+            <label>Your social profile (FB / IG / TikTok link)</label><input type="text" id="aSocial" maxlength="300" placeholder="https://facebook.com/yourname">
+            <label>Tell us about you (optional)</label><textarea id="aNotes" maxlength="1000" placeholder="Have you stayed with us before? How do you plan to share?"></textarea>
+            <button class="bp-btn" type="submit" id="aBtn">Join as an Affiliate</button>
+            <div class="bp-msg" id="aMsg"></div>
+        </form>
+        <div class="bp-ok" id="aOk" style="display:none;">
+            <div class="big">💛</div>
+            <h3>Welcome aboard!</h3>
+            <p>Thank you — we'll message you with your personal link and how the ₱50 credit works.</p>
+        </div>
+    </section>
+
+</main>
+
+<script>
+async function bpSubmit(kind){
+    const g = id => document.getElementById(id);
+    const isP = kind === "partner";
+    const form = g(isP ? "partnerForm" : "affForm");
+    const btn = g(isP ? "pBtn" : "aBtn");
+    const msg = g(isP ? "pMsg" : "aMsg");
+    const body = isP ? {
+        type: "partner",
+        website: form.querySelector(".bp-hp").value,
+        name: g("pName").value, contact: g("pContact").value, email: g("pEmail").value,
+        location: g("pLocation").value, unitType: g("pUnitType").value,
+        hasCleaner: (form.querySelector('input[name="pCleaner"]:checked') || {}).value || "no",
+        notes: g("pNotes").value
+    } : {
+        type: "affiliate",
+        website: form.querySelector(".bp-hp").value,
+        name: g("aName").value, contact: g("aContact").value, email: g("aEmail").value,
+        social: g("aSocial").value, notes: g("aNotes").value
+    };
+    btn.disabled = true; msg.style.display = "none";
+    try{
+        const r = await fetch("/api/apply", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
+        if(!r.ok) throw new Error("HTTP " + r.status);
+        form.style.display = "none";
+        g(isP ? "pOk" : "aOk").style.display = "block";
+    }catch(e){
+        msg.textContent = "Couldn't send your application — please check your connection and try again.";
+        msg.style.color = "#c0283d"; msg.style.display = "block";
+        btn.disabled = false;
+    }
+}
+document.getElementById("partnerForm").addEventListener("submit", function(e){ e.preventDefault(); bpSubmit("partner"); });
+document.getElementById("affForm").addEventListener("submit", function(e){ e.preventDefault(); bpSubmit("affiliate"); });
+// /become-an-affiliate lands on the affiliate card
+if(location.pathname.replace(/\/+$/, "").toLowerCase() === "/become-an-affiliate"){
+    setTimeout(function(){ var el = document.getElementById("affiliate"); if(el) el.scrollIntoView({ behavior:"smooth" }); }, 60);
+}
+</script>
+</body>
+</html>

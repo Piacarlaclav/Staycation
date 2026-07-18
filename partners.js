@@ -92,7 +92,9 @@ function openAddPartner(id){
     document.getElementById("pf_contact").value  = p ? (p.contact || "") : "";
     document.getElementById("pf_email").value    = p ? (p.email || "")   : "";
     document.getElementById("pf_login").value    = p ? (p.login || "")   : "";
-    document.getElementById("pf_pw").value       = p ? (p.pw || "")      : "";
+    // hashed passwords are never shown; blank on save keeps the current one
+    document.getElementById("pf_pw").value       = p ? (String(p.pw || "").indexOf("scrypt$") === 0 ? "" : (p.pw || "")) : "";
+    document.getElementById("pf_pw").placeholder = p && String(p.pw || "").indexOf("scrypt$") === 0 ? "unchanged — type to set a new password" : "password";
     document.getElementById("pf_notes").value    = p ? (p.notes || "")   : "";
     showPage("addpartner");
 }
@@ -108,9 +110,11 @@ function savePartnerForm(){
         contact: document.getElementById("pf_contact").value.trim(),
         email:   document.getElementById("pf_email").value.trim(),
         login:   document.getElementById("pf_login").value.trim(),
-        pw:      document.getElementById("pf_pw").value,
         notes:   document.getElementById("pf_notes").value.trim()
     };
+    // blank pw = keep the existing (hashed) password when editing
+    const _pfPw = document.getElementById("pf_pw").value;
+    if(_pfPw) data.pw = _pfPw;
     const list = loadPartners();
     let record;
     if(partnerEditingId){
@@ -506,7 +510,7 @@ function openPartnerAccount(){
     ov.classList.add("show");
 }
 function closePartnerAccount(){ const ov = document.getElementById("partnerAccountOverlay"); if(ov) ov.classList.remove("show"); }
-function partnerChangePw(){
+async function partnerChangePw(){
     const ps = window.__PARTNER__;
     const msg = document.getElementById("paMsg");
     const setMsg = function(t, ok){ if(msg){ msg.textContent = t; msg.style.color = ok ? "#2e7d4f" : "#c0283d"; } };
@@ -522,8 +526,15 @@ function partnerChangePw(){
     const me = partners.find(function(p){ return String(p.id) === String(ps.id); })
             || partners.find(function(p){ return (p.login || "").toLowerCase() === (ps.login || "").toLowerCase(); });
     if(!me){ setMsg("Couldn't find your account — please log out and back in, then try again.", false); return; }
-    if(String(me.pw || "") !== cur){ setMsg("Your current password is incorrect.", false); return; }
-    if(String(me.pw || "") === nw){ setMsg("The new password is the same as your current one.", false); return; }
+    // Verify the CURRENT password on the SERVER (passwords are stored hashed there — the
+    // browser can no longer compare them itself). /api/partner-login doubles as the check.
+    let ok = false;
+    try{
+        const r = await fetch("/api/partner-login", { method:"POST", headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({ username: me.login || ps.login, password: cur }) });
+        ok = r.ok;
+    }catch(e){}
+    if(!ok){ setMsg("Your current password is incorrect.", false); return; }
     me.pw = nw;
     me.updatedAt = new Date().toISOString();   // stamp so the pw change wins the seed-bridge merge
     // whole-array write → the seed-bridge merges shph_partners to the server (per-record now), so the new
@@ -545,7 +556,7 @@ function renderPartnerLogins(){
     el.innerHTML = list.map(p => `<div class="pl-row">
         <div class="pl-who"><strong>${escHtml(p.name)}</strong>${p.haven ? ' <span class="muted">· ' + escHtml(p.haven) + '</span>' : ' <span class="muted">· no haven set</span>'}</div>
         <input type="text" id="pl_login_${p.id}" value="${escAttr(p.login || "")}" placeholder="username" autocomplete="off">
-        <input type="text" id="pl_pw_${p.id}" value="${escAttr(p.pw || "")}" placeholder="password" autocomplete="off">
+        <input type="text" id="pl_pw_${p.id}" value="${escAttr(String(p.pw || "").indexOf("scrypt$") === 0 ? "" : (p.pw || ""))}" placeholder="${String(p.pw || "").indexOf("scrypt$") === 0 ? "unchanged — type to set a new password" : "password"}" autocomplete="off">
         <button class="btn" onclick="savePartnerLogin(${p.id})">Save</button>
     </div>`).join("");
 }
@@ -554,7 +565,9 @@ function savePartnerLogin(id){
     const i = list.findIndex(p => p.id === id);
     if(i < 0) return;
     list[i].login = document.getElementById("pl_login_" + id).value.trim();
-    list[i].pw = document.getElementById("pl_pw_" + id).value;
+    // blank password field = keep the current (hashed) one; typing sets a new password
+    const _newPw = document.getElementById("pl_pw_" + id).value;
+    if(_newPw) list[i].pw = _newPw;
     _savePartnerRecord(list[i], list);   // per-record, merge-safe
     if(typeof logActivity === "function") logActivity("updated partner login for " + list[i].name);
     const btn = event && event.target;
@@ -1097,7 +1110,73 @@ function pcRender(){
     document.getElementById("pcGrid").innerHTML = cells;
 }
 
+/* ---------- Applications (public /be-a-partner + /become-an-affiliate forms) ---------- */
+let _applications = [];
+async function renderApplications(){
+    const body = document.getElementById("applicationsBody");
+    if(!body) return;
+    try{
+        const r = await fetch("/api/kv/shph_applications_v1", { cache: "no-store" });
+        if(r.ok){ const j = await r.json(); if(Array.isArray(j)) _applications = j; }
+    }catch(e){ /* keep last copy */ }
+    const filter = (document.getElementById("appTypeFilter") || {}).value || "";
+    const list = _applications
+        .filter(a => a && !a.deleted && (!filter || a.type === filter))
+        .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    const badge = document.getElementById("applicationsBadge");
+    if(badge){ const n = _applications.filter(a => a && !a.deleted && a.status === "new").length; badge.textContent = n ? String(n) : ""; }
+    if(!list.length){
+        body.innerHTML = `<tr><td colspan="7" class="empty">No applications${filter ? " of this type" : ""} yet. Share <strong>staycationhaven-ph.com/be-a-partner</strong> to start recruiting.</td></tr>`;
+        return;
+    }
+    const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    body.innerHTML = list.map(a => {
+        const when = a.createdAt ? new Date(a.createdAt).toLocaleDateString("en-PH", { month:"short", day:"numeric" }) : "—";
+        const chip = a.type === "partner"
+            ? '<span style="background:#e8f0e6; color:#2e7d4f; padding:3px 10px; border-radius:999px; font-size:11.5px; font-weight:700;">Partner</span>'
+            : '<span style="background:#f4ead9; color:#a9842b; padding:3px 10px; border-radius:999px; font-size:11.5px; font-weight:700;">Affiliate</span>';
+        const details = a.type === "partner"
+            ? esc([a.location, a.unitType, a.hasCleaner === "yes" ? "has own cleaner" : "needs cleaning svc"].filter(Boolean).join(" · "))
+            : esc(a.social || "—");
+        const noteRow = a.notes ? `<br><span class="muted" style="font-size:12px;">${esc(a.notes)}</span>` : "";
+        const email = a.email ? `<br><span class="muted" style="font-size:12px;">${esc(a.email)}</span>` : "";
+        return `<tr>
+            <td>${when}</td>
+            <td>${chip}</td>
+            <td><strong>${esc(a.name)}</strong></td>
+            <td>${esc(a.contact)}${email}</td>
+            <td style="max-width:280px;">${details}${noteRow}</td>
+            <td><select onchange="setApplicationStatus(${a.id}, this.value)" style="padding:6px 8px; border:1px solid #ddd; border-radius:8px; font-size:12.5px;">
+                ${["new","reviewing","approved","rejected"].map(st => `<option value="${st}" ${a.status === st ? "selected" : ""}>${st.charAt(0).toUpperCase() + st.slice(1)}</option>`).join("")}
+            </select></td>
+            <td class="actions"><span class="edit" style="color:#c0283d;" onclick="deleteApplication(${a.id})">Delete</span></td>
+        </tr>`;
+    }).join("");
+}
+async function setApplicationStatus(id, status){
+    const a = _applications.find(x => x && x.id === id);
+    if(!a) return;
+    a.status = status; a.updatedAt = new Date().toISOString();
+    try{
+        const r = await fetch("/api/list/shph_applications_v1", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ upsert: a }) });
+        if(!r.ok) throw new Error();
+        if(typeof logActivity === "function") logActivity(`marked ${a.type} application "${a.name}" as ${status}`);
+    }catch(e){ alert("Couldn't save the status — please try again."); }
+    renderApplications();
+}
+async function deleteApplication(id){
+    const a = _applications.find(x => x && x.id === id);
+    if(!a || !confirm(`Delete the application from ${a.name}?`)) return;
+    try{
+        const r = await fetch("/api/list/shph_applications_v1", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ del: id }) });
+        if(!r.ok) throw new Error();
+        if(typeof logActivity === "function") logActivity(`deleted ${a.type} application "${a.name}"`);
+    }catch(e){ alert("Couldn't delete — please try again."); }
+    renderApplications();
+}
+
 function partnersOnShowPage(page){
+    if(page === "applications") renderApplications();
     // partner-list-backed pages: reconcile from the live server first so a stale local cache can't hide partners
     if(page === "partners") reconcilePartners(renderPartners);
     else if(page === "commissions") reconcilePartners(renderCommissions);
@@ -1113,6 +1192,7 @@ function partnersOnShowPage(page){
     const pages = [
         { key:"partners",        label:"Partner List" },
         { key:"addpartner",      label:"Add Partner" },
+        { key:"applications",    label:"Applications" },
         { key:"commissions",     label:"Commissions" },
         { key:"partnerbookings", label:"Bookings by Partner" },
         { key:"prrooms",         label:"PR-Rooms" },
@@ -1129,6 +1209,7 @@ function partnersOnShowPage(page){
     window.PARTNER_CRUMB = {
         partners:["Partners","Partner List"],
         addpartner:["Partners","Add Partner"],
+        applications:["Partners","Applications"],
         commissions:["Partners","Commissions"],
         partnerbookings:["Partners","Bookings by Partner"],
         prrooms:["Partners","PR-Rooms"],
