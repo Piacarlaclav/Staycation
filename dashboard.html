@@ -11877,8 +11877,27 @@ const PHOTO_ROOMS = [
 ];
 let cleaning = (() => { const raw = localStorage.getItem(CLEAN_KEY); return raw ? JSON.parse(raw) : {}; })();
 function persistCleaning(){
-    try{ localStorage.setItem(CLEAN_KEY, JSON.stringify(cleaning)); return true; }
+    // LOCAL mirror only (suppressed push). The old full-object push carried every haven's base64
+    // photos in one request — too large for the server, which rejected it, so cleaning work
+    // silently never saved. Server writes now go per-entry through saveCleanEntry(id).
+    try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(CLEAN_KEY, JSON.stringify(cleaning)); return true; }
     catch(e){ alert("Could not save — browser storage is full. Try removing some photos."); return false; }
+}
+// Save ONE booking's cleaning entry to the server (transactional per-entry merge — two cleaners
+// on different havens can never overwrite each other). Local copy updates instantly; a failed
+// server write is announced loudly instead of pretending it saved.
+async function saveCleanEntry(id){
+    persistCleaning();
+    if(typeof renderCleaners === "function") renderCleaners();
+    try{
+        const r = await fetch("/api/cleaning/" + encodeURIComponent(id), {
+            method:"POST", headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({ entry: cleaning[id] || null })
+        });
+        if(!r.ok) throw new Error("HTTP " + r.status);
+    }catch(e){
+        alert("⚠️ This cleaning update was NOT saved to the server (slow / offline). It is kept on this device — please redo the action once you're back online.");
+    }
 }
 function cleanLog(id){
     if(!cleaning[id]) cleaning[id] = { startedAt:null, doneAt:null, photos:{}, history:[] };
@@ -12050,9 +12069,8 @@ function saveCleanReport(){
     log.reports = log.reports || [];
     log.reports.push({ note, user: cleanCurrentUser(), at: new Date().toISOString() });
     cleanAddHistory(log, "Reported an issue: " + note, cleanReportId);
-    persistCleaning();
+    saveCleanEntry(cleanReportId);
     closeCleanReport();
-    renderCleaners();
 }
 
 function cleanCardHtml(b){
@@ -12238,7 +12256,7 @@ function cleanBegin(id){
     log.startedAt = new Date().toISOString();
     if(log.doneAt && log.doneAt < log.startedAt) log.doneAt = null;
     cleanAddHistory(log, "Started cleaning", id);
-    persistCleaning(); renderCleaners();
+    saveCleanEntry(id);
 }
 function cleanDone(id){
     const log = cleanLog(id);
@@ -12252,7 +12270,7 @@ function cleanDone(id){
     log.doneAt = new Date().toISOString();
     log.doneBy = cleanCurrentUser();   // who finished it → drives housekeeping payroll
     cleanAddHistory(log, "Marked done", id);
-    persistCleaning(); renderCleaners();
+    saveCleanEntry(id);
 }
 // admin can revert an accidental START / DONE
 function cleanUndoStart(id){
@@ -12262,7 +12280,7 @@ function cleanUndoStart(id){
     log.doneAt = null;
     log.doneBy = null;
     cleanAddHistory(log, "Undid start", id);
-    persistCleaning(); renderCleaners();
+    saveCleanEntry(id);
 }
 function cleanUndoDone(id){
     if(!confirm("Undo DONE? This marks the task back to in progress.")) return;
@@ -12270,7 +12288,7 @@ function cleanUndoDone(id){
     log.doneAt = null;
     log.doneBy = null;   // no longer counts toward payroll
     cleanAddHistory(log, "Undid done", id);
-    persistCleaning(); renderCleaners();
+    saveCleanEntry(id);
 }
 const _cleanBusy = new Set();   // per-slot in-flight guard so a re-triggered same-photo upload can't double-write
 function cleanPhoto(id, key, input){
@@ -12279,14 +12297,17 @@ function cleanPhoto(id, key, input){
     const slot = id + "|" + key;
     if(_cleanBusy.has(slot)) return;   // this exact photo slot is already processing
     _cleanBusy.add(slot);
-    resizeImage(file, dataUrl => {
+    resizeImage(file, async dataUrl => {
         try{
+            // offload to a tiny /img link FIRST — full-res base64 photos are what made the old
+            // whole-object save overflow the server's request limit and silently never save
+            const ref = await _offloadImg(dataUrl);
             const log = cleanLog(id);
             log.photos = log.photos || {};
             const existed = !!log.photos[key];
-            log.photos[key] = dataUrl;
+            log.photos[key] = ref;
             cleanAddHistory(log, (existed ? "Replaced" : "Added") + " " + key + " photo", id);
-            persistCleaning(); renderCleaners();
+            saveCleanEntry(id);
         } finally { _cleanBusy.delete(slot); }
     });
 }
@@ -12296,10 +12317,46 @@ function cleanRemovePhoto(id, key){
     if(!confirm("Remove this photo?")) return;
     delete log.photos[key];
     cleanAddHistory(log, "Removed " + key + " photo", id);
-    persistCleaning(); renderCleaners();
+    saveCleanEntry(id);
 }
 
 renderCleaners();
+
+// RESCUE (runs once per page load): cleaning saved before 2026-07-18 only ever reached the
+// device it was tapped on — the whole-object push was too large and the server rejected it, so
+// the server copy can be missing entries this browser still holds (the sync queue kept a copy
+// alive across reloads). Push any local entry the server lacks (or holds an older copy of) up
+// per-record with its photos offloaded, then cancel the old doomed full-object retry.
+(async function rescueLocalCleaning(){
+    try{
+        const server = (window.__SEED__ && window.__SEED__[CLEAN_KEY]) || {};
+        const sv = (server && typeof server === "object" && !Array.isArray(server)) ? server : {};
+        let pushed = 0;
+        for(const id in cleaning){
+            if(!Object.prototype.hasOwnProperty.call(cleaning, id)) continue;
+            const loc = cleaning[id];
+            if(!loc || typeof loc !== "object") continue;
+            const locStamp = String(loc.doneAt || loc.startedAt || "");
+            const hasPhotos = loc.photos && Object.keys(loc.photos).length;
+            if(!locStamp && !hasPhotos) continue;                              // nothing worth saving
+            const srv = sv[id];
+            const srvStamp = srv ? String(srv.doneAt || srv.startedAt || "") : "";
+            if(srv && srvStamp >= locStamp) continue;                          // server already has this (or newer)
+            if(loc.photos) for(const k in loc.photos) loc.photos[k] = await _offloadImg(loc.photos[k]);
+            const r = await fetch("/api/cleaning/" + encodeURIComponent(id), {
+                method:"POST", headers:{ "Content-Type":"application/json" },
+                body: JSON.stringify({ entry: loc })
+            });
+            if(r.ok) pushed++;
+        }
+        if(window.shphDropPending) window.shphDropPending(CLEAN_KEY);          // stop the old too-large retry loop
+        if(pushed){
+            persistCleaning();                                                  // keep the offloaded refs locally too
+            console.log("[cleaning] rescued " + pushed + " locally-stranded cleaning record(s) to the server");
+            renderCleaners();
+        }
+    }catch(e){ console.warn("[cleaning] rescue skipped:", e && e.message); }
+})();
 
 /* ---------- haven listings manager (website content) ---------- */
 let listings = loadHavens();

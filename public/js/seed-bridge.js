@@ -198,6 +198,14 @@
     try { localStorage.setItem(key, String(value)); } catch (e) {}
     _suppressPush = false;
   };
+  // Let a page cancel a queued whole-key push it has replaced with per-record saves
+  // (e.g. the housekeeping log after rescuing entries) — stops a doomed too-large retry loop.
+  window.shphDropPending = function (key) {
+    if (pending[key] === undefined) return;
+    delete pending[key]; delete lastErr[key]; delete delay[key];
+    if (timer[key]) { clearTimeout(timer[key]); timer[key] = null; }
+    persistPending(); updateBanner();
+  };
   function _isImgUrl(s) { return typeof s === "string" && s.indexOf("data:image") === 0 && s.indexOf(";base64,") !== -1; }
   function _collectImgs(v, out) {
     if (typeof v === "string") { if (_isImgUrl(v)) out[v] = true; return; }

@@ -193,6 +193,11 @@ apiRouter.get("/kv/:key", async (req, res) => {
     try { return res.json(await store.readFreshList(key)); }
     catch (e) { console.warn("[api] fresh read failed for", key, "—", e.message); }
   }
+  // the housekeeping log must be live too (object key — not in the list set above)
+  if (key === "shph_cleaning_v1") {
+    try { return res.json(await store.readFreshKey(key)); }
+    catch (e) { console.warn("[api] fresh read failed for", key, "—", e.message); }
+  }
   res.json(store.get(key));
 });
 
@@ -575,6 +580,23 @@ apiRouter.post("/booking/:id/patch", async (req, res) => {
   }
 });
 
+// PER-ENTRY housekeeping write — saves ONE booking's cleaning log into the shared map,
+// transactionally. Replaces the old whole-object kv push, which (a) carried every haven's
+// base64 photos so it overflowed the request-size limit and the cleaning work silently never
+// saved, and (b) let two cleaners overwrite each other. Photos arrive as tiny /img refs
+// (the browser offloads them via POST /api/img first).
+apiRouter.post("/cleaning/:bookingId", async (req, res) => {
+  const entry = req.body && req.body.entry;
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) return res.status(400).json({ error: "no entry" });
+  try {
+    await store.setObjectProp("shph_cleaning_v1", String(req.params.bookingId), entry);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("[api] cleaning save failed:", e.message);
+    res.status(502).json({ ok: false, error: "persist failed" });
+  }
+});
+
 // lightweight per-booking status change — cancel / reinstate / delete.
 // The browser only sends the id + action (tiny), so a quick refresh can't lose it
 // (unlike re-uploading the whole bookings array, which carries base64 images).
@@ -784,6 +806,13 @@ function renderPage(name) {
         console.warn("[render] fresh read failed for", _key, "—", e.message);
       }
     }));
+    // The housekeeping log is an OBJECT key (bookingId → entry), so the list loop above doesn't
+    // cover it — read it fresh too, or a warm instance shows "Not started" for cleaning work
+    // already saved through another instance.
+    try {
+      const freshClean = await store.readFreshKey("shph_cleaning_v1");
+      if (freshClean && typeof freshClean === "object" && !Array.isArray(freshClean)) seed.shph_cleaning_v1 = freshClean;
+    } catch (e) { console.warn("[render] fresh read failed for shph_cleaning_v1 —", e.message); }
     // Website Maintenance switch: guest-facing pages show a "back soon" notice while it's on. Read
     // the flag FRESH so a stale per-instance cache can't keep the site up after the owner takes it
     // down. The dashboard/admin pages are NOT gated, so the owner can always flip it back.
