@@ -3431,6 +3431,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                     <img id="downProofImg" class="proof-img" alt="downpayment proof" onclick="openProofImg(this.src)">
                     <button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteProofImg('down')">✕</button>
                 </span>
+                <span class="proof-thumb" id="downProofThumb2" style="display:none;">
+                    <img id="downProofImg2" class="proof-img" alt="downpayment proof 2" onclick="openProofImg(this.src)">
+                    <button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteProofImg('down', 2)">✕</button>
+                </span>
                 <label class="proof-upload" data-proof="down">
                     <span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>
                     <span class="pu-body"><b>Upload downpayment proof</b><small class="pu-name" id="downProofName">No file chosen</small></span>
@@ -3451,6 +3455,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                     <img id="addonProofImg" class="proof-img" alt="add-ons proof" onclick="openProofImg(this.src)">
                     <button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteProofImg('addon')">✕</button>
                 </span>
+                <span class="proof-thumb" id="addonProofThumb2" style="display:none;">
+                    <img id="addonProofImg2" class="proof-img" alt="add-ons proof 2" onclick="openProofImg(this.src)">
+                    <button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteProofImg('addon', 2)">✕</button>
+                </span>
                 <label class="proof-upload" data-proof="addon">
                     <span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>
                     <span class="pu-body"><b>Upload add-ons proof</b><small class="pu-name" id="addonProofName">No file chosen</small></span>
@@ -3465,6 +3473,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <span class="proof-thumb" id="extendProofThumb" style="display:none;">
                     <img id="extendProofImg" class="proof-img" alt="additional-hours proof" onclick="openProofImg(this.src)">
                     <button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteProofImg('extend')">✕</button>
+                </span>
+                <span class="proof-thumb" id="extendProofThumb2" style="display:none;">
+                    <img id="extendProofImg2" class="proof-img" alt="additional-hours proof 2" onclick="openProofImg(this.src)">
+                    <button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteProofImg('extend', 2)">✕</button>
                 </span>
                 <label class="proof-upload" data-proof="extend">
                     <span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>
@@ -3482,6 +3494,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <span class="proof-thumb" id="reschedProofThumb" style="display:none;">
                     <img id="reschedProofImg" class="proof-img" alt="resched-fee proof" onclick="openProofImg(this.src)">
                     <button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteProofImg('resched')">✕</button>
+                </span>
+                <span class="proof-thumb" id="reschedProofThumb2" style="display:none;">
+                    <img id="reschedProofImg2" class="proof-img" alt="resched-fee proof 2" onclick="openProofImg(this.src)">
+                    <button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteProofImg('resched', 2)">✕</button>
                 </span>
                 <label class="proof-upload" data-proof="resched">
                     <span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>
@@ -5818,10 +5834,15 @@ function viewBooking(id){
     const add = (src, label) => { if(src){ const i = vbPhotos.push(src) - 1; items.push({ i, label }); } };
     (b.ids || []).forEach((s, n) => add(s, "Valid ID " + (n + 1)));
     add(b.downProof, "Downpayment proof");
+    add(b.downProof2, "Downpayment proof (2)");
     add(b.balanceProof, "Balance proof");
+    add(b.balanceProof2, "Balance proof (2)");
     add(b.addonProof, "Add-on proof");
+    add(b.addonProof2, "Add-on proof (2)");
     add(b.extendProof, "Additional-hours proof");
+    add(b.extendProof2, "Additional-hours proof (2)");
     add(b.reschedProof, "Resched-fee proof");
+    add(b.reschedProof2, "Resched-fee proof (2)");
     add(b.depositProof, "Deposit proof");
     (b.payments || []).forEach(p => add(p.proof, (p.category || "Payment") + " proof"));
     const photosHtml = items.length
@@ -6233,9 +6254,9 @@ function deletePaymentRow(bookingId, idx){
     if(!confirm(`Delete this ${p.category || "Balance"} payment of ${peso(p.amount)}? This cannot be undone.`)) return;
     b.payments.splice(idx, 1);
     const clearAddon = ('addonProof' in b) && !(b.payments || []).some(x => x.category === "Add Ons");
-    if(clearAddon) delete b.addonProof;
+    if(clearAddon){ delete b.addonProof; delete b.addonProof2; }
     bkPaymentDelete(b, idx, p.pid);
-    if(clearAddon) patchBooking(b.id, { addonProof: null });
+    if(clearAddon) patchBooking(b.id, { addonProof: null, addonProof2: null });
     logActivity(`deleted ${p.category || "Balance"} payment — ${b.haven} · ${peso(p.amount)} (${p.mop})`);
     renderPaymentApproval();
     renderAll();
@@ -6980,6 +7001,9 @@ function closeModal(){
 
 /* ---------- booking modal: page 2 (proof of payment) ---------- */
 let downProofData = null, addonProofData = null, balProofData = null, balProofDirty = false, extendProofData = null, reschedProofData = null;
+// second photo slot per proof channel (each proof can hold up to 2 photos; slot 1 stays the
+// field every existing consumer reads — PDF, missing-photo flag — so old bookings are untouched)
+let downProofData2 = null, addonProofData2 = null, balProofData2 = null, extendProofData2 = null, reschedProofData2 = null;
 function bkGoPage(n){
     document.getElementById("bkPage1").style.display = n === 1 ? "" : "none";
     document.getElementById("bkPage2").style.display = n === 2 ? "" : "none";
@@ -7371,57 +7395,79 @@ function setProofName(id, f){
     if(el) el.textContent = f ? (f.name || "Photo attached") : "No file chosen";
 }
 const PROOF_CFG = {
-    down:   { nameId:"downProofName",   imgId:"downProofImg",   thumbId:"downProofThumb",   fileId:"downProofFile"   },
-    addon:  { nameId:"addonProofName",  imgId:"addonProofImg",  thumbId:"addonProofThumb",  fileId:"addonProofFile"  },
-    extend: { nameId:"extendProofName", imgId:"extendProofImg", thumbId:"extendProofThumb", fileId:"extendProofFile" },
-    resched:{ nameId:"reschedProofName",imgId:"reschedProofImg",thumbId:"reschedProofThumb",fileId:"reschedProofFile"},
-    bal:    { nameId:"balProofName",    imgId:"balProofImg",    thumbId:"balProofThumb"    }
+    down:   { nameId:"downProofName",   imgId:"downProofImg",   thumbId:"downProofThumb",   fileId:"downProofFile",   img2Id:"downProofImg2",   thumb2Id:"downProofThumb2"   },
+    addon:  { nameId:"addonProofName",  imgId:"addonProofImg",  thumbId:"addonProofThumb",  fileId:"addonProofFile",  img2Id:"addonProofImg2",  thumb2Id:"addonProofThumb2"  },
+    extend: { nameId:"extendProofName", imgId:"extendProofImg", thumbId:"extendProofThumb", fileId:"extendProofFile", img2Id:"extendProofImg2", thumb2Id:"extendProofThumb2" },
+    resched:{ nameId:"reschedProofName",imgId:"reschedProofImg",thumbId:"reschedProofThumb",fileId:"reschedProofFile",img2Id:"reschedProofImg2",thumb2Id:"reschedProofThumb2"},
+    bal:    { nameId:"balProofName",    imgId:"balProofImg",    thumbId:"balProofThumb",    img2Id:"balProofImg2",    thumb2Id:"balProofThumb2" }
 };
 let addonShownPayIdx = -1;   // payments[] index when the add-ons image is a collection's photo (else -1)
-// shared core: accept an image File from the picker, a drop, or a paste
+// each manual proof channel holds up to TWO photos (slot 1 + slot 2)
+function _proofGet(type, slot){
+    if(type === "down")   return slot === 2 ? downProofData2   : downProofData;
+    if(type === "addon")  return slot === 2 ? addonProofData2  : addonProofData;
+    if(type === "extend") return slot === 2 ? extendProofData2 : extendProofData;
+    if(type === "resched")return slot === 2 ? reschedProofData2: reschedProofData;
+    if(type === "bal")    return slot === 2 ? balProofData2    : balProofData;
+    return null;
+}
+function _proofSet(type, slot, v){
+    if(type === "down"){   if(slot === 2) downProofData2 = v;   else downProofData = v; }
+    if(type === "addon"){  if(slot === 2) addonProofData2 = v;  else addonProofData = v; }
+    if(type === "extend"){ if(slot === 2) extendProofData2 = v; else extendProofData = v; }
+    if(type === "resched"){if(slot === 2) reschedProofData2 = v;else reschedProofData = v; }
+    if(type === "bal"){    if(slot === 2) balProofData2 = v;    else balProofData = v;    balProofDirty = true; }
+}
+// "1 of 2 attached" label under each upload button
+function proofCountLabel(type){
+    const n = (_proofGet(type, 1) ? 1 : 0) + (_proofGet(type, 2) ? 1 : 0);
+    return n === 0 ? "No file chosen" : n === 1 ? "1 of 2 attached ✓ — you can add 1 more" : "2 of 2 attached ✓";
+}
+function _proofSlotUI(type, slot, dataUrl){
+    const cfg = PROOF_CFG[type]; if(!cfg) return;
+    const img = document.getElementById(slot === 2 ? cfg.img2Id : cfg.imgId);
+    const t   = document.getElementById(slot === 2 ? cfg.thumb2Id : cfg.thumbId);
+    if(img){ img.src = dataUrl || ""; img.style.display = dataUrl ? "block" : "none"; }
+    if(t) t.style.display = dataUrl ? "inline-block" : "none";
+    const nm = document.getElementById(cfg.nameId); if(nm) nm.textContent = proofCountLabel(type);
+}
+// shared core: accept an image File from the picker, a drop, or a paste.
+// Fills the first empty slot; when both slots are full, the new photo replaces photo 2.
 function applyProofFile(type, f){
     const cfg = PROOF_CFG[type];
     if(!cfg || !f || !/^image\//.test(f.type)) return;
-    setProofName(cfg.nameId, f);
     resizeImage(f, dataUrl => {
-        if(type === "down")   downProofData = dataUrl;
-        if(type === "addon")  addonProofData = dataUrl;
-        if(type === "extend") extendProofData = dataUrl;
-        if(type === "resched") reschedProofData = dataUrl;
-        if(type === "bal"){ balProofData = dataUrl; balProofDirty = true; }
-        const img = document.getElementById(cfg.imgId);
-        if(img){ img.src = dataUrl; img.style.display = "block"; }
-        if(cfg.thumbId){ const t = document.getElementById(cfg.thumbId); if(t) t.style.display = "inline-block"; }
+        const slot = _proofGet(type, 1) ? 2 : 1;
+        _proofSet(type, slot, dataUrl);
+        _proofSlotUI(type, slot, dataUrl);
     });
 }
-// delete an attached proof photo. Manual channels (down/addon/bal) clear the in-memory
+// delete an attached proof photo (slot 1 or 2). Manual channels clear the in-memory
 // copy and hide it — persisted when you click Save Booking (so Cancel undoes it). When
 // the add-ons image is actually a collection's photo, remove that photo immediately.
-function deleteProofImg(type){
-    if(type === "addon" && addonShownPayIdx >= 0){ deleteCollectionPhoto(addonShownPayIdx); return; }
+function deleteProofImg(type, slot){
+    slot = slot === 2 ? 2 : 1;
+    if(type === "addon" && slot === 1 && addonShownPayIdx >= 0){ deleteCollectionPhoto(addonShownPayIdx); return; }
     const cfg = PROOF_CFG[type];
     if(!cfg) return;
-    if(type === "down")  downProofData = null;
-    else if(type === "addon") addonProofData = null;
-    else if(type === "extend") extendProofData = null;
-    else if(type === "resched") reschedProofData = null;
-    else if(type === "bal"){ balProofData = null; balProofDirty = true; }
-    const img = document.getElementById(cfg.imgId); if(img){ img.src = ""; img.style.display = "none"; }
-    const t = cfg.thumbId && document.getElementById(cfg.thumbId); if(t) t.style.display = "none";
-    const nm = document.getElementById(cfg.nameId); if(nm) nm.textContent = "No file chosen";
+    _proofSet(type, slot, null);
+    _proofSlotUI(type, slot, null);
     const fi = cfg.fileId && document.getElementById(cfg.fileId); if(fi) fi.value = "";
 }
-// remove just one collection's photo (keep the collection) — saves immediately
-function deleteCollectionPhoto(idx){
+// remove just one collection's photo (keep the collection) — saves immediately.
+// slot 2 removes the second photo; default removes the first (promoting photo 2 into its place).
+function deleteCollectionPhoto(idx, slot){
     if(editingId == null) return;
     const bIdx = bookings.findIndex(x => x.id === editingId);
     if(bIdx === -1) return;
     const pays = bookings[bIdx].payments || [];
-    if(!pays[idx] || !pays[idx].proof) return;
+    const p = pays[idx];
+    if(!p || !(slot === 2 ? p.proof2 : p.proof)) return;
     if(!confirm("Delete this payment photo? The collection stays; only the photo is removed.")) return;
-    delete pays[idx].proof;
+    if(slot === 2) delete p.proof2;
+    else { if(p.proof2){ p.proof = p.proof2; delete p.proof2; } else delete p.proof; }
     bkPaymentEdit(bookings[bIdx], idx);
-    logActivity(`deleted payment photo — ${bookings[bIdx].haven} · ${peso(pays[idx].amount)}`);
+    logActivity(`deleted payment photo — ${bookings[bIdx].haven} · ${peso(p.amount)}`);
     renderProofPage(bookings[bIdx]);
     renderAll();
 }
@@ -7467,16 +7513,14 @@ function renderProofPage(b){
         `<div class="pt-status"><span>Status</span><b>${sStatus}</b></div>`;
 
     downProofData = (b && b.downProof) || null;
+    downProofData2 = (b && b.downProof2) || null;
     const down = b ? (Number(b.downpayment) || 0) : (Number(document.getElementById("f_down").value) || 0);
     const method = (b && b.method) || document.getElementById("f_method").value || "—";
     document.getElementById("downMeta").innerHTML =
         `<span>Amount <strong>${peso(down)}</strong></span><span>Method <strong>${method}</strong></span>`;
-    const dImg = document.getElementById("downProofImg");
-    const dThumb = document.getElementById("downProofThumb");
     document.getElementById("downProofFile").value = "";
-    document.getElementById("downProofName").textContent = downProofData ? "Photo attached ✓" : "No file chosen";
-    if(downProofData){ dImg.src = downProofData; dThumb.style.display = "inline-block"; }
-    else { dImg.src = ""; dThumb.style.display = "none"; }
+    _proofSlotUI("down", 1, downProofData);
+    _proofSlotUI("down", 2, downProofData2);
 
     // split collections by category so each shows in the right section
     const pays = (b && b.payments) || [];
@@ -7486,6 +7530,7 @@ function renderProofPage(b){
     // balance section — always offers an upload card (manual channel: b.balanceProof),
     // and when a Balance collection exists it also shows/replaces that collection's proof
     balProofData = (b && b.balanceProof) || null;
+    balProofData2 = (b && b.balanceProof2) || null;
     balProofDirty = false;
     const list = document.getElementById("balProofList");
     const UP_ICO = `<svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg>`;
@@ -7506,10 +7551,12 @@ function renderProofPage(b){
                         <div class="dp-foot"><span onclick="balDpToday()">Today</span></div>
                     </div>
                 </div>
-                ${p.proof ? `<span class="proof-thumb"><img class="proof-img" src="${p.proof}" onclick="openProofImg(this.src)"><button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteCollectionPhoto(${gi})">✕</button></span>` : `<div class="proof-empty">No photo for this collection.</div>`}
+                ${p.proof || p.proof2 ? "" : `<div class="proof-empty">No photo for this collection.</div>`}
+                ${p.proof ? `<span class="proof-thumb"><img class="proof-img" src="${p.proof}" onclick="openProofImg(this.src)"><button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteCollectionPhoto(${gi})">✕</button></span>` : ""}
+                ${p.proof2 ? `<span class="proof-thumb"><img class="proof-img" src="${p.proof2}" onclick="openProofImg(this.src)"><button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteCollectionPhoto(${gi}, 2)">✕</button></span>` : ""}
                 <label class="proof-upload">
                     <span class="pu-ico">${UP_ICO}</span>
-                    <span class="pu-body"><b>${p.proof ? "Replace" : "Upload"} photo</b><small class="pu-name">${p.proof ? "Photo attached ✓" : "No file chosen"}</small></span>
+                    <span class="pu-body"><b>${p.proof && p.proof2 ? "Replace 2nd photo" : p.proof || p.proof2 ? "Add photo" : "Upload photo"}</b><small class="pu-name">${p.proof && p.proof2 ? "2 of 2 attached ✓" : p.proof || p.proof2 ? "1 of 2 attached ✓ — you can add 1 more" : "No file chosen"}</small></span>
                     <input type="file" accept="image/*" onchange="replaceCollectionProof(${gi}, this)">
                 </label>
                 <span class="proof-del" onclick="deleteCollectionAt(${gi})">Delete this collection</span>
@@ -7536,9 +7583,13 @@ function renderProofPage(b){
                 `<img id="balProofImg" class="proof-img" src="${balShown || ""}" onclick="openProofImg(this.src)">` +
                 `<button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteProofImg('bal')">✕</button>` +
             `</span>` +
+            `<span class="proof-thumb" id="balProofThumb2" style="${balProofData2 ? "" : "display:none;"}">` +
+                `<img id="balProofImg2" class="proof-img" src="${balProofData2 || ""}" onclick="openProofImg(this.src)">` +
+                `<button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteProofImg('bal', 2)">✕</button>` +
+            `</span>` +
             `<label class="proof-upload" data-proof="bal">` +
                 `<span class="pu-ico">${UP_ICO}</span>` +
-                `<span class="pu-body"><b>Upload balance proof</b><small class="pu-name" id="balProofName">${balShown ? "Photo attached ✓" : "No file chosen"}</small></span>` +
+                `<span class="pu-body"><b>Upload balance proof</b><small class="pu-name" id="balProofName">${proofCountLabel("bal")}</small></span>` +
                 `<input type="file" accept="image/*" onchange="onBalProofChange(this)">` +
             `</label>`;
     }
@@ -7575,36 +7626,37 @@ function renderProofPage(b){
         </div>`;
     }
     document.getElementById("addonMeta").innerHTML = addonMeta;
+    addonProofData2 = (b && b.addonProof2) || null;
     const aImg = document.getElementById("addonProofImg");
     const aThumb = document.getElementById("addonProofThumb");
     document.getElementById("addonProofFile").value = "";
-    document.getElementById("addonProofName").textContent = addonShown ? "Photo attached ✓" : "No file chosen";
     if(addonShown){ aImg.src = addonShown; aThumb.style.display = "inline-block"; }
     else { aImg.src = ""; aThumb.style.display = "none"; }
+    _proofSlotUI("addon", 2, addonProofData2);
+    // the shown slot-1 image may be a collection's photo (not addonProofData), so set the label last
+    document.getElementById("addonProofName").textContent =
+        (addonShown ? 1 : 0) + (addonProofData2 ? 1 : 0) === 2 ? "2 of 2 attached ✓"
+        : (addonShown || addonProofData2) ? "1 of 2 attached ✓ — you can add 1 more" : "No file chosen";
     document.getElementById("addonDel").style.display = latestAddonPay ? "inline-block" : "none";
 
     // Additional Hours (Extend) — its own amount + manual proof, kept separate from add-ons
     extendProofData = (b && b.extendProof) || null;
+    extendProofData2 = (b && b.extendProof2) || null;
     document.getElementById("extendMeta").innerHTML =
         `<span>Extend ${extend}h${extend ? " · " + peso(PRICING.extendPerHr) + "/hr" : ""}</span><span>Total <strong>${peso(extendAmt)}</strong></span>`;
-    const eImg = document.getElementById("extendProofImg");
-    const eThumb = document.getElementById("extendProofThumb");
     document.getElementById("extendProofFile").value = "";
-    document.getElementById("extendProofName").textContent = extendProofData ? "Photo attached ✓" : "No file chosen";
-    if(extendProofData){ eImg.src = extendProofData; eThumb.style.display = "inline-block"; }
-    else { eImg.src = ""; eThumb.style.display = "none"; }
+    _proofSlotUI("extend", 1, extendProofData);
+    _proofSlotUI("extend", 2, extendProofData2);
 
     // Resched Fee — flat reschedule fee + its own manual proof
     const reschedFee = b ? (Number(b.reschedFee) || 0) : (document.getElementById("f_resched").checked ? PRICING.reschedFee : 0);
     reschedProofData = (b && b.reschedProof) || null;
+    reschedProofData2 = (b && b.reschedProof2) || null;
     document.getElementById("reschedMeta").innerHTML =
         `<span>Reschedule fee${reschedFee ? " · " + peso(PRICING.reschedFee) : ""}</span><span>Total <strong>${peso(reschedFee)}</strong></span>`;
-    const rImg = document.getElementById("reschedProofImg");
-    const rThumb = document.getElementById("reschedProofThumb");
     document.getElementById("reschedProofFile").value = "";
-    document.getElementById("reschedProofName").textContent = reschedProofData ? "Photo attached ✓" : "No file chosen";
-    if(reschedProofData){ rImg.src = reschedProofData; rThumb.style.display = "inline-block"; }
-    else { rImg.src = ""; rThumb.style.display = "none"; }
+    _proofSlotUI("resched", 1, reschedProofData);
+    _proofSlotUI("resched", 2, reschedProofData2);
 
     // "Date paid" per charge (manual channel; saved on Save Booking)
     document.getElementById("addonDate").value   = (b && b.addonDate)   || "";
@@ -7635,9 +7687,13 @@ function replaceCollectionProof(idx, input){
     const pays = bookings[bIdx].payments || [];
     if(!pays[idx]) return;
     resizeImage(f, async dataUrl => {
-        pays[idx].proof = await _offloadImg(dataUrl);   // durable /img ref, never lost
+        const ref = await _offloadImg(dataUrl);   // durable /img ref, never lost
+        const p = pays[idx];
+        // up to two photos per collection: fill the first empty slot; both full → replace photo 2
+        if(!p.proof) p.proof = ref;
+        else p.proof2 = ref;
         bkPaymentEdit(bookings[bIdx], idx);
-        logActivity(`replaced payment photo — ${bookings[bIdx].haven} · ${peso(pays[idx].amount)} (${pays[idx].category || "Balance"})`);
+        logActivity(`${p.proof && p.proof2 ? "added/replaced" : "added"} payment photo — ${bookings[bIdx].haven} · ${peso(p.amount)} (${p.category || "Balance"})`);
         renderProofPage(bookings[bIdx]);
         renderAll();
     });
@@ -7853,14 +7909,21 @@ async function saveBooking(){
         bookedAt: _bookedAtIso || new Date().toISOString(),
         commissionName: commissionName,
         commissionAmount: commissionAmount,
-        downProof: downProofData || null,
-        addonProof: addonProofData || null,
-        extendProof: extendProofData || null,
-        reschedProof: reschedProofData || null,
+        // two photo slots per proof; if only slot 2 is filled it's promoted to slot 1, so
+        // everything that reads the original field (PDF, missing-photo flag) keeps working
+        downProof: downProofData || downProofData2 || null,
+        downProof2: (downProofData && downProofData2) || null,
+        addonProof: addonProofData || addonProofData2 || null,
+        addonProof2: (addonProofData && addonProofData2) || null,
+        extendProof: extendProofData || extendProofData2 || null,
+        extendProof2: (extendProofData && extendProofData2) || null,
+        reschedProof: reschedProofData || reschedProofData2 || null,
+        reschedProof2: (reschedProofData && reschedProofData2) || null,
         addonDate: (document.getElementById("addonDate") || {}).value || null,
         extendDate: (document.getElementById("extendDate") || {}).value || null,
         reschedDate: (document.getElementById("reschedDate") || {}).value || null,
-        balanceProof: balProofData || null,
+        balanceProof: balProofData || balProofData2 || null,
+        balanceProof2: (balProofData && balProofData2) || null,
         ids: idsData.slice(),
         idOptOut: document.getElementById("f_idOptOut").checked
     };
@@ -7911,6 +7974,7 @@ async function saveBooking(){
             downpayment: 0,
             notes: data.notes,
             downProof: null, addonProof: null, extendProof: null, reschedProof: null, balanceProof: null,
+            downProof2: null, addonProof2: null, extendProof2: null, reschedProof2: null, balanceProof2: null,
             ids: data.ids, idOptOut: data.idOptOut,
             bookedBy: data.bookedBy, bookedAt: data.bookedAt,   // commission stays on the primary only
             _sid: seg.sid                                        // stable id for retry-safe upsert (stripped before save)
