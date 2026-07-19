@@ -13646,9 +13646,20 @@ function applyPermissions(){
     if(typeof applyNavCollapse === "function") applyNavCollapse();          // honor minimized sub-categories
     const ab = document.getElementById("addBookingBtn");
     if(ab) ab.style.display = canAddBooking() ? "" : "none";   // only admin/CSR can add bookings
+    // Rescue: the signed-in user is on a page they can't see (or nothing is open yet) → move
+    // them somewhere valid. Two guards, both learned the hard way:
+    //  • Don't fire while a page IS already open. This runs on first load BEFORE any nav item
+    //    is marked active, so it used to hijack whatever page the URL asked for.
+    //  • Never land on Notes / Board / the action items. partners.js registers its pages LAST,
+    //    so early on the first "visible" item was the private Notes page — which is how
+    //    clicking Calendar/Bookings ended up opening Notes.
     const active = document.querySelector(".sidebar .nav-item.active");
-    if(!active || active.style.display === "none"){
-        const first = [...document.querySelectorAll(".sidebar .nav-item")].find(n => n.style.display !== "none");
+    const shown = document.querySelector(".page.active");
+    if((!active || active.style.display === "none") && !shown){
+        const SKIP = ["notes", "board", "partnerdash", "addpartner", "today"];
+        const first = [...document.querySelectorAll(".sidebar .nav-item")].find(n =>
+            n.style.display !== "none" && SKIP.indexOf(n.dataset.page) === -1
+            && document.getElementById("page-" + n.dataset.page));
         if(first) showPage(first.dataset.page);
     }
 }
