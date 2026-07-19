@@ -4255,10 +4255,13 @@ function bookingInterval(b){
 // minimum turnaround/cleaning gap required between two stays in the same haven.
 // e.g. if a guest checks out at 8:00 AM, the next check-in can only be 9:00 AM or later.
 const CLEANING_GAP_MIN = 60; // 1 hour
-// the property opens for check-ins at 9:00 AM. A same-day check-out pushes the next
-// check-in even later via CLEANING_GAP_MIN; this floor covers havens that have been
-// vacant since an earlier day (you still can't check a guest in before 9 AM).
-const EARLIEST_CHECKIN_MIN = 540; // 9:00 AM
+// Earliest a guest may be checked in on a haven that's been vacant since an earlier day.
+// A same-day check-out still pushes the next check-in later via CLEANING_GAP_MIN — this is
+// only the floor. The BACK OFFICE may book from 8:00 AM (the owner can accommodate an early
+// arrival); partners keep the standard 9:00 AM. The public website has its own slot list.
+const EARLIEST_CHECKIN_MIN = 540; // 9:00 AM — partner/standard floor
+const EARLIEST_CHECKIN_ADMIN_MIN = 480; // 8:00 AM — back-office floor
+function earliestCheckinMin(){ return window.__PARTNER__ ? EARLIEST_CHECKIN_MIN : EARLIEST_CHECKIN_ADMIN_MIN; }
 // do two booking time-windows clash, including the required cleaning gap between them?
 function intervalsClash(ai, bi){
     return ai.start < bi.end + CLEANING_GAP_MIN && bi.start < ai.end + CLEANING_GAP_MIN;
@@ -5022,7 +5025,7 @@ function renderAvailability(){
     const lbl = document.getElementById("availDateLabel"); if(lbl) lbl.textContent = fmtDow(D);
     const dayAbs = Math.round(new Date(D + "T00:00:00").getTime() / 60000);
     const dayEnd = dayAbs + 1440;
-    let floor = dayAbs + EARLIEST_CHECKIN_MIN;   // can't check in before 9 AM on the day
+    let floor = dayAbs + earliestCheckinMin();   // 8 AM in the back office, 9 AM for partners
     if(D === iso(today())) floor = Math.max(floor, Math.round(new Date().getTime() / 60000));   // for TODAY, no earlier than right now
     const fmtAbs = function(absMin){
         const dIso = iso(new Date(absMin * 60000));
@@ -6953,7 +6956,7 @@ function onHavenChange(){
     const fm = opt && opt.dataset ? Number(opt.dataset.freemin) : NaN;
     const days = opt && opt.dataset && opt.dataset.freedays ? Number(opt.dataset.freedays) : 0;
     if(days === 0 && opt && opt.dataset && opt.dataset.freemin != null && opt.dataset.freemin !== "" && !isNaN(fm)){
-        setDashCheckinTime(minToTime(Math.max(fm, EARLIEST_CHECKIN_MIN)));   // book from when it frees today
+        setDashCheckinTime(minToTime(Math.max(fm, earliestCheckinMin())));   // book from when it frees today
     }
     onStayChange();   // recompute check-out/totals + refresh haven labels (keeps the pick)
 }

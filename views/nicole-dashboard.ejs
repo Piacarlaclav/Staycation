@@ -1279,7 +1279,8 @@
   }
 
   /* ---------- Availability tab (mirrors the dashboard Calendar → Availability view) ---------- */
-  const EARLIEST_CHECKIN_MIN = 540;   // 9:00 AM — earliest a guest may check in
+  const EARLIEST_CHECKIN_MIN = 480;   // 8:00 AM — back-office floor (the owner can take an early
+  // arrival). Partners/public keep 9:00 AM; a same-day check-out still adds CLEANING_GAP_MIN.
   const CLEANING_GAP_MIN = 60;        // 1h turnaround/cleaning gap required between two stays
 
   // occupied window [start, end) in ABSOLUTE minutes; a 21h overnight stay blocks until its check-out morning
@@ -1369,7 +1370,7 @@
     const lbl = document.getElementById("tbAvailDateLabel"); if(lbl) lbl.textContent = fmt(D);
     const dayAbs = Math.round(new Date(D + "T00:00:00").getTime() / 60000);
     const dayEnd = dayAbs + 1440;
-    let floor = dayAbs + EARLIEST_CHECKIN_MIN;                                    // can't check in before 9 AM on the day
+    let floor = dayAbs + EARLIEST_CHECKIN_MIN;                                    // back office may book from 8 AM
     if(D === iso(today())) floor = Math.max(floor, Math.round(new Date().getTime() / 60000));   // for TODAY, no earlier than right now
     const fmtAbs = function(absMin){
       const dIso = iso(new Date(absMin * 60000));
