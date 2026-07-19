@@ -6916,8 +6916,14 @@ function havenFreeAtMin(haven, cand){
     // so the label/snap don't wrongly place it on the candidate's own check-in date.
     const freeAbs = latestEnd + CLEANING_GAP_MIN;
     const candMid = Math.round(new Date(cand.checkin + "T00:00:00").getTime() / 60000);
-    const tod  = ((freeAbs % 1440) + 1440) % 1440;                       // minutes past midnight of the free date
-    const days = Math.max(0, Math.floor((freeAbs - candMid) / 1440));    // 0 = same day, 1 = next day, …
+    // These are EPOCH minutes, so they are UTC-aligned — `freeAbs % 1440` gave the UTC
+    // time-of-day and every label came out 8 hours early here (11:00 AM showed as 3:00 AM,
+    // and picking the haven snapped check-in to that wrong time). Read the local clock, and
+    // measure the day offset between the two LOCAL midnights.
+    const freeDate = new Date(freeAbs * 60000);
+    const tod = freeDate.getHours() * 60 + freeDate.getMinutes();        // minutes past LOCAL midnight
+    const freeMid = Math.round(new Date(freeDate.getFullYear(), freeDate.getMonth(), freeDate.getDate()).getTime() / 60000);
+    const days = Math.max(0, Math.round((freeMid - candMid) / 1440));    // 0 = same day, 1 = next day, …
     return { tod, days };
 }
 // List EVERY haven. Free havens are selectable as-is; a haven that's busy for the chosen time
