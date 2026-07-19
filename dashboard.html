@@ -13825,19 +13825,25 @@ catch(_e){ console.error("[startup] applyPermissions failed", _e); }
 // pages are Housekeeping / Inventory / Assist) therefore open straight on Housekeeping by
 // default instead of an unpermitted section. "today" is skipped — it hops to its own page —
 // unless it's the account's only allowed item. Admin/partner behavior is unchanged.
-try{
-    if(!window.__PARTNER__){
+// Runs AFTER partners.js has registered its pages (see the listener below) — otherwise
+// Partners/Board aren't in DASH_PAGES yet and this would wrongly "fall back" past them.
+function pickDefaultPage(){
+    try{
+        if(window.__PARTNER__) return;
         const _p = currentPerms(), _adm = isAdminUser();
+        // Notes is the owner's private notebook and Board is a noticeboard — neither is a
+        // sensible place to dump someone on login, so they're never auto-landing targets.
+        const NEVER_LAND = ["notes", "board", "partnerdash", "addpartner"];
         const _ok = pg => (pg === "users" || pg === "log" || pg === "notes") ? _adm : _p.includes(pg);
         const _curOk = savedPage && document.getElementById("page-" + savedPage) && _ok(savedPage);
-        if(!_curOk){
-            const _order = [...document.querySelectorAll(".sidebar .nav-item")].map(n => n.dataset.page).filter(Boolean);
-            const _first = _order.find(pg => pg !== "today" && _ok(pg) && document.getElementById("page-" + pg));
-            if(_first) showPage(_first, "replace");
-            else if(_ok("today")) window.location.href = "/admin/todays-booking";
-        }
-    }
-}catch(_e){ console.error("[startup] default-page pick failed", _e); }
+        if(_curOk) return;                       // the page they asked for is fine — leave it alone
+        const _order = [...document.querySelectorAll(".sidebar .nav-item")].map(n => n.dataset.page).filter(Boolean);
+        const _first = _order.find(pg => pg !== "today" && NEVER_LAND.indexOf(pg) === -1
+            && _ok(pg) && document.getElementById("page-" + pg));
+        if(_first) showPage(_first, "replace");
+        else if(_ok("today")) window.location.href = pageUrlBase() + "todays-booking";
+    }catch(_e){ console.error("[startup] default-page pick failed", _e); }
+}
 ensureSidebarNotEmpty();   // last-resort: a signed-in user is never left with a blank menu
 if(typeof renderMaintToggle === "function") renderMaintToggle();   // sync the Website Live/Maintenance switch
 
@@ -13887,6 +13893,14 @@ try{
 
 <!-- Partners sub-module (pages markup in views/partials/partners.ejs) -->
 <script src="partners.js"></script>
+<script>
+// partners.js registers its pages (Partner List, Board, Inventory, Applications, Affiliates…)
+// into DASH_PAGES as it loads, so the default-landing choice has to happen AFTER it. Running
+// it earlier made those pages look "not permitted" and bounced the user to the first item that
+// passed — which was the private Notes page.
+try{ if(typeof pickDefaultPage === "function") pickDefaultPage(); }catch(e){ console.error("[startup] pickDefaultPage failed", e); }
+try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
+</script>
 
 </body>
 </html>
