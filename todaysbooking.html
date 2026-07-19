@@ -462,47 +462,7 @@
   </div>
   <input type="text" class="m-navsearch" id="mNavSearch" placeholder="Jump to a page…" oninput="filterNav(this.value)" autocomplete="off">
 
-  <div class="nav-group">Board</div>
-  <div class="nav-item" data-page="board" onclick="goPage('board')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 13h8M8 16h5"/></svg></span> Board</div>
-
-  <div class="nav-group">Main</div>
-  <div class="nav-item active" data-page="today"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking <span class="nav-badge" id="todayBadge"></span></div>
-  <div class="nav-item" data-page="calendar" onclick="goPage('calendar')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> Calendar/Bookings</div>
-  <div class="nav-item" data-page="guestform" onclick="goPage('guestform')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span> Guest Form</div>
-  <div class="nav-item" data-page="collections" onclick="goPage('collections')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 4h18v4H3z"/><path d="M3 10h18v10H3z"/><path d="M7 14h4M7 17h7"/></svg></span> Collection Reports <span class="nav-badge" id="collectionsBadge"></span></div>
-  <div class="nav-item" data-page="website" onclick="goPage('website')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.7-3.8-9S9.5 5.5 12 3Z"/></svg></span> Website</div>
-
-  <div class="nav-group">Front Desk</div>
-  <div class="nav-item" data-page="deposit" onclick="goPage('deposit')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 5 3.4 8.3 8 10 4.6-1.7 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/></svg></span> Security Deposit <span class="nav-badge" id="depositBadge"></span></div>
-  <div class="nav-item" data-page="violations" onclick="goPage('violations')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg></span> Violations &amp; Damages</div>
-
-  <div class="nav-group">Partners</div>
-  <div class="nav-item" data-page="partners" onclick="goPage('partners')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5.5a3 3 0 0 1 0 6M21.5 20a6.5 6.5 0 0 0-4.5-6.2"/></svg></span> Partner List</div>
-  <div class="nav-item" data-page="commissions" onclick="goPage('commissions')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M19 5 5 19"/><circle cx="7.5" cy="7.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/></svg></span> Commissions</div>
-  <div class="nav-item" data-page="partnerbookings" onclick="goPage('partnerbookings')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><circle cx="12" cy="15" r="1.8"/></svg></span> Bookings by Partner</div>
-  <div class="nav-item" data-page="prrooms" onclick="goPage('prrooms')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 21V8l9-5 9 5v13"/><path d="M3 21h18M9 21v-6h6v6"/><path d="M8 11h.01M16 11h.01"/></svg></span> PR-Rooms</div>
-  <div class="nav-item" data-page="addpartner" onclick="goPage('partners')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M19 8v6M16 11h6"/></svg></span> Add Partner</div>
-  <div class="nav-item" data-page="partnerdash" onclick="window.location.href='/partner-login'" title="Open the partner dashboard (login required)"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></svg></span> Dashboard</div>
-
-  <div class="nav-group">Property</div>
-  <div class="nav-item" data-page="havens" onclick="goPage('havens')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/></svg></span> Havens</div>
-  <div class="nav-item" data-page="booking" onclick="goPage('booking')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3.5 12.5 11 5a2 2 0 0 1 1.4-.6H19a1 1 0 0 1 1 1v6.6a2 2 0 0 1-.6 1.4l-7.5 7.5a2 2 0 0 1-2.8 0l-5.6-5.6a2 2 0 0 1 0-2.8Z"/><circle cx="15.4" cy="8.6" r="1.2"/></svg></span> Rates &amp; Add-ons</div>
-  <div class="nav-item" data-page="cleaners" onclick="goPage('cleaners')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M18.5 3.5 11 11"/><path d="M8.5 11h6.2l-1.1 6.4A3 3 0 0 1 10.7 20H8a3.5 3.5 0 0 1-3.4-4.3c1.6-.2 3-1.4 3.9-3.2Z"/></svg></span> Housekeeping</div>
-  <div class="nav-item" data-page="inventory" onclick="goPage('inventory')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg></span> Inventory</div>
-
-  <div class="nav-group">Finance</div>
-  <div class="nav-item" data-page="finance" onclick="goPage('finance')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.4"/></svg></span> Finance</div>
-  <div class="nav-item" data-page="payments" onclick="goPage('payments')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span> Payments</div>
-  <div class="nav-item" data-page="payroll" onclick="goPage('payroll')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-3-2V3Z"/><path d="M9 8h6M9 12h6"/></svg></span> Payroll</div>
-  <div class="nav-item" data-page="bills" onclick="goPage('bills')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span> Bills</div>
-  <div class="nav-item" data-page="expenses" onclick="goPage('expenses')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 7h18v12H3z"/><path d="M3 11h18M7 15h4"/></svg></span> Expenses</div>
-  <div class="nav-item" data-page="analytics" onclick="goPage('analytics')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 20V4M4 20h16"/><path d="M8 17v-5M13 17V8M18 17v-9"/></svg></span> Analytics</div>
-
-  <div class="nav-group">Team</div>
-  <div class="nav-item" data-page="users" onclick="goPage('users')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5.2a3.5 3.5 0 0 1 0 6.6M21.5 20a6.5 6.5 0 0 0-5-6.3"/></svg></span> Users</div>
-  <div class="nav-item" data-page="employees" onclick="goPage('employees')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg></span> Employees</div>
-  <div class="nav-item" data-page="assist" onclick="goPage('assist')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4 1.8c0 1.7-2.5 1.7-2.5 3.7M12 18h.01"/></svg></span> Assist</div>
-  <div class="nav-item" data-page="log" onclick="goPage('log')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M9 9h5M9 13h6M9 17h4"/></svg></span> Log</div>
+<%- include('partials/sidebar-nav') %>
 </div>
 
 <div class="main">
@@ -1516,11 +1476,24 @@
       partners:"partner-list", commissions:"commissions", partnerbookings:"bookings-by-partner", prrooms:"pr-rooms",
       havens:"havens", booking:"rates-addons", cleaners:"housekeeping", inventory:"inventory",
       finance:"finance", payments:"payments", payroll:"payroll", bills:"bills", expenses:"expenses",
-      analytics:"analytics", users:"users", employees:"employees", assist:"assist", log:"log" };
+      analytics:"analytics", users:"users", employees:"employees", assist:"assist", log:"log", notes:"notes",
+      addpartner:"add-partner", applications:"applications", affiliates:"affiliates" };
     // pages live under the signed-in user's own name — /<name>/<slug>, e.g. /Jedd/housekeeping
     var who = String(currentUser() || "").trim().split(/\s+/)[0].replace(/[^A-Za-z0-9_-]/g, "") || "admin";
     window.location.href = SLUGS[page] ? ("/" + who + "/" + SLUGS[page]) : "/dashboard.html";
   }
+  // Sidebar click handler for the SHARED nav partial (views/partials/sidebar-nav.ejs).
+  // We ARE Today's Booking, so that item is a no-op here; everything else navigates.
+  function navTo(page){
+    if(page === "today") return;
+    if(page === "partnerdash"){ window.location.href = "/partner-login"; return; }
+    goPage(page);
+  }
+  // the shared nav partial ships no hardcoded active item — this page IS "today"
+  (function markTodayActive(){
+    var el = document.querySelector('.sidebar .nav-item[data-page="today"]');
+    if(el) el.classList.add("active");
+  })();
   function currentUser(){ return localStorage.getItem("shph_current_user") || "Admin"; }
   function logout(){ try{ fetch("/api/logout", { method:"POST", keepalive:true }); }catch(e){} logActivity("logged out"); localStorage.removeItem("shph_current_user"); window.location.href = "/admin.html"; }
   // shared activity log (viewable on the dashboard's Log page)
@@ -1631,7 +1604,8 @@
     document.querySelectorAll(".sidebar .nav-item").forEach(n => {
       const pg = n.dataset.page;
       if(!pg) return;
-      const ok = (pg === "users") ? admin : (admin || perms.includes(pg));
+      // Users, Log and the owner's private Notes are admin-only (mirrors dashboard.html)
+      const ok = (pg === "users" || pg === "log" || pg === "notes") ? admin : (admin || perms.includes(pg));
       n.style.display = ok ? "flex" : "none";
     });
     // hide a section header (Property / Finance / Team …) when all its items are hidden
