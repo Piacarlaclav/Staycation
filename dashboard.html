@@ -1412,6 +1412,7 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
 
     <div class="nav-group">Board</div>
     <div class="nav-item" data-page="board" onclick="showPage('board')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 13h8M8 16h5"/></svg></span> Board</div>
+    <div class="nav-item" data-page="notes" onclick="showPage('notes')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 3h9l5 5v13H5z"/><path d="M14 3v5h5"/><path d="M9 12h6M9 16h4"/></svg></span> Notes</div>
 
     <div class="nav-group">Main</div>
     <div class="nav-item active" data-page="today" onclick="window.location.href='/admin/todays-booking'"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking <span class="nav-badge" id="todayBadge"></span></div>
@@ -2652,6 +2653,23 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <button class="btn" onclick="openStaffModal()">+ Add Employee</button>
         </div>
         <div id="employeesList"></div>
+    </div>
+</div>
+
+<!-- ===== Notes (owner-only private notebook) ===== -->
+<div class="page" id="page-notes">
+    <div class="panel">
+        <div class="panel-head">
+            <h2><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M5 3h9l5 5v13H5z"/><path d="M14 3v5h5"/><path d="M9 12h6M9 16h4"/></svg></span>Notes</h2>
+            <span class="muted" style="font-size:12.5px;">🔒 Private — only you can see this</span>
+        </div>
+        <p class="muted" style="margin:0 0 14px;">Your own notebook: reminders, ideas, numbers to remember. Staff and partners can never open this page, and it isn't sent to their browsers at all.</p>
+        <textarea id="noteText" placeholder="Write a note…" style="width:100%; min-height:96px; padding:13px 15px; border:1px solid var(--hv-line); border-radius:12px; background:#faf6ee; font-family:inherit; font-size:14.5px; resize:vertical;"></textarea>
+        <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
+            <button class="btn" onclick="saveNote()" id="noteSaveBtn">Save note</button>
+            <span class="edit" id="noteCancelEdit" style="display:none;" onclick="cancelNoteEdit()">Cancel edit</span>
+        </div>
+        <div id="notesList" style="margin-top:22px;"></div>
     </div>
 </div>
 
@@ -8133,7 +8151,7 @@ const PAGE_SLUGS = {
     prrooms:"pr-rooms", addpartner:"add-partner", applications:"applications", affiliates:"affiliates", havens:"havens", booking:"rates-addons",
     cleaners:"housekeeping", inventory:"inventory", finance:"finance", payments:"payments",
     payroll:"payroll", bills:"bills", expenses:"expenses", analytics:"analytics",
-    users:"users", employees:"employees", assist:"assist", log:"log"
+    users:"users", employees:"employees", assist:"assist", log:"log", notes:"notes"
 };
 const SLUG_PAGES = {};
 for(const k in PAGE_SLUGS) SLUG_PAGES[PAGE_SLUGS[k]] = k;
@@ -8206,6 +8224,7 @@ function showPage(page, _nav){
     if(page === "users" && typeof renderUsers === "function") renderUsers();
     if(page === "employees" && typeof renderEmployees === "function") renderEmployees();
     if(page === "log" && typeof renderLog === "function") renderLog();
+    if(page === "notes" && typeof renderNotes === "function") renderNotes();
     if(page === "assist" && typeof renderAssist === "function") renderAssist();
 }
 
@@ -8731,6 +8750,88 @@ async function gfResyncIds(){
 }
 
 /* ---------- Assist: towels to place per haven ---------- */
+/* ---------- Notes: the owner's private notebook (admin-only, server-enforced) ---------- */
+const NOTES_KEY = "shph_notes_v1";
+let _notes = [], _noteEditId = null;
+async function loadNotesFresh(){
+    try{
+        const r = await fetch("/api/kv/" + NOTES_KEY, { cache:"no-store" });
+        if(r.ok){ const j = await r.json(); if(Array.isArray(j)) _notes = j; }
+    }catch(e){ /* keep last copy */ }
+    return _notes;
+}
+async function renderNotes(){
+    const list = document.getElementById("notesList");
+    if(!list) return;
+    await loadNotesFresh();
+    const items = _notes.filter(n => n && !n.deleted)
+        .sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")));
+    if(!items.length){ list.innerHTML = `<p class="muted" style="margin:0;">No notes yet. Write your first one above.</p>`; return; }
+    list.innerHTML = items.map(n => {
+        const when = new Date(n.updatedAt || n.createdAt).toLocaleString("en-PH", { month:"short", day:"numeric", year:"numeric", hour:"numeric", minute:"2-digit" });
+        const edited = n.updatedAt && n.createdAt && n.updatedAt !== n.createdAt ? " · edited" : "";
+        return `<div style="background:#faf6ee; border:1px solid var(--hv-line); border-radius:14px; padding:14px 16px; margin-bottom:11px;">
+            <div style="white-space:pre-wrap; font-size:14.5px; line-height:1.55;">${escHtml(n.text || "")}</div>
+            <div style="margin-top:9px; display:flex; align-items:center; gap:12px;">
+                <span class="muted" style="font-size:12px;">${when}${edited}</span>
+                <span class="edit" onclick="editNote(${n.id})">Edit</span>
+                <span class="edit" style="color:#c0283d;" onclick="deleteNote(${n.id})">Delete</span>
+            </div>
+        </div>`;
+    }).join("");
+}
+async function _saveNoteRec(n){
+    const r = await fetch("/api/list/" + NOTES_KEY, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ upsert: n }) });
+    if(!r.ok) throw new Error("save failed");
+}
+async function saveNote(){
+    const ta = document.getElementById("noteText");
+    const text = (ta.value || "").trim();
+    if(!text){ alert("Write something first."); return; }
+    const now = new Date().toISOString();
+    let rec;
+    if(_noteEditId != null){
+        rec = _notes.find(n => n && n.id === _noteEditId);
+        if(!rec) { _noteEditId = null; return; }
+        rec.text = text; rec.updatedAt = now;
+    } else {
+        rec = { id: uid(), text, createdAt: now, updatedAt: now };
+        _notes.push(rec);
+    }
+    try{
+        await _saveNoteRec(rec);
+        logActivity(_noteEditId != null ? "edited a private note" : "added a private note");
+    }catch(e){ alert("Couldn't save the note — please try again."); return; }
+    cancelNoteEdit();
+    renderNotes();
+}
+function editNote(id){
+    const n = _notes.find(x => x && x.id === id);
+    if(!n) return;
+    _noteEditId = id;
+    document.getElementById("noteText").value = n.text || "";
+    document.getElementById("noteSaveBtn").textContent = "Update note";
+    document.getElementById("noteCancelEdit").style.display = "inline";
+    document.getElementById("noteText").focus();
+}
+function cancelNoteEdit(){
+    _noteEditId = null;
+    const ta = document.getElementById("noteText"); if(ta) ta.value = "";
+    const b = document.getElementById("noteSaveBtn"); if(b) b.textContent = "Save note";
+    const c = document.getElementById("noteCancelEdit"); if(c) c.style.display = "none";
+}
+async function deleteNote(id){
+    const n = _notes.find(x => x && x.id === id);
+    if(!n || !confirm("Delete this note?")) return;
+    try{
+        const r = await fetch("/api/list/" + NOTES_KEY, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ del: id }) });
+        if(!r.ok) throw new Error();
+        logActivity("deleted a private note");
+    }catch(e){ alert("Couldn't delete — please try again."); return; }
+    if(_noteEditId === id) cancelNoteEdit();
+    renderNotes();
+}
+
 function renderAssist(){
     const inp = document.getElementById("assistDate");
     if(!inp) return;
@@ -13155,7 +13256,8 @@ const DASH_PAGES = [
     { key:"payroll",   label:"Payroll" },
     { key:"bills",     label:"Bills" },
     { key:"expenses",  label:"Expenses" },
-    { key:"assist",    label:"Assist" }
+    { key:"assist",    label:"Assist" },
+    { key:"notes",     label:"Notes" }
 ];
 function pageLabel(key){ const p = DASH_PAGES.find(x => x.key === key); return p ? p.label : key; }
 function loadUsers(){
@@ -13249,7 +13351,7 @@ function currentPerms(){
 }
 function pageAllowed(page){
     if(window.__PARTNER__) return ["today", "calendar", "deposit", "analytics", "finance", "bills", "expenses", "board", "inventory"].includes(page);   // partner pages
-    if(page === "users" || page === "log") return isAdminUser();   // Activity Log is admin-only (not partners/employees)
+    if(page === "users" || page === "log" || page === "notes") return isAdminUser();   // Activity Log + private Notes are admin-only (not partners/employees)
     return currentPerms().includes(page);
 }
 // hide nav items the current user can't access; redirect off a disallowed page
@@ -13303,7 +13405,7 @@ function applyPermissions(){
     let _visible = 0;
     document.querySelectorAll(".sidebar .nav-item").forEach(n => {
         const pg = n.dataset.page;
-        const ok = (pg === "users" || pg === "log") ? admin : perms.includes(pg);
+        const ok = (pg === "users" || pg === "log" || pg === "notes") ? admin : perms.includes(pg);
         n.style.display = ok ? "flex" : "none";
         if(ok) _visible++;
     });
@@ -13379,7 +13481,9 @@ function toggleUserActivity(id, name){
     box.style.display = "";
 }
 function fillUserPerms(selected){
-    document.getElementById("u_perms").innerHTML = `<div class="opt-row">` + DASH_PAGES.map(p =>
+    // "notes" is the owner's private notebook — admin-only by definition, so it's never a
+    // grantable permission (listing it would imply you could give a staff member access)
+    document.getElementById("u_perms").innerHTML = `<div class="opt-row">` + DASH_PAGES.filter(p => p.key !== "notes").map(p =>
         `<label class="opt-check"><input type="checkbox" class="u-perm" value="${p.key}" ${selected.includes(p.key) ? "checked" : ""}> ${p.label}</label>`
     ).join("") + `</div>`;
 }
@@ -13506,7 +13610,7 @@ catch(_e){ console.error("[startup] applyPermissions failed", _e); }
 try{
     if(!window.__PARTNER__){
         const _p = currentPerms(), _adm = isAdminUser();
-        const _ok = pg => (pg === "users" || pg === "log") ? _adm : _p.includes(pg);
+        const _ok = pg => (pg === "users" || pg === "log" || pg === "notes") ? _adm : _p.includes(pg);
         const _curOk = savedPage && document.getElementById("page-" + savedPage) && _ok(savedPage);
         if(!_curOk){
             const _order = [...document.querySelectorAll(".sidebar .nav-item")].map(n => n.dataset.page).filter(Boolean);

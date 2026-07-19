@@ -209,6 +209,7 @@ apiRouter.get("/kv/:key", async (req, res) => {
   const key = req.params.key;
   if (!store.isShared(key)) return res.status(404).json({ error: "unknown key" });
   if (SESSION_ONLY_KEYS.has(key) && !readSession(req)) return res.status(401).json({ error: "login required" });
+  if (ADMIN_ONLY_KEYS.has(key) && !isAdminSession(req)) return res.status(403).json({ error: "admin only" });
   // For id-keyed list stores (bookings, etc.) read the LIVE Firestore doc, not this
   // serverless instance's in-memory cache — a warm instance can hold a stale copy that
   // is missing a record saved via another instance (e.g. a website booking), which is
@@ -235,13 +236,20 @@ const MERGE_LIST_KEYS = new Set([
   // the two must match, or a whole-array push here would overwrite instead of merge.
   "shph_violations_v1",
   "shph_applications_v1",  // partner/affiliate applications (id-keyed; written via /api/apply + /api/list)
-  "shph_affiliates_v1"     // approved affiliates: personal code + credit ledger (session-gated writes)
+  "shph_affiliates_v1",    // approved affiliates: personal code + credit ledger (session-gated writes)
+  "shph_notes_v1"          // owner's private notes (admin-only; see ADMIN_ONLY_KEYS)
 ]);
+
+// Keys only an ADMIN session may read/write. The owner's private notes must never reach a
+// staff or partner browser — not through the API, and not inside a page's data seed.
+const ADMIN_ONLY_KEYS = new Set(["shph_notes_v1"]);
+const isAdminSession = (req) => { const s = readSession(req); return !!(s && s.t === "staff" && s.adm); };
 
 // write one key (body is the raw JSON value the browser stored)
 apiRouter.put("/kv/:key", async (req, res) => {
   if (!store.isShared(req.params.key)) return res.status(403).json({ error: "key not shared" });
   if (SESSION_ONLY_KEYS.has(req.params.key) && !readSession(req)) return res.status(401).json({ error: "login required" });
+  if (ADMIN_ONLY_KEYS.has(req.params.key) && !isAdminSession(req)) return res.status(403).json({ error: "admin only" });
   // Passwords are stored HASHED. The Users/Partners pages still send plain text when one is
   // set or changed — hash it here before it ever touches the store; already-hashed values
   // round-trip untouched (so editing a user's name/perms never invalidates their password).
@@ -521,6 +529,7 @@ apiRouter.post("/booking/:id/payment", async (req, res) => {
 apiRouter.post("/list/:key", async (req, res) => {
   const key = req.params.key;
   if (!MERGE_LIST_KEYS.has(key)) return res.status(400).json({ error: "not a per-record list" });
+  if (ADMIN_ONLY_KEYS.has(key) && !isAdminSession(req)) return res.status(403).json({ error: "admin only" });
   const upsert = req.body && req.body.upsert;   // full item to insert/replace (by id)
   const del = req.body && req.body.del;          // id to soft-delete
   // Anonymous callers (the public booking flow) may ONLY upsert bookings — never delete,
@@ -983,6 +992,9 @@ function renderPage(name) {
     res.set("Expires", "0");
     // guest pages get a minimal, PII-free projection; the dashboard/admin pages get the full store
     const pageSeed = PUBLIC_PAGES.has(name) ? publicSeed(seed) : seed;
+    // The owner's private notes are stripped from the seed unless an ADMIN is signed in — a
+    // staff or partner browser must never receive them, even though they load the same view.
+    if (!PUBLIC_PAGES.has(name) && !isAdminSession(req)) ADMIN_ONLY_KEYS.forEach(k => { delete pageSeed[k]; });
     res.render(name, { seed: pageSeed, page: name }, (err, html) => {
       if (err) {
         console.error("Render error for", name, "—", err.message);
@@ -1028,7 +1040,7 @@ const ADMIN_PAGE_ROUTES = {
   "pr-rooms":"dashboard", "add-partner":"dashboard", "applications":"dashboard", "affiliates":"dashboard", "havens":"dashboard", "rates-addons":"dashboard",
   "housekeeping":"dashboard", "inventory":"dashboard", "finance":"dashboard", "payments":"dashboard",
   "payroll":"dashboard", "bills":"dashboard", "expenses":"dashboard", "analytics":"dashboard",
-  "users":"dashboard", "employees":"dashboard", "assist":"dashboard", "log":"dashboard"
+  "users":"dashboard", "employees":"dashboard", "assist":"dashboard", "log":"dashboard", "notes":"dashboard"
 };
 for (const slug in ADMIN_PAGE_ROUTES) {
   app.get("/admin/" + slug, renderPage(ADMIN_PAGE_ROUTES[slug]));
