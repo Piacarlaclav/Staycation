@@ -1399,7 +1399,7 @@
       }
       // which stay lengths (6 / 10 / 21 hrs) fit before the next booking, keeping the cleaning gap
       const windowMin = (next !== null) ? (next - availFrom) : Infinity;
-      const fits = [6, 10, 21].filter(function(H){ return (H * 60 + CLEANING_GAP_MIN) <= windowMin; });
+      const fits = offeredStays().filter(function(H){ return (H * 60 + CLEANING_GAP_MIN) <= windowMin; });
       if(!fits.length){
         return '<tr><td>' + hcell + '</td><td><span class="av-bad">Not available</span></td><td>—</td><td>' + (next !== null ? fmtAbs(next) : "—") + '</td></tr>';
       }
@@ -2237,6 +2237,15 @@
 
   /* ---------- add booking (saves to the shared Calendar/Bookings data) ---------- */
   const HAVENS = ["Haven 1","Haven 2","Haven 3","Haven 4","Haven 5","Haven 7","Haven 8","Casa Bienca"];
+  // Stay lengths the owner actually OFFERS (Rates & Add-ons -> "Offer on website" toggles,
+  // stored in shph_settings.pricing). Turning 6 hours off there must drop it from Availability
+  // too, or we advertise a duration nobody can book. Falls back to 21h so the table is never empty.
+  function offeredStays(){
+    var p = {};
+    try{ p = (JSON.parse(localStorage.getItem("shph_settings") || "{}") || {}).pricing || {}; }catch(e){}
+    var out = [[6,"offer6"],[10,"offer10"],[21,"offer21"]].filter(function(x){ return p[x[1]] !== false; }).map(function(x){ return x[0]; });
+    return out.length ? out : [21];
+  }
   const PRICING = { stay6:999, stay10:999, stay21Weekday:1599, stay21Weekend:2099, swimRegular:150, swimHoliday:300,
     towel:50, extendPerHr:150, deposit:1000, baseIncludedPax:2, addPax:300, addPaxMinAge:5, maxPax:5, maxAdults:4, maxKids:2, kidMaxAge:13 };
   const STAY_OPTIONS = [[10,"10 hrs — ₱999"],[21,"21 hrs — ₱1,599 / ₱2,099 (Fri–Sat)"]];   // Jul–Aug promo: 6-hour retired

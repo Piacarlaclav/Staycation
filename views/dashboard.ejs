@@ -5035,6 +5035,13 @@ function renderAvailability(){
         const t = minToTime(mi);
         return dIso === D ? t : (fmt(dIso) + " · " + t);
     };
+    // Only the stay lengths the owner actually OFFERS (Rates & Add-ons → "Offer on website"
+    // toggles). Turning 6 hours off there must drop it here too, or Availability advertises a
+    // duration nobody can book. Falls back to 21h so the table is never empty.
+    const _sp = ((typeof loadSettings === "function" ? loadSettings() : null) || {}).pricing || {};
+    const OFFERED = [[6, "offer6"], [10, "offer10"], [21, "offer21"]]
+        .filter(function(x){ return _sp[x[1]] !== false; }).map(function(x){ return x[0]; });
+    if(!OFFERED.length) OFFERED.push(21);
     const scoped = (window.__PARTNER__ && !window.__PARTNER__.superAdmin && window.__PARTNER__.haven);
     const havenList = scoped ? [window.__PARTNER__.haven] : HAVENS;
     const rows = havenList.map(function(h){
@@ -5060,7 +5067,7 @@ function renderAvailability(){
             next = null;
             intervals.forEach(function(it){ if(it.ci >= availFrom && (next === null || it.ci < next)) next = it.ci; });
             const windowMin = (next !== null) ? (next - availFrom) : Infinity;
-            fits = [6, 10, 21].filter(function(H){ return (H * 60 + CLEANING_GAP_MIN) <= windowMin; });
+            fits = OFFERED.filter(function(H){ return (H * 60 + CLEANING_GAP_MIN) <= windowMin; });
             if(fits.length || next === null) break;              // this gap works (or nothing after it)
             availFrom = next + 1;                                // gap too small → hop into the next stay; the chain above advances past it
         }
