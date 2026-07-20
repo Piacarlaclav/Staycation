@@ -3115,26 +3115,65 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   #asWakePill.show{ display:inline-flex; }
   #asWakePill .dot{ width:9px; height:9px; border-radius:50%; background:#e05a5a; animation:vxPulse2 1.3s ease-out infinite; }
   @keyframes vxPulse2{ 0%{ box-shadow:0 0 0 0 rgba(224,90,90,.6) } 100%{ box-shadow:0 0 0 11px rgba(224,90,90,0) } }
+
+  /* ============ Havi console: dark, premium hero so the neon reactor pops ============ */
+  #page-assist .havi-console{ position:relative; overflow:hidden; border-radius:20px; padding:30px 26px 22px; margin-bottom:30px; color:#dbeafe;
+    background:
+      linear-gradient(rgba(63,190,255,.045) 1px, transparent 1px) 0 0 / 42px 42px,
+      linear-gradient(90deg, rgba(63,190,255,.045) 1px, transparent 1px) 0 0 / 42px 42px,
+      radial-gradient(130% 95% at 50% -12%, #1a4d70, #08151f 64%);
+    background-color:#0a1a26;
+    border:1px solid rgba(63,190,255,.22); box-shadow:0 18px 50px rgba(6,20,34,.45), inset 0 0 70px rgba(20,70,110,.16); }
+  #page-assist .hc-hero{ display:flex; flex-direction:column; align-items:center; text-align:center; padding:6px 0 22px; }
+  #page-assist .hc-title{ font-family:'Playfair Display',Georgia,serif; font-size:34px; font-weight:700; color:#eaf6ff; margin-top:16px;
+    letter-spacing:.5px; text-shadow:0 0 22px rgba(63,190,255,.55); }
+  #page-assist .hc-sub{ color:#8fb8d4; font-size:14px; margin-top:5px; max-width:450px; line-height:1.5; }
+  #page-assist .hc-actions{ display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin-top:22px; }
+  #page-assist .hc-hint{ color:#5f88a4; font-size:12.5px; margin-top:14px; }
+  #page-assist .hc-hint b{ color:#7fdcff; }
+  #page-assist .hc-btn{ font-family:inherit; font-size:14px; font-weight:700; padding:11px 20px; border-radius:12px; cursor:pointer;
+    border:1px solid rgba(127,220,255,.35); background:rgba(255,255,255,.05); color:#dbeafe; transition:all .15s; }
+  #page-assist .hc-btn:hover{ border-color:#4fd0ff; background:rgba(63,190,255,.12); }
+  #page-assist .hc-btn.primary{ border-color:transparent; color:#04121c; background:linear-gradient(135deg,#5cc6f0,#3fb2e0);
+    box-shadow:0 6px 18px rgba(63,190,255,.35); }
+  #page-assist .hc-btn.primary:hover{ background:linear-gradient(135deg,#6fd2ff,#4fc0ee); }
+  #page-assist .hc-btn.on{ background:#e05a5a; border-color:#e05a5a; color:#fff; }
+  /* chat, dark-themed inside the console */
+  #page-assist .havi-console .as-empty{ color:#5f88a4; }
+  #page-assist .havi-console .as-msg.me{ background:linear-gradient(135deg,#2f8fd0,#3fbfe0); color:#04121c; font-weight:600; }
+  #page-assist .havi-console .as-msg.ai{ background:rgba(63,190,255,.08); border:1px solid rgba(63,190,255,.18); color:#e7f3ff; }
+  #page-assist .havi-console .as-msg.ai b{ color:#7fdcff; }
+  #page-assist .havi-console .as-msg .as-meta{ color:#6f9cba; }
+  #page-assist .havi-console .as-typing{ color:#7fb4d4; }
+  #page-assist .havi-console .as-ask{ border-top:1px solid rgba(63,190,255,.16); }
+  #page-assist .havi-console .as-ask textarea{ background:rgba(255,255,255,.05); border:1px solid rgba(63,190,255,.22); color:#eaf6ff; }
+  #page-assist .havi-console .as-ask textarea::placeholder{ color:#5f88a4; }
+  #page-assist .havi-console .as-ask textarea:focus{ border-color:#4fd0ff; }
+  #page-assist .havi-console .as-mic{ background:rgba(255,255,255,.05); border:1px solid rgba(63,190,255,.22); }
+  #page-assist .havi-console .as-mic:hover{ border-color:#4fd0ff; }
+  #page-assist .havi-console .as-send{ height:46px; }
+  #page-assist .havi-console .as-chip{ background:rgba(63,190,255,.08); border:1px solid rgba(63,190,255,.22); color:#9fc7e0; }
+  #page-assist .havi-console .as-chip:hover{ border-color:#4fd0ff; color:#eaf6ff; }
+  #page-assist .havi-console .as-off{ background:rgba(240,220,150,.09); border:1px solid rgba(240,220,150,.25); color:#e8d3a0; }
+  #page-assist .havi-console .as-off code{ background:rgba(0,0,0,.25); color:#f2e3b0; padding:1px 5px; border-radius:4px; }
+  #page-assist .hc-clear{ display:block; margin:14px auto 2px; background:none; border:none; color:#6f9cba; font-size:12.5px; cursor:pointer; font-family:inherit; }
+  #page-assist .hc-clear:hover{ color:#9fc7e0; text-decoration:underline; }
+  .vxr.hero{ width:250px; height:250px; }
+  @media(max-width:600px){
+    #page-assist .havi-console{ padding:22px 13px 18px; }
+    .vxr.hero{ width:188px; height:188px; }
+    #page-assist .hc-title{ font-size:28px; }
+  }
 </style>
 
     <!-- The daily briefing card was removed on request (2026-07-20). The same
          info is available on demand by asking Havi ("what's unsold this week?",
          "who owes me money?"), and the briefing engine still feeds the AI. -->
 
-    <!-- ASK: the assistant. Costs money per question, so it only runs on demand. -->
-    <div class="panel">
-        <div class="panel-head">
-            <h2>Ask Havi <span class="muted" style="font-size:13.5px;">— anything about your bookings, money, availability and cleaning</span></h2>
-            <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                <button class="btn secondary as-wake-btn" id="asWakeBtn" onclick="toggleWake()" title="Say “Hey Havi” and I'll answer, hands-free">👂 Hey&nbsp;Havi</button>
-                <button class="btn as-talk-btn" id="asTalkBtn" onclick="startVoice()">🎙 Talk to Havi</button>
-                <button class="btn secondary" onclick="clearAssistChat()">Clear</button>
-            </div>
-        </div>
-        <!-- Havi's presence on the page: the glowing reactor. Tap it to talk;
-             it glows and ripples whenever Havi is listening or speaking. -->
-        <div class="havi-face">
-            <div class="vxr sm" onclick="startVoice()" role="button" tabindex="0" title="Tap to talk to Havi">
+    <!-- ASK: the Havi console — a dark, premium hero so the neon reactor pops. -->
+    <div class="havi-console">
+        <div class="hc-hero">
+            <div class="vxr hero" onclick="startVoice()" role="button" tabindex="0" title="Tap to talk to Havi">
                 <div class="vx-r1"></div>
                 <div class="vx-r2"></div>
                 <div class="vx-r3"></div>
@@ -3144,46 +3183,25 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <img class="vx-logo-s" alt="">
                 <span class="vx-logo-fb">S</span>
             </div>
-            <div class="cap">Tap the reactor or say <b>“Hey Havi”</b> to talk</div>
+            <div class="hc-title">Havi</div>
+            <div class="hc-sub">Your assistant — ask anything about bookings, money, availability &amp; cleaning</div>
+            <div class="hc-actions">
+                <button class="hc-btn primary" id="asTalkBtn" onclick="startVoice()">🎙 Talk to Havi</button>
+                <button class="hc-btn" id="asWakeBtn" onclick="toggleWake()" title="Say “Hey Havi” and I'll answer, hands-free">👂 Hey&nbsp;Havi</button>
+            </div>
+            <div class="hc-hint">Tap the reactor or say <b>“Hey Havi”</b> to talk</div>
         </div>
+
         <div id="asOffNote" class="as-off" style="display:none;"></div>
         <div class="as-log" id="asLog"></div>
+        <div class="as-chips" id="asChips"></div>
         <div class="as-ask">
             <textarea id="asInput" rows="1" placeholder="e.g. sino ang mag che-check in bukas? — common questions are free & instant"
                       oninput="asGrow(this)" onkeydown="asKey(event)"></textarea>
             <button class="as-mic" id="asMic" onclick="asToggleMic()" title="Dictate into the box (or use ‘Talk to Havi’ above for a spoken conversation)">🎙</button>
-            <button class="btn as-send" onclick="askAssist()">Ask</button>
+            <button class="hc-btn primary as-send" onclick="askAssist()">Ask</button>
         </div>
-        <div class="as-chips" id="asChips"></div>
-    </div>
-
-    <div class="panel">
-        <div class="panel-head">
-            <h2>🧺 Towels to place per haven</h2>
-            <div class="fin-date" style="display:flex; align-items:center; gap:8px;">Date
-                <div class="dp-wrap" style="position:relative;">
-                    <span class="date-pill" id="assistDateLabel" onclick="openAssistPicker(event)" title="Pick a date">Pick a date</span>
-                    <input type="hidden" id="assistDate">
-                    <div class="dp-popup" id="asDpPopup" onclick="event.stopPropagation()">
-                        <div class="dp-head">
-                            <button type="button" onclick="asPickerNav(-1)">‹</button>
-                            <span id="asDpTitle"></span>
-                            <button type="button" onclick="asPickerNav(1)">›</button>
-                        </div>
-                        <div class="dp-grid" id="asDpGrid"></div>
-                        <div class="dp-foot"><span onclick="asDpToday()">Today</span></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <p class="muted" style="margin-bottom:14px;">How many towels to set up in each haven for the guests arriving / staying on the selected date.</p>
-        <div style="overflow-x:auto;">
-            <table class="clean-summary-table">
-                <thead><tr><th>Haven</th><th>Guest</th><th>Check-in</th><th>Towels to place</th></tr></thead>
-                <tbody id="assistBody"></tbody>
-            </table>
-        </div>
-        <div class="cards" id="assistTotal" style="margin-top:16px;"></div>
+        <button class="hc-clear" onclick="clearAssistChat()">Clear conversation</button>
     </div>
 </div>
 
