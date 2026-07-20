@@ -3050,6 +3050,11 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   #asVoice .vx-close{ position:absolute; top:18px; right:20px; width:42px; height:42px; border-radius:50%; border:1px solid rgba(255,255,255,.22);
     background:rgba(255,255,255,.06); color:#f6f2ec; font-size:20px; cursor:pointer; line-height:1; }
   #asVoice .vx-close:hover{ background:rgba(255,255,255,.14); }
+  #asVoice .vx-lang{ position:absolute; top:18px; left:20px; height:42px; padding:0 16px; border-radius:22px;
+    border:1px solid rgba(127,220,255,.32); background:rgba(255,255,255,.06); color:#dbeafe; font-size:13.5px; font-weight:700;
+    cursor:pointer; font-family:inherit; }
+  #asVoice .vx-lang:hover{ border-color:#4fd0ff; background:rgba(63,190,255,.14); }
+  @media(max-width:600px){ #asVoice .vx-lang{ font-size:12.5px; padding:0 12px; height:38px; } }
   #asVoice .vx-title{ font-family:'Playfair Display',Georgia,serif; font-size:22px; margin-bottom:4px; color:#eaf6ff;
     text-shadow:0 0 18px rgba(63,190,255,.5); }
   #asVoice .vx-state{ color:#7fb4d4; font-size:14px; letter-spacing:.3px; min-height:20px; margin-bottom:26px; }
@@ -9352,6 +9357,24 @@ const SR_SUPPORTED = !!(window.SpeechRecognition || window.webkitSpeechRecogniti
 // we drive the conversation tap-by-tap instead of looping automatically.
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
+// Recognition language. Default to Filipino ("fil-PH") — it understands a Tagalog
+// accent and Taglish far better than English ("en-PH"). Pia can flip it in the
+// voice overlay; the choice is remembered.
+let _vxLang = (function(){ try{ return localStorage.getItem("shph_havi_lang") || "fil-PH"; }catch(e){ return "fil-PH"; } })();
+const _vxLangLabel = () => (_vxLang === "fil-PH" ? "Tagalog" : "English");
+function setVxLang(l){
+    _vxLang = l;
+    try{ localStorage.setItem("shph_havi_lang", l); }catch(e){}
+    const b = document.getElementById("vxLangBtn"); if(b) b.textContent = "🌐 " + _vxLangLabel();
+}
+function toggleVxLang(){
+    setVxLang(_vxLang === "fil-PH" ? "en-PH" : "fil-PH");
+    // If we're mid-listen, restart in the new language right away.
+    if(_vxOn && _vxRec){ try{ (_vxRec.abort || _vxRec.stop).call(_vxRec); }catch(e){} setTimeout(() => { if(_vxOn && !_vxRec) vxListen(); }, 280); }
+}
+// A leading "Hey Havi" (or a mishear of it) that we strip off a spoken question.
+const VX_LEAD = /^\s*(?:hey|hi|o|hoy|uy|okay|ok|oh)?\s*(?:hav(?:i|ie|ey|y|ee)|heavy|heavi|habi|harvey|halvey|hobby|savi|hazy|happy)\b[\s,.:!?-]*/i;
+
 /* ---- input-row mic: plain dictation into the text box (no auto-send) ---- */
 let _dictRec = null;
 function asToggleMic(){
@@ -9359,7 +9382,7 @@ function asToggleMic(){
     const btn = document.getElementById("asMic");
     if(!SR){ alert("Voice needs Chrome, Edge or Safari — please type instead."); return; }
     if(_dictRec){ _dictRec.stop(); return; }
-    _dictRec = new SR(); _dictRec.lang = "en-PH"; _dictRec.interimResults = true; _dictRec.continuous = false;
+    _dictRec = new SR(); _dictRec.lang = _vxLang; _dictRec.interimResults = true; _dictRec.continuous = false;
     btn.classList.add("on");
     _dictRec.onresult = (ev) => {
         const said = [...ev.results].map(r => r[0].transcript).join("");
@@ -9419,6 +9442,7 @@ function buildVxLogo(){
 function startVoice(){
     if(!SR_SUPPORTED){ alert("Talk-to-Havi needs Chrome, Edge or Safari. On this browser you can still type your questions."); return; }
     buildVxLogo();
+    setVxLang(_vxLang);   // sync the language-toggle label
     _vxOn = true;
     document.getElementById("asVoice").classList.add("show");
     document.getElementById("vxYou").textContent = "";
@@ -9449,7 +9473,7 @@ function vxListen(){
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     vxSet("listening");
     let heard = "";
-    _vxRec = new SR(); _vxRec.lang = "en-PH"; _vxRec.interimResults = true; _vxRec.continuous = false;
+    _vxRec = new SR(); _vxRec.lang = _vxLang; _vxRec.interimResults = true; _vxRec.continuous = false;
     _vxRec.onresult = (ev) => {
         heard = [...ev.results].map(r => r[0].transcript).join("");
         document.getElementById("vxYou").textContent = heard ? "“" + heard + "”" : "";
@@ -9462,7 +9486,10 @@ function vxListen(){
         const said = heard.trim();
         if(!said){ vxSet("tap"); return; }
         if(/^\s*(stop|tigil|tama na|that'?s all|done|salamat)\s*[.!]?$/i.test(said)){ vxSpeak("Okay, tawagin mo lang ako ulit.", stopVoice); return; }
-        vxAsk(said);
+        // Drop a stray "Hey Havi" that landed in front of the question.
+        const q = said.replace(VX_LEAD, "").trim();
+        if(!q){ vxSet("tap"); return; }   // she only said the wake word — wait for the actual question
+        vxAsk(q);
     };
     try{ _vxRec.start(); }catch(e){ /* start can throw if a prior session hasn't fully ended */ }
 }
@@ -9552,7 +9579,7 @@ function startWake(){
     clearTimeout(_wakeRestart);
     try{ if(_wakeRec){ _wakeRec.onend = null; _wakeRec.stop(); } }catch(e){}
     _wakeRec = new SR();
-    _wakeRec.lang = "en-PH"; _wakeRec.interimResults = true; _wakeRec.continuous = true;
+    _wakeRec.lang = _vxLang; _wakeRec.interimResults = true; _wakeRec.continuous = true;
     let fired = false;
     _wakeRec.onresult = (ev) => {
         if(fired) return;
@@ -14489,6 +14516,7 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
      not just the Assist page (these are position:fixed and must not live inside a
      page div that gets display:none). -->
 <div id="asVoice">
+    <button class="vx-lang" id="vxLangBtn" onclick="toggleVxLang()" title="Switch what language I listen for — Tagalog understands a Filipino accent best">🌐 Tagalog</button>
     <button class="vx-close" onclick="stopVoice()" title="Close">✕</button>
     <div class="vx-title">Havi</div>
     <div class="vx-state" id="vxState">Tap the reactor and talk</div>
@@ -14507,7 +14535,7 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
         <div class="vx-reply" id="vxReply"></div>
         <div class="vx-meta" id="vxMeta"></div>
     </div>
-    <div class="vx-hint" id="vxHint">Speak in Taglish — I'll answer out loud. Say "stop" or tap ✕ to end.</div>
+    <div class="vx-hint" id="vxHint">Speak in Taglish — I'll answer out loud. If I keep mishearing you, tap 🌐 to switch language. Say "stop" or tap ✕ to end.</div>
 </div>
 <div id="asWakePill" onclick="toggleWake()" title="Listening for “Hey Havi” — tap to turn off">
     <span class="dot"></span> Listening for “Hey Havi”
