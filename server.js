@@ -754,6 +754,47 @@ apiRouter.all("/retention", async (req, res) => {
   }
 });
 
+/* ---- Assist: the in-house AI assistant. Two endpoints, deliberately different.
+
+   GET  /api/assist/brief  — the daily briefing + alerts. Plain JavaScript, no AI,
+        no API key needed, costs nothing. Safe to load on every page open.
+   POST /api/assist        — one question to Claude, answered with read-only tools
+        over live data. Costs money per call, so it only runs when someone asks.
+
+   Staff session required (a partner session must never reach whole-business data).
+   Financial figures are admin-only: a non-admin staff member gets the assistant,
+   but the money tool refuses and the prompt tells it not to speculate. */
+const assist = require("./lib/assist");
+const staffOnly = (req, res) => {
+  const s = readSession(req);
+  if (!s || s.t !== "staff") { res.status(403).json({ ok: false, error: "staff login required" }); return null; }
+  return s;
+};
+
+apiRouter.get("/assist/brief", async (req, res) => {
+  const s = staffOnly(req, res); if (!s) return;
+  try {
+    const brief = await assist.getBrief();
+    if (!s.adm) { delete brief.numbers.collected_today; delete brief.numbers.owed_today; }
+    res.json({ ...brief, ai: assist.enabled() });
+  } catch (e) {
+    console.error("[assist] brief failed:", e.message);
+    res.status(502).json({ ok: false, error: e.message });
+  }
+});
+
+apiRouter.post("/assist", async (req, res) => {
+  const s = staffOnly(req, res); if (!s) return;
+  try {
+    const out = await assist.ask({ messages: (req.body || {}).messages, user: s.u, admin: !!s.adm });
+    if (out.usage) console.log(`[assist] ${s.u}: in=${out.usage.input} cached=${out.usage.cache_read} out=${out.usage.output} ~₱${out.cost_php} tools=${(out.tools || []).join(",")}`);
+    res.json(out);
+  } catch (e) {
+    console.error("[assist] ask failed:", e.message);
+    res.status(502).json({ ok: false, error: e.message, reply: "Something went wrong reaching the assistant — try again in a moment." });
+  }
+});
+
 // lightweight per-booking status change — cancel / reinstate / delete.
 // The browser only sends the id + action (tiny), so a quick refresh can't lose it
 // (unlike re-uploading the whole bookings array, which carries base64 images).

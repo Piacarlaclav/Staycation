@@ -2983,6 +2983,82 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
 
 <!-- ===== Assist ===== -->
 <div class="page" id="page-assist">
+<style>
+  /* --- the briefing: computed in plain JS on the server, costs nothing to show --- */
+  #page-assist .as-brief{ background:linear-gradient(135deg,#2f2a25,#413830); color:#f6f2ec; border-radius:16px; padding:22px 24px; margin-bottom:22px; box-shadow:0 8px 24px rgba(80,60,30,.16); }
+  #page-assist .as-brief h2{ font-family:'Playfair Display',Georgia,serif; font-size:22px; margin:0 0 3px; color:#fff; }
+  #page-assist .as-brief .as-sub{ color:#c9bcac; font-size:13px; }
+  #page-assist .as-nums{ display:grid; grid-template-columns:repeat(auto-fit,minmax(112px,1fr)); gap:12px; margin:18px 0 4px; }
+  #page-assist .as-num{ background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1); border-radius:12px; padding:12px 14px; }
+  #page-assist .as-num .n{ font-family:'Playfair Display',Georgia,serif; font-size:26px; font-weight:700; color:#fff; line-height:1.1; }
+  #page-assist .as-num .l{ font-size:11px; letter-spacing:.4px; text-transform:uppercase; color:#c9bcac; font-weight:700; margin-top:4px; }
+  #page-assist .as-alerts{ display:flex; flex-direction:column; gap:9px; margin-top:18px; }
+  #page-assist .as-alert{ display:flex; gap:12px; align-items:flex-start; background:rgba(255,255,255,.06); border-left:3px solid var(--hv-terra); border-radius:10px; padding:12px 14px; cursor:pointer; transition:background .15s; }
+  #page-assist .as-alert:hover{ background:rgba(255,255,255,.11); }
+  #page-assist .as-alert.urgent{ border-left-color:#e05a5a; }
+  #page-assist .as-alert.money{ border-left-color:#e0b24a; }
+  #page-assist .as-alert.today{ border-left-color:#5aa9e0; }
+  #page-assist .as-alert.check{ border-left-color:#9a8f86; }
+  #page-assist .as-alert .ic{ font-size:16px; line-height:1.35; flex-shrink:0; }
+  #page-assist .as-alert .t{ font-weight:700; font-size:14px; color:#fff; }
+  #page-assist .as-alert .d{ font-size:12.5px; color:#c9bcac; margin-top:3px; line-height:1.5; }
+  #page-assist .as-clear{ color:#c9bcac; font-size:13.5px; padding:14px 2px 2px; }
+
+  /* --- the chat --- */
+  #page-assist .as-log{ min-height:180px; max-height:460px; overflow-y:auto; display:flex; flex-direction:column; gap:14px; padding:4px 2px 8px; }
+  #page-assist .as-msg{ max-width:82%; padding:12px 15px; border-radius:14px; font-size:14.5px; line-height:1.6; white-space:pre-wrap; word-wrap:break-word; }
+  #page-assist .as-msg.me{ align-self:flex-end; background:var(--hv-terra); color:#fff; border-bottom-right-radius:4px; }
+  #page-assist .as-msg.ai{ align-self:flex-start; background:#faf6ee; border:1px solid var(--hv-line); color:var(--hv-ink); border-bottom-left-radius:4px; }
+  #page-assist .as-msg.ai b{ color:var(--hv-terra-d); }
+  #page-assist .as-msg .as-meta{ display:block; margin-top:8px; font-size:11px; color:var(--hv-muted); letter-spacing:.3px; }
+  #page-assist .as-typing{ align-self:flex-start; color:var(--hv-muted); font-size:13.5px; font-style:italic; padding:6px 2px; }
+  #page-assist .as-empty{ color:var(--hv-muted); font-size:14px; text-align:center; padding:26px 10px; }
+  #page-assist .as-ask{ display:flex; gap:10px; align-items:flex-end; margin-top:14px; border-top:1px solid var(--hv-line); padding-top:16px; }
+  #page-assist .as-ask textarea{ flex:1; resize:none; font-family:inherit; font-size:14.5px; line-height:1.5; padding:12px 14px; border:1px solid var(--hv-line); border-radius:12px; background:#fff; color:var(--hv-ink); min-height:46px; max-height:130px; }
+  #page-assist .as-ask textarea:focus{ outline:none; border-color:var(--hv-terra); }
+  #page-assist .as-mic{ width:46px; height:46px; flex-shrink:0; border-radius:12px; border:1px solid var(--hv-line); background:#fff; cursor:pointer; font-size:19px; line-height:1; }
+  #page-assist .as-mic:hover{ border-color:var(--hv-terra); }
+  #page-assist .as-mic.on{ background:#e05a5a; border-color:#e05a5a; color:#fff; animation:asPulse 1.1s ease-in-out infinite; }
+  @keyframes asPulse{ 0%,100%{ opacity:1 } 50%{ opacity:.55 } }
+  #page-assist .as-send{ height:46px; flex-shrink:0; }
+  #page-assist .as-chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  #page-assist .as-chip{ background:#faf6ee; border:1px solid var(--hv-line); border-radius:20px; padding:7px 14px; font-size:12.5px; font-weight:600; color:var(--hv-muted); cursor:pointer; font-family:inherit; }
+  #page-assist .as-chip:hover{ border-color:var(--hv-terra); color:var(--hv-terra); }
+  #page-assist .as-off{ background:#fdf6e8; border:1px solid #f0dcb4; border-radius:12px; padding:14px 16px; font-size:13.5px; color:#8a6f4f; line-height:1.6; margin-bottom:14px; }
+
+  @media(max-width:600px){
+    #page-assist .as-brief{ padding:18px 16px; }
+    #page-assist .as-nums{ grid-template-columns:repeat(2,1fr); gap:9px; }
+    #page-assist .as-num .n{ font-size:21px; }
+    #page-assist .as-msg{ max-width:92%; font-size:14px; }
+  }
+</style>
+
+    <!-- WATCH: the daily briefing. No AI, no API key, no cost — always on. -->
+    <div class="as-brief" id="asBrief">
+        <h2>Good day, <span id="asWho">there</span>.</h2>
+        <div class="as-sub" id="asBriefSub">Reading today's numbers…</div>
+        <div class="as-nums" id="asNums"></div>
+        <div class="as-alerts" id="asAlerts"></div>
+    </div>
+
+    <!-- ASK: the assistant. Costs money per question, so it only runs on demand. -->
+    <div class="panel">
+        <div class="panel-head">
+            <h2>Ask me anything <span class="muted" style="font-size:13.5px;">— about your bookings, money, availability and cleaning</span></h2>
+            <button class="btn secondary" onclick="clearAssistChat()">Clear</button>
+        </div>
+        <div id="asOffNote" class="as-off" style="display:none;"></div>
+        <div class="as-log" id="asLog"></div>
+        <div class="as-ask">
+            <textarea id="asInput" rows="1" placeholder="e.g. sino ang mag che-check in bukas? — ask in Taglish, I'll answer in English"
+                      oninput="asGrow(this)" onkeydown="asKey(event)"></textarea>
+            <button class="as-mic" id="asMic" onclick="asToggleMic()" title="Ask by voice">🎙</button>
+            <button class="btn as-send" onclick="askAssist()">Ask</button>
+        </div>
+        <div class="as-chips" id="asChips"></div>
+    </div>
+
     <div class="panel">
         <div class="panel-head">
             <h2>🧺 Towels to place per haven</h2>
@@ -4081,10 +4157,13 @@ function peso(n){ return "₱" + Number(n).toLocaleString("en-PH"); }
 function peso2(n){ return "₱" + Number(n).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 /* ---------- booking check-in / check-out times ---------- */
+// Haven names here MUST match the strings stored on bookings exactly. "Casa Bienca"
+// (with a space) never matched the stored "CasaBienca", so a 21-hour booking there
+// with no explicit checkinTime fell back to 12:00 NN instead of 6:00 PM.
 const DASH_HAVEN_TIMES = {
     "Haven 1":{in:"12:00 NN"}, "Haven 2":{in:"12:00 NN"}, "Haven 3":{in:"12:00 NN"},
     "Haven 4":{in:"3:00 PM"}, "Haven 5":{in:"3:00 PM"}, "Haven 7":{in:"3:00 PM"},
-    "Haven 8":{in:"6:00 PM"}, "Casa Bienca":{in:"6:00 PM"}
+    "Haven 8":{in:"6:00 PM"}, "CasaBienca":{in:"6:00 PM"}, "CasaSiesta":{in:"6:00 PM"}
 };
 function parseTimeMin(str){
     const m = String(str).match(/^(\d{1,2}):(\d{2})\s*(AM|PM|NN|MN)$/i);
@@ -9050,7 +9129,169 @@ async function deleteNote(id){
 }
 
 
+/* ============================================================================
+   Assist — the in-house assistant.
+
+   Two independent halves, and it matters which is which:
+     · The BRIEFING is computed server-side in plain JavaScript (/api/assist/brief).
+       It costs nothing, so it loads every time this page opens.
+     · The CHAT calls Claude (/api/assist) and costs real money per question,
+       so it only ever fires when you actually ask something.
+
+   If ANTHROPIC_API_KEY isn't set on Vercel the briefing still works perfectly —
+   only the chat box switches itself off with an explanation.
+   ========================================================================== */
+let _asChat = [];          // the running conversation, resent each turn for context
+let _asBusy = false;
+const AS_ALERT_ICON = { urgent:"🔴", money:"💰", today:"📋", check:"🔎" };
+const AS_SUGGESTIONS = [
+    "Who's checking in tomorrow?",
+    "What's still unsold this week?",
+    "How much did we collect this month?",
+    "Which havens are free on Saturday?",
+    "Who still owes me money?"
+];
+
+async function renderAssistBrief(){
+    const wrap = document.getElementById("asBrief");
+    if(!wrap) return;
+    const who = document.getElementById("asWho");
+    if(who) who.textContent = (typeof currentUser === "function" ? currentUser() : null)
+        || localStorage.getItem("shph_current_user") || "there";
+    try{
+        const r = await fetch("/api/assist/brief", { cache:"no-store" });
+        if(!r.ok) throw new Error("brief " + r.status);
+        const b = await r.json();
+        const n = b.numbers || {};
+
+        document.getElementById("asBriefSub").textContent =
+            new Date(b.date + "T00:00:00").toLocaleDateString("en-PH", { weekday:"long", month:"long", day:"numeric" })
+            + " · " + (b.alerts.length ? b.alerts.length + " thing" + (b.alerts.length > 1 ? "s" : "") + " worth a look" : "nothing needs you right now");
+
+        const cell = (n2, l) => `<div class="as-num"><div class="n">${n2}</div><div class="l">${l}</div></div>`;
+        document.getElementById("asNums").innerHTML =
+            cell(n.arrivals_today ?? "—", "Checking in") +
+            cell(n.departures_today ?? "—", "Checking out") +
+            cell(`${n.occupied_havens ?? "—"}/${n.total_havens ?? "—"}`, "Occupied") +
+            cell(n.arrivals_tomorrow ?? "—", "In tomorrow") +
+            (n.collected_today != null ? cell("₱" + Number(n.collected_today).toLocaleString(), "Collected today") : "");
+
+        document.getElementById("asAlerts").innerHTML = b.alerts.length
+            ? b.alerts.map(a => `<div class="as-alert ${a.level}" onclick="navTo('${a.page}')" title="Open ${a.page}">
+                    <span class="ic">${AS_ALERT_ICON[a.level] || "•"}</span>
+                    <div><div class="t">${escHtml(a.title)}</div><div class="d">${escHtml(a.detail)}</div></div>
+                </div>`).join("")
+            : `<div class="as-clear">All clear — no unsold gaps, no unpaid balances, no turnovers waiting.</div>`;
+
+        // The chat is the only part that needs the API key.
+        const off = document.getElementById("asOffNote");
+        if(off){
+            off.style.display = b.ai ? "none" : "";
+            if(!b.ai) off.innerHTML = "<b>The chat isn't switched on yet.</b> It needs an <code>ANTHROPIC_API_KEY</code> "
+                + "added to the Vercel project settings (Settings → Environment Variables), then a redeploy. "
+                + "Everything above this box works without it.";
+        }
+    }catch(e){
+        document.getElementById("asBriefSub").textContent = "Couldn't load today's briefing — refresh to try again.";
+    }
+}
+
+function renderAssistChips(){
+    const el = document.getElementById("asChips");
+    if(el) el.innerHTML = AS_SUGGESTIONS.map(q =>
+        `<button class="as-chip" onclick="asAskThis(${JSON.stringify(q).replace(/"/g, "&quot;")})">${escHtml(q)}</button>`).join("");
+}
+function asAskThis(q){ document.getElementById("asInput").value = q; askAssist(); }
+function asGrow(t){ t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 130) + "px"; }
+function asKey(e){ if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); askAssist(); } }
+
+function asDrawChat(){
+    const log = document.getElementById("asLog");
+    if(!log) return;
+    log.innerHTML = _asChat.length
+        ? _asChat.map(m => `<div class="as-msg ${m.role === "user" ? "me" : "ai"}">${
+            m.role === "user" ? escHtml(m.content) : asFormat(m.content)
+          }${m.meta ? `<span class="as-meta">${escHtml(m.meta)}</span>` : ""}</div>`).join("")
+        : `<div class="as-empty">Ask about tonight's arrivals, this month's takings, who still owes you, or which havens are sitting empty.</div>`;
+    if(_asBusy) log.insertAdjacentHTML("beforeend", `<div class="as-typing">Checking your live data…</div>`);
+    log.scrollTop = log.scrollHeight;
+}
+// The model writes plain text with **bold** and "- " bullets; render just those two.
+function asFormat(s){
+    return escHtml(s)
+        .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+        .replace(/^[-•]\s+/gm, "· ");
+}
+
+async function askAssist(){
+    const box = document.getElementById("asInput");
+    const q = (box.value || "").trim();
+    if(!q || _asBusy) return;
+    box.value = ""; asGrow(box);
+    _asChat.push({ role:"user", content:q });
+    _asBusy = true; asDrawChat();
+    try{
+        const r = await fetch("/api/assist", {
+            method:"POST", headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({ messages: _asChat.map(m => ({ role:m.role, content:m.content })) })
+        });
+        const j = await r.json();
+        _asChat.push({
+            role:"assistant",
+            content: j.reply || "Something went wrong — try again.",
+            meta: j.cost_php ? `checked: ${(j.tools || []).join(", ") || "—"} · ₱${j.cost_php}` : ""
+        });
+        if(j.ok && _asSpeak) asSay(j.reply);
+    }catch(e){
+        _asChat.push({ role:"assistant", content:"Couldn't reach the assistant. Check your connection and try again." });
+    }
+    _asBusy = false; asDrawChat();
+}
+function clearAssistChat(){ _asChat = []; asDrawChat(); }
+
+/* ---- Voice. Browser built-in (Web Speech API), so it costs nothing and needs
+        no extra service. Chrome and Edge support it; Firefox does not, in which
+        case the mic button just hides itself. ---- */
+let _asRec = null, _asSpeak = false;
+function asToggleMic(){
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const btn = document.getElementById("asMic");
+    if(!SR){ alert("Voice input needs Chrome, Edge or Safari — please type your question instead."); return; }
+    if(_asRec){ _asRec.stop(); _asRec = null; btn.classList.remove("on"); return; }
+    _asRec = new SR();
+    _asRec.lang = "en-PH";            // handles Taglish better than en-US
+    _asRec.interimResults = true;
+    _asRec.continuous = false;
+    btn.classList.add("on");
+    _asRec.onresult = (ev) => {
+        const said = [...ev.results].map(r => r[0].transcript).join("");
+        const box = document.getElementById("asInput");
+        box.value = said; asGrow(box);
+        // A final result means they stopped talking — send it and speak the answer back.
+        if(ev.results[ev.results.length - 1].isFinal){ _asSpeak = true; askAssist(); }
+    };
+    _asRec.onerror = () => { btn.classList.remove("on"); _asRec = null; };
+    _asRec.onend   = () => { btn.classList.remove("on"); _asRec = null; };
+    _asRec.start();
+}
+function asSay(text){
+    _asSpeak = false;
+    if(!window.speechSynthesis) return;
+    // Strip the markdown and the peso sign — a screen reader says "P" otherwise.
+    const clean = String(text).replace(/\*\*/g, "").replace(/₱\s?/g, " ").slice(0, 700);
+    const u = new SpeechSynthesisUtterance(clean);
+    u.lang = "en-PH"; u.rate = 1.05;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+}
+
 function renderAssist(){
+    renderAssistBrief();
+    renderAssistChips();
+    asDrawChat();
+    // Firefox has no Web Speech API — hide the mic rather than offer a button that fails.
+    const mic = document.getElementById("asMic");
+    if(mic && !(window.SpeechRecognition || window.webkitSpeechRecognition)) mic.style.display = "none";
     const inp = document.getElementById("assistDate");
     if(!inp) return;
     if(!inp.value) inp.value = iso(today());
