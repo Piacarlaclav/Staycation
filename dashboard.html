@@ -3152,8 +3152,8 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   #page-assist .havi-console .as-send{ height:46px; }
   #page-assist .havi-console .as-chip{ background:rgba(63,190,255,.08); border:1px solid rgba(63,190,255,.22); color:#9fc7e0; }
   #page-assist .havi-console .as-chip:hover{ border-color:#4fd0ff; color:#eaf6ff; }
-  #page-assist .havi-console .as-off{ background:rgba(240,220,150,.09); border:1px solid rgba(240,220,150,.25); color:#e8d3a0; }
-  #page-assist .havi-console .as-off code{ background:rgba(0,0,0,.25); color:#f2e3b0; padding:1px 5px; border-radius:4px; }
+  #page-assist .havi-console .as-off{ background:rgba(63,190,255,.08); border:1px solid rgba(63,190,255,.2); color:#9fc7e0; text-align:center; }
+  #page-assist .havi-console .as-off b{ color:#cfe8fb; }
   #page-assist .hc-clear{ display:block; margin:14px auto 2px; background:none; border:none; color:#6f9cba; font-size:12.5px; cursor:pointer; font-family:inherit; }
   #page-assist .hc-clear:hover{ color:#9fc7e0; text-decoration:underline; }
   .vxr.hero{ width:250px; height:250px; }
@@ -9272,13 +9272,15 @@ const AS_SUGGESTIONS = [
 async function renderAssistBrief(){
     const off = document.getElementById("asOffNote");
     if(!off) return;
+    // Pia chose the free-only mode — no naggy "add an API key" prompt. Just a warm,
+    // one-line reassurance that everything here is free. (Hidden entirely if the AI
+    // ever gets switched on, since then there's nothing to reassure about.)
     try{
         const r = await fetch("/api/assist/enabled", { cache:"no-store" });
-        const b = r.ok ? await r.json() : { ai:true };
+        const b = r.ok ? await r.json() : { ai:false };
         off.style.display = b.ai ? "none" : "";
-        if(!b.ai) off.innerHTML = "<b>Quick answers are on and free</b> — ask about check-ins, availability, money, "
-            + "who owes you, or cleaning and I'll answer instantly. For open-ended questions, add an "
-            + "<code>ANTHROPIC_API_KEY</code> in Vercel (Settings → Environment Variables) and redeploy.";
+        if(!b.ai) off.innerHTML = "✨ <b>Everything here is free and instant.</b> Ask about check-ins, availability, "
+            + "money, who owes you, or cleaning — in English or Taglish, by typing or by voice.";
     }catch(e){ off.style.display = "none"; }
 }
 
