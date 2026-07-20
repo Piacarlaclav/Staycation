@@ -771,6 +771,12 @@ const staffOnly = (req, res) => {
   return s;
 };
 
+// Cheap flag: is the AI chat switched on? (No data read — just whether the key exists.)
+apiRouter.get("/assist/enabled", (req, res) => {
+  const s = staffOnly(req, res); if (!s) return;
+  res.json({ ai: assist.enabled() });
+});
+
 apiRouter.get("/assist/brief", async (req, res) => {
   const s = staffOnly(req, res); if (!s) return;
   try {
