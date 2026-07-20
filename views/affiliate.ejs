@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<%- include('partials/seed') %>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Affiliate Portal — Staycation Haven PH</title>
+    <link rel="icon" href="/images/logo.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+    <style>
+      :root{
+        --bg:#f5efe6; --panel:#fff; --ink:#211d18; --muted:#8a7f70; --line:#eadfce;
+        --gold:#a9842b; --gold-soft:#f4ead6; --terra:#b26a3f; --green:#2e7d4f; --red:#c0283d;
+        --dark:#1c1a17;
+      }
+      *{ margin:0; padding:0; box-sizing:border-box; }
+      body{ font-family:'Mulish',system-ui,-apple-system,Arial,sans-serif; background:var(--bg); color:var(--ink); -webkit-font-smoothing:antialiased; }
+      .serif{ font-family:'Playfair Display',Georgia,serif; }
+      a{ color:inherit; }
+      .hide{ display:none !important; }
+
+      /* ---------- top bar ---------- */
+      .topbar{ background:var(--panel); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:20; }
+      .topbar .in{ max-width:1080px; margin:0 auto; padding:16px 22px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+      .brand{ display:flex; align-items:center; gap:11px; }
+      .brand img{ width:34px; height:34px; border-radius:8px; object-fit:cover; }
+      .brand .nm{ font-weight:800; font-size:16px; letter-spacing:.2px; }
+      .brand .tag{ font-size:11px; font-weight:800; letter-spacing:2px; color:var(--gold); text-transform:uppercase; }
+      .who{ display:flex; align-items:center; gap:12px; }
+      .who .av{ width:38px; height:38px; border-radius:50%; background:var(--gold-soft); color:var(--gold); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; letter-spacing:.5px; }
+      .who .nm{ font-weight:700; font-size:14px; }
+      .btn-ghost{ border:1px solid var(--line); background:var(--panel); color:var(--ink); padding:9px 16px; border-radius:11px; font:inherit; font-weight:700; font-size:13px; cursor:pointer; }
+      .btn-ghost:hover{ background:#faf6ee; }
+
+      .wrap{ max-width:1080px; margin:0 auto; padding:30px 22px 70px; }
+
+      /* ---------- login ---------- */
+      .login-wrap{ min-height:calc(100vh - 70px); display:flex; align-items:center; justify-content:center; padding:26px; }
+      .login-card{ background:var(--panel); border:1px solid var(--line); border-radius:22px; padding:40px 34px; width:420px; max-width:100%; box-shadow:0 18px 50px rgba(90,66,26,.10); }
+      .login-card h1{ font-size:25px; margin:6px 0 6px; }
+      .login-card .sub{ color:var(--muted); font-size:14px; margin-bottom:26px; line-height:1.55; }
+      label{ display:block; font-size:12px; font-weight:700; color:var(--muted); margin:0 0 6px 2px; letter-spacing:.2px; }
+      .fld{ width:100%; padding:14px 15px; margin-bottom:16px; border:1px solid var(--line); border-radius:12px; background:#faf6ee; font:inherit; font-size:15px; color:var(--ink); }
+      .fld:focus{ outline:none; border-color:var(--gold); background:#fff; }
+      .btn-gold{ width:100%; padding:15px; border:none; border-radius:13px; background:var(--gold); color:#fff; font:inherit; font-weight:800; font-size:15px; cursor:pointer; box-shadow:0 8px 20px rgba(169,132,43,.22); }
+      .btn-gold:hover{ background:#957421; }
+      .btn-gold:disabled{ opacity:.6; cursor:default; }
+      .err{ color:var(--red); font-size:13px; min-height:18px; margin:2px 0 10px; font-weight:600; }
+      .login-foot{ text-align:center; font-size:13px; color:var(--muted); margin-top:20px; }
+      .login-foot a{ color:var(--gold); font-weight:700; text-decoration:none; }
+
+      /* ---------- greeting ---------- */
+      .hello{ font-size:34px; margin-bottom:6px; }
+      .hello .wave{ font-family:'Mulish',sans-serif; }
+      .sub-line{ color:var(--muted); font-size:14.5px; margin-bottom:26px; }
+      .sub-line b{ color:var(--ink); }
+
+      /* ---------- stat cards ---------- */
+      .stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:22px; }
+      .stat{ background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:20px 20px 18px; }
+      .stat .lbl{ font-size:11px; font-weight:800; letter-spacing:.8px; text-transform:uppercase; color:var(--muted); margin-bottom:12px; }
+      .stat .big{ font-size:30px; line-height:1; margin-bottom:9px; }
+      .stat .big.money{ color:var(--ink); }
+      .stat .big.green{ color:var(--green); }
+      .stat .foot{ font-size:12.5px; color:var(--muted); }
+
+      /* ---------- referral link (dark) ---------- */
+      .reflink{ background:var(--dark); border-radius:20px; padding:26px 28px; margin-bottom:22px; color:#f3ece0; }
+      .reflink .cap{ font-size:12px; font-weight:800; letter-spacing:1.4px; text-transform:uppercase; color:var(--gold); margin-bottom:14px; }
+      .reflink .row{ display:flex; gap:12px; align-items:stretch; flex-wrap:wrap; }
+      .reflink .url{ flex:1; min-width:220px; background:#2b2721; border:1px solid #3a352d; border-radius:13px; padding:15px 18px; font-size:15px; color:#f3ece0; display:flex; align-items:center; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+      .reflink .copy{ background:var(--gold-soft); color:#7a5e16; border:none; border-radius:13px; padding:0 24px; font:inherit; font-weight:800; font-size:14px; cursor:pointer; white-space:nowrap; }
+      .reflink .copy:hover{ background:#efe1c6; }
+      .reflink .note{ font-size:13px; color:#b6ab9b; margin-top:14px; line-height:1.6; }
+      .reflink .note b{ color:#f3ece0; }
+
+      /* ---------- two action cards ---------- */
+      .duo{ display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:30px; }
+      .card{ background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:24px 24px; }
+      .card h3{ font-size:16px; font-weight:800; margin-bottom:4px; }
+      .card .bal{ font-size:44px; line-height:1.05; margin:8px 0 4px; }
+      .card p{ color:var(--muted); font-size:13.5px; line-height:1.55; margin-bottom:16px; }
+      .btn-block{ width:100%; padding:15px; border:none; border-radius:13px; font:inherit; font-weight:800; font-size:15px; cursor:pointer; }
+      .btn-block.gold{ background:var(--gold); color:#fff; box-shadow:0 8px 20px rgba(169,132,43,.2); }
+      .btn-block.gold:hover{ background:#957421; }
+      .btn-block.gold:disabled{ opacity:.55; cursor:default; box-shadow:none; }
+      .btn-block.outline{ background:var(--panel); color:var(--ink); border:1px solid var(--line); }
+      .btn-block.outline:hover{ background:#faf6ee; }
+      .post-msg{ font-size:12.5px; font-weight:600; min-height:16px; margin-top:9px; }
+
+      /* ---------- section heading ---------- */
+      .sec-cap{ font-size:12px; font-weight:800; letter-spacing:1.6px; text-transform:uppercase; color:var(--gold); margin:0 0 14px 2px; }
+
+      /* ---------- referred bookings table ---------- */
+      .tbl-wrap{ background:var(--panel); border:1px solid var(--line); border-radius:18px; overflow:hidden; margin-bottom:30px; }
+      table{ width:100%; border-collapse:collapse; }
+      thead th{ text-align:left; font-size:11px; font-weight:800; letter-spacing:.6px; text-transform:uppercase; color:var(--muted); padding:16px 20px; border-bottom:1px solid var(--line); }
+      tbody td{ padding:17px 20px; border-bottom:1px solid var(--line); font-size:14.5px; }
+      tbody tr:last-child td{ border-bottom:none; }
+      tbody td.guest{ font-weight:700; }
+      td.unit,td.date{ color:var(--terra); }
+      td.date{ color:var(--muted); }
+      .pill{ display:inline-block; font-size:11.5px; font-weight:700; padding:5px 13px; border-radius:20px; }
+      .pill.confirmed{ background:#e7f3ec; color:var(--green); }
+      .pill.completed{ background:#eef0f2; color:#5b6470; }
+      .pill.pending{ background:#f6ecd9; color:#9a7700; }
+      .empty{ padding:34px 20px; text-align:center; color:var(--muted); font-size:14px; }
+
+      /* ---------- credit history ---------- */
+      .hist{ background:var(--panel); border:1px solid var(--line); border-radius:18px; overflow:hidden; }
+      .hrow{ display:flex; align-items:center; gap:15px; padding:16px 20px; border-bottom:1px solid var(--line); }
+      .hrow:last-child{ border-bottom:none; }
+      .hrow .ico{ width:40px; height:40px; border-radius:11px; flex:none; display:flex; align-items:center; justify-content:center; background:var(--gold-soft); }
+      .hrow .ico svg{ width:19px; height:19px; stroke:var(--gold); fill:none; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+      .hrow .ico.out{ background:#f7e3e3; }
+      .hrow .ico.out svg{ stroke:var(--red); }
+      .hrow .txt{ flex:1; min-width:0; }
+      .hrow .txt .t{ font-weight:700; font-size:14.5px; }
+      .hrow .txt .d{ font-size:12.5px; color:var(--muted); margin-top:2px; }
+      .hrow .amt{ font-weight:800; font-size:15px; white-space:nowrap; }
+      .hrow .amt.up{ color:var(--green); }
+      .hrow .amt.down{ color:var(--red); }
+
+      @media (max-width:820px){
+        .stats{ grid-template-columns:1fr 1fr; }
+        .duo{ grid-template-columns:1fr; }
+      }
+      @media (max-width:520px){
+        .wrap{ padding:22px 15px 60px; }
+        .hello{ font-size:28px; }
+        .stats{ gap:12px; }
+        .stat{ padding:16px; border-radius:15px; }
+        .stat .big{ font-size:25px; }
+        .reflink{ padding:22px 18px; }
+        .brand .nm{ display:none; }
+        .who .nm{ display:none; }
+      }
+    </style>
+</head>
+<body>
+
+  <!-- top bar -->
+  <div class="topbar">
+    <div class="in">
+      <div class="brand">
+        <img src="/images/logo.png" alt="" onerror="this.style.display='none'">
+        <div>
+          <div class="nm">Staycation Haven <span style="color:var(--muted); font-weight:700;">·</span> <span class="tag">Affiliate</span></div>
+        </div>
+      </div>
+      <div class="who hide" id="whoBox">
+        <div class="av" id="whoAv">–</div>
+        <div class="nm" id="whoName">—</div>
+        <button class="btn-ghost" onclick="doLogout()">Logout</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ LOGIN ============ -->
+  <div class="login-wrap" id="loginView">
+    <form class="login-card" id="loginForm" onsubmit="return doLogin(event)">
+      <h1 class="serif">Affiliate Portal</h1>
+      <p class="sub">Log in with your affiliate <b>code</b> and the <b>mobile number</b> you signed up with.</p>
+      <label for="inCode">Affiliate code</label>
+      <input class="fld" id="inCode" placeholder="e.g. KAYE-A2B" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <label for="inContact">Mobile number</label>
+      <input class="fld" id="inContact" placeholder="09xx xxx xxxx" inputmode="tel" autocomplete="off">
+      <div class="err" id="loginErr"></div>
+      <button class="btn-gold" id="loginBtn" type="submit">Log in</button>
+      <div class="login-foot">Not an affiliate yet? <a href="/become-an-affiliate">Join the program →</a></div>
+    </form>
+  </div>
+
+  <!-- ============ DASHBOARD ============ -->
+  <div class="wrap hide" id="dashView">
+    <h1 class="hello serif">Hi <span id="hiName">there</span> <span class="wave">👋</span></h1>
+    <div class="sub-line">Affiliate code <b id="dCode">—</b> · member since <span id="dSince">—</span></div>
+
+    <div class="stats">
+      <div class="stat"><div class="lbl">Referred bookings</div><div class="big serif" id="sReferred">0</div><div class="foot" id="sReferredFoot">0 this month</div></div>
+      <div class="stat"><div class="lbl">Total credits earned</div><div class="big serif money" id="sEarned">₱0</div><div class="foot" id="sSince2">—</div></div>
+      <div class="stat"><div class="lbl">Redeemable now</div><div class="big serif green" id="sBalance">₱0</div><div class="foot">Ready to use</div></div>
+      <div class="stat"><div class="lbl">Content posts</div><div class="big serif" id="sPosts">0</div><div class="foot">+₱50 each verified</div></div>
+    </div>
+
+    <div class="reflink">
+      <div class="cap">Your referral link</div>
+      <div class="row">
+        <div class="url" id="refUrl">…</div>
+        <button class="copy" id="copyBtn" onclick="copyLink()">Copy link</button>
+      </div>
+      <div class="note">Share this link on your posts. Every booking through it is credited to you, and each content post you log earns <b>₱50 credit</b> you can redeem on your own stays.</div>
+    </div>
+
+    <div class="duo">
+      <div class="card">
+        <h3>Redeemable balance</h3>
+        <div class="bal serif green" id="cBalance">₱0</div>
+        <p>Apply as a discount on your next booking. Tap below and our team will issue your voucher.</p>
+        <button class="btn-block gold" id="redeemBtn" onclick="doRedeem()">Redeem as voucher</button>
+        <div class="post-msg" id="redeemMsg"></div>
+      </div>
+      <div class="card">
+        <h3>Log a content post</h3>
+        <p>Posted a reel or story with your link? Drop the URL and earn ₱50 once our team verifies it.</p>
+        <input class="fld" id="postUrl" placeholder="https://instagram.com/p/…" inputmode="url" autocomplete="off" style="margin-bottom:12px;">
+        <button class="btn-block outline" id="postBtn" onclick="doPost()">Submit for ₱50 credit</button>
+        <div class="post-msg" id="postMsg"></div>
+      </div>
+    </div>
+
+    <div class="sec-cap">Referred bookings</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Guest</th><th>Unit</th><th>Date</th><th>Status</th></tr></thead>
+        <tbody id="refBody"></tbody>
+      </table>
+    </div>
+
+    <div class="sec-cap">Credit history</div>
+    <div class="hist" id="histBox"></div>
+  </div>
+
+  <script>
+  /* ---------- helpers ---------- */
+  var MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  function peso(n){ return "₱" + (Math.round(Number(n)||0)).toLocaleString("en-PH"); }
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function fmtDate(iso){ if(!iso) return "—"; var p=String(iso).slice(0,10).split("-"); if(p.length<3) return iso; return MONTHS[(+p[1])-1] + " " + (+p[2]) + ", " + p[0]; }
+  function monYr(iso){ if(!iso) return "—"; var p=String(iso).slice(0,10).split("-"); if(p.length<2) return iso; return MONTHS[(+p[1])-1] + " " + p[0]; }
+  function initials(name){ var w=String(name||"").trim().split(/\s+/).filter(Boolean); if(!w.length) return "A"; return (w[0][0] + (w.length>1?w[w.length-1][0]:"")).toUpperCase(); }
+  function firstName(name){ return String(name||"there").trim().split(/\s+/)[0] || "there"; }
+
+  /* ---------- boot ---------- */
+  async function boot(){
+    try{
+      var r = await fetch("/api/affiliate/me", { cache:"no-store" });
+      if(r.status === 401){ showLogin(); return; }
+      if(!r.ok) throw new Error("load failed");
+      var data = await r.json();
+      renderDashboard(data);
+    }catch(e){ showLogin(); }
+  }
+
+  function showLogin(){
+    document.getElementById("dashView").classList.add("hide");
+    document.getElementById("whoBox").classList.add("hide");
+    document.getElementById("loginView").classList.remove("hide");
+    var c = document.getElementById("inCode"); if(c) c.focus();
+  }
+
+  async function doLogin(ev){
+    ev.preventDefault();
+    var err = document.getElementById("loginErr"); err.textContent = "";
+    var code = document.getElementById("inCode").value.trim();
+    var contact = document.getElementById("inContact").value.trim();
+    if(!code || !contact){ err.textContent = "Enter your code and mobile number."; return false; }
+    var btn = document.getElementById("loginBtn"); btn.disabled = true; var t = btn.textContent; btn.textContent = "Logging in…";
+    try{
+      var r = await fetch("/api/affiliate-login", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ code: code, contact: contact }) });
+      var j = await r.json().catch(function(){ return {}; });
+      if(!r.ok || !j.ok){ err.textContent = j.error || "That code and number didn't match."; return false; }
+      await boot();
+    }catch(e){ err.textContent = "Couldn't reach the server — please try again."; }
+    finally{ btn.disabled = false; btn.textContent = t; }
+    return false;
+  }
+
+  async function doLogout(){
+    try{ await fetch("/api/logout", { method:"POST" }); }catch(e){}
+    location.href = "/affiliate";
+  }
+
+  /* ---------- dashboard ---------- */
+  var CODE = "";
+  function renderDashboard(d){
+    CODE = d.code || "";
+    document.getElementById("loginView").classList.add("hide");
+    document.getElementById("dashView").classList.remove("hide");
+    document.getElementById("whoBox").classList.remove("hide");
+
+    document.getElementById("whoAv").textContent = initials(d.name);
+    document.getElementById("whoName").textContent = d.name || "";
+    document.getElementById("hiName").textContent = firstName(d.name);
+    document.getElementById("dCode").textContent = d.code || "—";
+    document.getElementById("dSince").textContent = monYr(d.memberSince);
+    document.getElementById("sSince2").textContent = "Since " + monYr(d.memberSince);
+
+    var st = d.stats || {};
+    document.getElementById("sReferred").textContent = st.referred || 0;
+    document.getElementById("sReferredFoot").textContent = (st.thisMonth || 0) + " this month";
+    document.getElementById("sEarned").textContent = peso(st.earned);
+    document.getElementById("sBalance").textContent = peso(st.balance);
+    document.getElementById("sPosts").textContent = st.posts || 0;
+    document.getElementById("cBalance").textContent = peso(st.balance);
+
+    document.getElementById("refUrl").textContent = (location.origin || "https://www.staycationhaven-ph.com") + "/?ref=" + (d.code || "");
+
+    // redeem button state
+    var rBtn = document.getElementById("redeemBtn"), rMsg = document.getElementById("redeemMsg");
+    if(d.pendingRedeem){ rBtn.disabled = true; rBtn.textContent = "Redemption pending review"; rMsg.style.color = "var(--muted)"; rMsg.textContent = "Our team is processing your last request."; }
+    else if(!st.balance){ rBtn.disabled = true; rBtn.textContent = "No balance yet"; rMsg.textContent = ""; }
+    else{ rBtn.disabled = false; rBtn.textContent = "Redeem as voucher"; rMsg.textContent = ""; }
+
+    // referred bookings
+    var body = document.getElementById("refBody");
+    var refs = d.referred || [];
+    if(!refs.length){ body.innerHTML = '<tr><td colspan="4" class="empty">No referred bookings yet. Share your link to get started!</td></tr>'; }
+    else{
+      body.innerHTML = refs.map(function(b){
+        var s = String(b.status||"").toLowerCase();
+        return '<tr><td class="guest">'+esc(b.guest)+'</td><td class="unit">'+esc(b.unit)+'</td><td class="date">'+fmtDate(b.date)+'</td><td><span class="pill '+s+'">'+esc(b.status)+'</span></td></tr>';
+      }).join("");
+    }
+
+    // credit history
+    var hist = d.history || [];
+    var box = document.getElementById("histBox");
+    if(!hist.length){ box.innerHTML = '<div class="empty">No credits yet — post content with your link to start earning.</div>'; }
+    else{
+      box.innerHTML = hist.map(function(h){
+        var up = (Number(h.amount)||0) >= 0;
+        var ico = up
+          ? '<div class="ico"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>'
+          : '<div class="ico out"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></div>';
+        var amt = (up ? "+" : "−") + peso(Math.abs(h.amount));
+        return '<div class="hrow">'+ico+'<div class="txt"><div class="t">'+esc(h.label)+'</div><div class="d">'+fmtDate(h.at)+'</div></div><div class="amt '+(up?"up":"down")+'">'+amt+'</div></div>';
+      }).join("");
+    }
+  }
+
+  function copyLink(){
+    var link = document.getElementById("refUrl").textContent;
+    var btn = document.getElementById("copyBtn");
+    var done = function(){ var t = btn.textContent; btn.textContent = "Copied ✓"; setTimeout(function(){ btn.textContent = t; }, 1400); };
+    try{ navigator.clipboard.writeText(link).then(done, function(){ prompt("Copy this link:", link); }); }
+    catch(e){ prompt("Copy this link:", link); }
+  }
+
+  async function doPost(){
+    var inp = document.getElementById("postUrl"), msg = document.getElementById("postMsg"), btn = document.getElementById("postBtn");
+    var url = inp.value.trim();
+    msg.style.color = "var(--red)";
+    if(!/^https?:\/\/.{4,}/i.test(url)){ msg.textContent = "Paste a valid post link (starting with http)."; return; }
+    btn.disabled = true; var t = btn.textContent; btn.textContent = "Submitting…";
+    try{
+      var r = await fetch("/api/affiliate/post", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ url: url }) });
+      var j = await r.json().catch(function(){ return {}; });
+      if(!r.ok || !j.ok){ msg.textContent = j.error || "Couldn't submit — please try again."; }
+      else{ msg.style.color = "var(--green)"; msg.textContent = "Submitted! We'll verify it and add ₱50. 💛"; inp.value = ""; }
+    }catch(e){ msg.textContent = "Couldn't reach the server — please try again."; }
+    finally{ btn.disabled = false; btn.textContent = t; }
+  }
+
+  async function doRedeem(){
+    var msg = document.getElementById("redeemMsg"), btn = document.getElementById("redeemBtn");
+    if(!confirm("Request to redeem your full balance as a booking voucher?\nOur team will review it and send your voucher code.")) return;
+    btn.disabled = true; var t = btn.textContent; btn.textContent = "Sending request…";
+    msg.style.color = "var(--red)";
+    try{
+      var r = await fetch("/api/affiliate/redeem", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({}) });
+      var j = await r.json().catch(function(){ return {}; });
+      if(!r.ok || !j.ok){ msg.textContent = j.error || "Couldn't send — please try again."; btn.disabled = false; btn.textContent = t; return; }
+      msg.style.color = "var(--green)"; msg.textContent = "Request sent for " + peso(j.amount) + "! We'll issue your voucher shortly. 💛";
+      await boot();
+    }catch(e){ msg.textContent = "Couldn't reach the server — please try again."; btn.disabled = false; btn.textContent = t; }
+  }
+
+  boot();
+  </script>
+</body>
+</html>

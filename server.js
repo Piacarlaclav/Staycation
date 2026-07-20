@@ -99,6 +99,12 @@ function clearSessionCookie(res) {
   res.append("Set-Cookie", `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
 }
 
+// A back-office session (staff or partner) has FULL data access. An AFFILIATE portal session is
+// deliberately NOT "full": it may reach only its own /api/affiliate/* endpoints and never the shared
+// KV / list data (bookings, users, partners…). Keep these two ideas separate everywhere below.
+const isFullSession = (req) => { const s = readSession(req); return !!(s && (s.t === "staff" || s.t === "partner")); };
+const affiliateSession = (req) => { const s = readSession(req); return (s && s.t === "affiliate") ? s : null; };
+
 // Staff login. Verifies against the LIVE user list server-side; the list never goes to the
 // browser. Bootstrap rule preserved from the old client flow: if NO admin exists yet, a
 // non-empty username with password "1234" creates the first admin account.
@@ -162,6 +168,31 @@ app.post("/api/partner-login", async (req, res) => {
   }
 });
 
+// Affiliate portal login. Affiliates have no password on file — they log in with their personal
+// referral CODE (username) + the CONTACT NUMBER captured on their application (verified server-side).
+// Numbers are compared on their trailing 10 digits so +63/0 prefixes and spacing don't matter.
+app.post("/api/affiliate-login", async (req, res) => {
+  try {
+    const code = String((req.body || {}).code || "").trim();
+    const contact = String((req.body || {}).contact || "").trim();
+    if (!code || !contact) return res.status(400).json({ ok: false, error: "missing credentials" });
+    let list = [];
+    try { list = await store.readFreshList("shph_affiliates_v1"); } catch (e) { list = store.get("shph_affiliates_v1") || []; }
+    const codeKey = c => String(c || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const phone10 = p => String(p || "").replace(/\D/g, "").slice(-10);
+    const want = phone10(contact);
+    const a = (Array.isArray(list) ? list : []).find(x => x && !x.deleted
+      && codeKey(x.code) === codeKey(code)
+      && want && phone10(x.contact) === want);
+    if (!a) return res.status(401).json({ ok: false, error: "invalid code or number" });
+    setSessionCookie(req, res, { t: "affiliate", aid: a.id, code: a.code });
+    res.json({ ok: true, name: a.name, code: a.code });
+  } catch (e) {
+    console.error("[auth] affiliate login failed:", e.message);
+    res.status(500).json({ ok: false, error: "login failed" });
+  }
+});
+
 app.post("/api/logout", (req, res) => { clearSessionCookie(res); res.json({ ok: true }); });
 app.get("/api/logout", (req, res) => { clearSessionCookie(res); res.redirect("/admin"); });
 
@@ -179,8 +210,15 @@ const apiRouter = express.Router();
    Everything else without a valid session cookie → 401. */
 apiRouter.use((req, res, next) => {
   if (req.method === "OPTIONS") return next();
-  if (readSession(req)) return next();
   const p = req.path;
+  // Affiliate portal sessions are scoped: they reach ONLY their own /affiliate/* endpoints. For
+  // everything else an affiliate is treated as anonymous (falls through to the public allowlist),
+  // so a portal login can never read bookings/users or write to shared lists as a staff user would.
+  if (affiliateSession(req)) {
+    if (p.startsWith("/affiliate/")) return next();
+  } else if (readSession(req)) {
+    return next();   // staff / partner → full back-office access
+  }
   if (req.method === "POST" && (p === "/visit" || p === "/send-confirmation" || p === "/apply")) return next();
   if (req.method === "POST" && p.startsWith("/list/")) return next();   // per-route hardening below
   if (p === "/backup" || p === "/restore" || p === "/retention") return next();  // own token guards
@@ -535,7 +573,9 @@ apiRouter.post("/list/:key", async (req, res) => {
   // Anonymous callers (the public booking flow) may ONLY upsert bookings — never delete,
   // never touch other lists — and may never replace a record that staff created: an existing
   // id must belong to a website booking for an unauthenticated overwrite to be accepted.
-  if (!readSession(req)) {
+  // An AFFILIATE portal session counts as non-privileged here (isFullSession, not readSession),
+  // so a logged-in affiliate is held to the same booking-only rule as an anonymous guest.
+  if (!isFullSession(req)) {
     if (key !== "shph_bookings_v3" || del != null || !upsert || upsert.id == null) {
       return res.status(401).json({ error: "login required" });
     }
@@ -694,6 +734,134 @@ apiRouter.post("/apply", async (req, res) => {
   } catch (e) {
     console.error("[apply] failed:", e.message);
     res.status(502).json({ ok: false, error: "could not save — please try again" });
+  }
+});
+
+/* ---- Affiliate self-serve portal (2026-07-20). An approved affiliate logs in at /affiliate with
+   their code + contact number and sees only THEIR OWN dashboard: referral link, credit ledger,
+   referred bookings and the two actions they can take — log a content post (goes to the team for
+   verification → ₱50) and request a redemption (goes to the team → voucher). All reads/writes are
+   scoped to the one affiliate the session belongs to; the shared booking list is never exposed. */
+const _rid = (pfx) => pfx + "_" + crypto.randomBytes(6).toString("hex");
+const _phNow = () => new Date(Date.now() + 8 * 3600 * 1000);          // PH is UTC+8
+const _phToday = () => _phNow().toISOString().slice(0, 10);
+function _affShortName(n) {
+  const parts = String(n || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "Guest";
+  if (parts.length === 1) return parts[0];
+  return parts[0].charAt(0).toUpperCase() + ". " + parts[parts.length - 1];
+}
+function _affBookingStatus(b) {
+  const co = b.checkout || b.checkoutDate || b.checkin || b.checkinDate || "";
+  if (co && String(co).slice(0, 10) < _phToday()) return "Completed";
+  return "Confirmed";
+}
+function _affCreditLabel(c) {
+  const r = String(c && c.reason || "").toLowerCase();
+  if (r.includes("post")) return "Content post verified";
+  if (r.includes("referral") || r.includes("booking")) return "Referral booking";
+  if (!c || !c.reason) return "Credit";
+  return c.reason.charAt(0).toUpperCase() + c.reason.slice(1);
+}
+// Build the portal payload for ONE affiliate — reduced booking view only (initial + surname, no
+// phone numbers), plus stats, credit history and the affiliate's own posts/redemptions.
+function affiliatePayload(a, bookings) {
+  const credits = Array.isArray(a.credits) ? a.credits : [];
+  const posts = Array.isArray(a.posts) ? a.posts : [];
+  const redemptions = Array.isArray(a.redemptions) ? a.redemptions : [];
+  const codeU = String(a.code || "").toUpperCase();
+  const mine = (Array.isArray(bookings) ? bookings : [])
+    .filter(b => b && !b.cancelled && !b.deleted && String(b.refCode || "").toUpperCase() === codeU);
+  const ym = _phToday().slice(0, 7);
+  const referred = mine.map(b => ({
+    guest: _affShortName((b.guests && b.guests[0] && b.guests[0].name) || b.fbName || "Guest"),
+    unit: b.haven || "—",
+    date: String(b.checkin || b.checkinDate || "").slice(0, 10),
+    status: _affBookingStatus(b)
+  })).sort((x, y) => String(y.date).localeCompare(String(x.date)));
+  const thisMonth = mine.filter(b => String(b.checkin || b.checkinDate || "").slice(0, 7) === ym).length;
+  const earned = credits.reduce((s, c) => s + (Number(c && c.amount) || 0), 0);
+  const balance = credits.filter(c => c && !c.used).reduce((s, c) => s + (Number(c.amount) || 0), 0);
+  const verifiedPosts = posts.filter(p => p && p.status === "verified").length;
+  const history = [];
+  credits.forEach(c => history.push({ label: _affCreditLabel(c), at: c.at || "", amount: Number(c && c.amount) || 0 }));
+  redemptions.filter(r => r && r.status === "approved").forEach(r =>
+    history.push({ label: "Redeemed voucher " + (r.voucher || ""), at: r.approvedAt || r.at || "", amount: -(Number(r.amount) || 0) }));
+  history.sort((x, y) => String(y.at).localeCompare(String(x.at)));
+  return {
+    name: a.name || "", code: a.code || "", memberSince: a.createdAt || "",
+    stats: { referred: mine.length, thisMonth, earned, balance, posts: verifiedPosts },
+    referred, history,
+    posts: posts.slice().sort((x, y) => String(y.at).localeCompare(String(x.at))),
+    pendingRedeem: redemptions.some(r => r && r.status === "pending")
+  };
+}
+
+async function _findAffiliate(aid) {
+  let list = [];
+  try { list = await store.readFreshList("shph_affiliates_v1"); } catch (e) { list = store.get("shph_affiliates_v1") || []; }
+  return (Array.isArray(list) ? list : []).find(x => x && String(x.id) === String(aid) && !x.deleted) || null;
+}
+
+// The affiliate's own dashboard data.
+apiRouter.get("/affiliate/me", async (req, res) => {
+  const sess = affiliateSession(req);
+  if (!sess) return res.status(401).json({ error: "login required" });
+  try {
+    const a = await _findAffiliate(sess.aid);
+    if (!a) return res.status(404).json({ error: "affiliate not found" });
+    let bookings = [];
+    try { bookings = await store.readFreshList("shph_bookings_v3"); } catch (e) { bookings = store.get("shph_bookings_v3") || []; }
+    res.json(affiliatePayload(a, bookings));
+  } catch (e) {
+    console.error("[affiliate] me failed:", e.message);
+    res.status(502).json({ error: "read failed" });
+  }
+});
+
+// Log a content post → recorded as PENDING for the team to verify (credit is minted on verify).
+apiRouter.post("/affiliate/post", async (req, res) => {
+  const sess = affiliateSession(req);
+  if (!sess) return res.status(401).json({ error: "login required" });
+  const url = String((req.body || {}).url || "").trim();
+  if (!/^https?:\/\/.{4,}/i.test(url) || url.length > 400) return res.status(400).json({ error: "Please paste a valid post link (starting with http)." });
+  try {
+    let dup = false;
+    const ok = await store.updateOneFresh("shph_affiliates_v1", sess.aid, a => {
+      a.posts = Array.isArray(a.posts) ? a.posts : [];
+      if (a.posts.some(p => p && p.url === url && p.status === "pending")) { dup = true; return; }
+      a.posts.push({ id: _rid("post"), url, at: new Date().toISOString(), status: "pending" });
+    });
+    if (!ok) return res.status(404).json({ error: "affiliate not found" });
+    if (dup) return res.status(409).json({ error: "That link is already waiting to be verified." });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("[affiliate] post failed:", e.message);
+    res.status(502).json({ error: "could not save — please try again" });
+  }
+});
+
+// Request a redemption of the whole current balance → PENDING for the team to approve (issue voucher).
+apiRouter.post("/affiliate/redeem", async (req, res) => {
+  const sess = affiliateSession(req);
+  if (!sess) return res.status(401).json({ error: "login required" });
+  try {
+    let outcome = "", amount = 0;
+    const ok = await store.updateOneFresh("shph_affiliates_v1", sess.aid, a => {
+      a.redemptions = Array.isArray(a.redemptions) ? a.redemptions : [];
+      if (a.redemptions.some(r => r && r.status === "pending")) { outcome = "pending"; return; }
+      const bal = (Array.isArray(a.credits) ? a.credits : []).filter(c => c && !c.used).reduce((s, c) => s + (Number(c.amount) || 0), 0);
+      if (bal <= 0) { outcome = "empty"; return; }
+      amount = bal;
+      a.redemptions.push({ id: _rid("redeem"), amount: bal, at: new Date().toISOString(), status: "pending" });
+    });
+    if (!ok) return res.status(404).json({ error: "affiliate not found" });
+    if (outcome === "pending") return res.status(409).json({ error: "You already have a redemption being reviewed." });
+    if (outcome === "empty") return res.status(400).json({ error: "No redeemable balance yet." });
+    res.json({ ok: true, amount });
+  } catch (e) {
+    console.error("[affiliate] redeem failed:", e.message);
+    res.status(502).json({ error: "could not save — please try again" });
   }
 });
 
@@ -1065,6 +1233,18 @@ app.get("/partners", renderPage("dashboard"));
 app.get("/partner-dashboard", renderPage("dashboard"));   // alias
 // Recruitment front doors — one page holds both offers; the affiliate URL deep-links to its section
 app.get("/become-an-affiliate", renderPage("be-a-partner"));
+
+// Affiliate self-serve portal. Rendered with a MINIMAL seed (site settings only): the page holds
+// no back-office data — it fetches the signed-in affiliate's own dashboard from /api/affiliate/me,
+// and shows a login card first if there's no valid affiliate session.
+app.get("/affiliate", (req, res) => {
+  const s = { shph_settings: store.get("shph_settings") };
+  res.render("affiliate", { seed: s, page: "affiliate" }, (err, html) => {
+    if (err) { console.error("Render error for affiliate —", err.message); return res.status(500).send("Page render error: " + err.message); }
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.send(html);
+  });
+});
 
 // Nicole's branded shortcut URLs — the same back-office pages behind friendlier addresses.
 // No auth change: each page still requires a logged-in user (the client bounces to the login

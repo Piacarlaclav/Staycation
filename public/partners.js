@@ -1248,6 +1248,7 @@ async function renderAffiliates(){
     const body = document.getElementById("affiliatesBody");
     if(!body) return;
     await loadAffiliatesFresh();
+    renderAffiliatePending();
     const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
     const list = _affiliates.filter(a => a && !a.deleted)
         .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
@@ -1316,6 +1317,101 @@ async function deleteAffiliate(id){
         if(typeof logActivity === "function") logActivity(`removed affiliate ${a.name} (${a.code})`);
     }catch(e){ alert("Couldn't delete — please try again."); }
     renderAffiliates();
+}
+
+/* ---------- Affiliate PORTAL review: content-post submissions + redemption requests ----------
+   Affiliates log a post URL (→ pending) or request a redemption (→ pending) from their own portal
+   at /affiliate. Both land on the affiliate record; the owner verifies/approves them here. */
+function _affVoucherCode(a){
+    const w = String(a.name || "").trim().split(/\s+/).filter(Boolean);
+    const ini = ((w[0] ? w[0][0] : "") + (w.length > 1 ? w[w.length - 1][0] : "")).toUpperCase() || "SHP";
+    return "HAVENCREDIT-" + ini;
+}
+function renderAffiliatePending(){
+    const box = document.getElementById("affiliatesPending");
+    if(!box) return;
+    const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const fmt = iso => { if(!iso) return ""; const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString("en-PH", { month:"short", day:"numeric" }); };
+    const posts = [], redeems = [];
+    _affiliates.filter(a => a && !a.deleted).forEach(a => {
+        (a.posts || []).filter(p => p && p.status === "pending").forEach(p => posts.push({ a, p }));
+        (a.redemptions || []).filter(r => r && r.status === "pending").forEach(r => redeems.push({ a, r }));
+    });
+    if(!posts.length && !redeems.length){ box.innerHTML = ""; return; }
+    let html = '<div style="background:#fbf6ec; border:1px solid #ecdcc0; border-radius:14px; padding:16px 18px; margin-bottom:18px;">'
+        + '<div style="font-size:12px; font-weight:800; letter-spacing:.6px; text-transform:uppercase; color:#a9842b; margin-bottom:12px;">Waiting for your review</div>';
+    if(redeems.length){
+        html += redeems.map(({a, r}) =>
+            `<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:10px 0; border-top:1px solid #efe3cd;">
+                <div style="flex:1; min-width:200px;"><strong>${esc(a.name)}</strong> requests a <strong style="color:#2e7d4f;">₱${Number(r.amount)||0}</strong> voucher <span class="muted" style="font-size:12px;">· ${fmt(r.at)}</span></div>
+                <span class="edit" style="color:#2e7d4f;" onclick="approveAffiliateRedemption(${a.id},'${esc(r.id)}')">Approve → issue voucher</span>
+                <span class="edit" style="color:#c0283d;" onclick="declineAffiliateRedemption(${a.id},'${esc(r.id)}')">Decline</span>
+            </div>`).join("");
+    }
+    if(posts.length){
+        html += posts.map(({a, p}) =>
+            `<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:10px 0; border-top:1px solid #efe3cd;">
+                <div style="flex:1; min-width:200px;"><strong>${esc(a.name)}</strong> logged a post <span class="muted" style="font-size:12px;">· ${fmt(p.at)}</span><br>
+                    <a href="${esc(p.url)}" target="_blank" rel="noopener" style="font-size:12.5px; color:#a9842b; word-break:break-all;">${esc(p.url)}</a></div>
+                <span class="edit" onclick="verifyAffiliatePost(${a.id},'${esc(p.id)}')" title="Confirm the post shows their link, then credit ₱50">Verify (+₱50)</span>
+                <span class="edit" style="color:#c0283d;" onclick="rejectAffiliatePost(${a.id},'${esc(p.id)}')">Reject</span>
+            </div>`).join("");
+    }
+    html += "</div>";
+    box.innerHTML = html;
+}
+async function _mutateAffiliate(id, mutate, activity){
+    await loadAffiliatesFresh();
+    const a = _affiliates.find(x => x && x.id === id);
+    if(!a){ alert("Affiliate not found — refresh and try again."); return false; }
+    if(mutate(a) === false) return false;      // mutate can abort by returning false
+    a.updatedAt = new Date().toISOString();
+    try{
+        await _saveAffiliate(a);
+        if(activity && typeof logActivity === "function") logActivity(activity(a));
+    }catch(e){ alert("Couldn't save — please try again."); return false; }
+    renderAffiliates();
+    return true;
+}
+async function verifyAffiliatePost(id, postId){
+    await _mutateAffiliate(id, a => {
+        const p = (a.posts || []).find(x => x && x.id === postId && x.status === "pending");
+        if(!p){ alert("That post was already handled."); return false; }
+        if(!confirm(`Verify ${a.name}'s post and credit ₱50?\nMake sure it shows their referral link first.`)) return false;
+        p.status = "verified"; p.verifiedAt = new Date().toISOString(); p.verifiedBy = (typeof _whoami === "function" ? _whoami() : "Admin");
+        a.credits = a.credits || [];
+        a.credits.push({ amount: 50, reason: "verified post", at: p.verifiedAt, by: p.verifiedBy, used: false });
+    }, a => `verified affiliate post + credited ₱50 to ${a.name} (${a.code})`);
+}
+async function rejectAffiliatePost(id, postId){
+    await _mutateAffiliate(id, a => {
+        const p = (a.posts || []).find(x => x && x.id === postId && x.status === "pending");
+        if(!p){ return false; }
+        if(!confirm(`Reject ${a.name}'s post? No credit is given.`)) return false;
+        p.status = "rejected"; p.reviewedAt = new Date().toISOString();
+    }, a => `rejected affiliate post from ${a.name} (${a.code})`);
+}
+async function approveAffiliateRedemption(id, redId){
+    await _mutateAffiliate(id, a => {
+        const r = (a.redemptions || []).find(x => x && x.id === redId && x.status === "pending");
+        if(!r){ alert("That request was already handled."); return false; }
+        const voucher = _affVoucherCode(a);
+        if(!confirm(`Approve ${a.name}'s ₱${Number(r.amount)||0} redemption?\nVoucher ${voucher} will be issued — apply it to their booking.`)) return false;
+        // mark oldest unused credits used until the redeemed amount is covered
+        let need = Number(r.amount) || 0;
+        (a.credits || []).filter(c => c && !c.used)
+            .sort((x, y) => String(x.at || "").localeCompare(String(y.at || "")))
+            .forEach(c => { if(need > 0){ c.used = true; c.usedAt = new Date().toISOString(); c.usedBy = "voucher " + voucher; need -= (Number(c.amount) || 0); } });
+        r.status = "approved"; r.voucher = voucher; r.approvedAt = new Date().toISOString(); r.approvedBy = (typeof _whoami === "function" ? _whoami() : "Admin");
+    }, a => `approved affiliate redemption for ${a.name} (${a.code})`);
+}
+async function declineAffiliateRedemption(id, redId){
+    await _mutateAffiliate(id, a => {
+        const r = (a.redemptions || []).find(x => x && x.id === redId && x.status === "pending");
+        if(!r){ return false; }
+        if(!confirm(`Decline ${a.name}'s redemption request? Their balance stays as-is.`)) return false;
+        r.status = "declined"; r.reviewedAt = new Date().toISOString();
+    }, a => `declined affiliate redemption for ${a.name} (${a.code})`);
 }
 
 function partnersOnShowPage(page){
