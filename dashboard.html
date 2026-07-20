@@ -3041,32 +3041,59 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   /* --- "Talk to Havi": hands-free voice conversation --- */
   #page-assist .as-talk-btn{ background:linear-gradient(135deg,var(--hv-terra),var(--hv-gold)); }
   #asVoice{ position:fixed; inset:0; z-index:9000; display:none; flex-direction:column; align-items:center; justify-content:center;
-    background:radial-gradient(circle at 50% 35%,#3a322c,#211d19 70%); color:#f6f2ec; text-align:center; padding:24px; }
+    color:#dbeafe; text-align:center; padding:24px;
+    background:
+      linear-gradient(rgba(63,190,255,.05) 1px, transparent 1px) 0 0 / 34px 34px,
+      linear-gradient(90deg, rgba(63,190,255,.05) 1px, transparent 1px) 0 0 / 34px 34px,
+      radial-gradient(circle at 50% 42%, #0e2536, #05101a 70%); }
   #asVoice.show{ display:flex; }
   #asVoice .vx-close{ position:absolute; top:18px; right:20px; width:42px; height:42px; border-radius:50%; border:1px solid rgba(255,255,255,.22);
     background:rgba(255,255,255,.06); color:#f6f2ec; font-size:20px; cursor:pointer; line-height:1; }
   #asVoice .vx-close:hover{ background:rgba(255,255,255,.14); }
-  #asVoice .vx-title{ font-family:'Playfair Display',Georgia,serif; font-size:22px; margin-bottom:4px; }
-  #asVoice .vx-state{ color:#c9bcac; font-size:14px; letter-spacing:.3px; min-height:20px; margin-bottom:26px; }
-  /* the orb — tap it to talk (needed on iPhone; auto on desktop) */
-  #asVoice .vx-orb{ width:150px; height:150px; border-radius:50%; border:none; cursor:pointer; position:relative;
-    background:radial-gradient(circle at 40% 35%,#d98b52,#bd6e3f 65%,#9a5730); box-shadow:0 0 0 0 rgba(189,110,63,.5);
-    display:flex; align-items:center; justify-content:center; font-size:52px; color:#fff; transition:transform .15s; }
-  #asVoice .vx-orb:active{ transform:scale(.96); }
-  #asVoice.listening .vx-orb{ background:radial-gradient(circle at 40% 35%,#e0705f,#c0392b 65%); animation:vxPulse 1.3s ease-out infinite; }
-  #asVoice.speaking .vx-orb{ background:radial-gradient(circle at 40% 35%,#5aa9e0,#2f6fb0 65%); animation:vxWave 1s ease-in-out infinite; }
-  #asVoice.thinking .vx-orb{ animation:vxSpin 1s linear infinite; }
-  @keyframes vxPulse{ 0%{ box-shadow:0 0 0 0 rgba(224,112,95,.5) } 100%{ box-shadow:0 0 0 40px rgba(224,112,95,0) } }
-  @keyframes vxWave{ 0%,100%{ transform:scale(1) } 50%{ transform:scale(1.06) } }
+  #asVoice .vx-title{ font-family:'Playfair Display',Georgia,serif; font-size:22px; margin-bottom:4px; color:#eaf6ff;
+    text-shadow:0 0 18px rgba(63,190,255,.5); }
+  #asVoice .vx-state{ color:#7fb4d4; font-size:14px; letter-spacing:.3px; min-height:20px; margin-bottom:26px; }
+
+  /* ---- the arc-reactor orb: your brand "S" inside glowing rings ---- */
+  #asVoice .vx-reactor{ width:230px; height:230px; position:relative; cursor:pointer; transition:transform .15s; }
+  #asVoice .vx-reactor:active{ transform:scale(.97); }
+  #asVoice .vx-reactor > *{ position:absolute; inset:0; margin:auto; border-radius:50%; pointer-events:none; }
+  #asVoice .vx-ring{ box-sizing:border-box; }
+  #asVoice .vx-r1{ width:100%; height:100%; border:2px dashed rgba(79,208,255,.55); animation:vxSpin 22s linear infinite; }
+  #asVoice .vx-r2{ width:84%; height:84%; border:1px dashed rgba(58,169,224,.4); animation:vxSpin 32s linear infinite reverse; }
+  #asVoice .vx-r3{ width:66%; height:66%; border:2px solid rgba(95,214,255,.85);
+    box-shadow:0 0 16px rgba(63,190,255,.7), inset 0 0 16px rgba(63,190,255,.45); }
+  #asVoice .vx-core{ width:60%; height:60%; background:radial-gradient(circle at 50% 40%, #123a54, #061019 76%);
+    box-shadow:inset 0 0 34px rgba(0,0,0,.65); }
+  #asVoice .vx-halo{ width:62%; height:62%; background:radial-gradient(circle, rgba(63,190,255,.55), transparent 70%);
+    filter:blur(7px); opacity:.45; }
+  #asVoice .vx-pulse{ width:66%; height:66%; border:2px solid rgba(95,214,255,.8); opacity:0; }
+  #asVoice .vx-logo-s, #asVoice .vx-logo-fb{ width:40%; height:40%; border-radius:0; align-items:center; justify-content:center; z-index:3; }
+  #asVoice .vx-logo-s{ display:none; object-fit:contain; filter:drop-shadow(0 0 8px rgba(79,208,255,.95)); }  /* shown by buildVxLogo() once tinted */
+  #asVoice .vx-logo-fb{ display:flex; font-family:Georgia,serif; font-weight:700; font-size:66px; color:#7fdcff;
+    text-shadow:0 0 14px rgba(79,208,255,.9); }
   @keyframes vxSpin{ to{ transform:rotate(360deg) } }
+  @keyframes vxBreathe{ 0%,100%{ transform:scale(1); opacity:.4 } 50%{ transform:scale(1.14); opacity:.75 } }
+  @keyframes vxTalk{ 0%,100%{ transform:scale(1); opacity:.55 } 50%{ transform:scale(1.3); opacity:1 } }
+  @keyframes vxRipple{ 0%{ transform:scale(.62); opacity:.75 } 100%{ transform:scale(1.55); opacity:0 } }
+  /* state reactions */
+  #asVoice.listening .vx-halo{ animation:vxBreathe 2.3s ease-in-out infinite; opacity:.7; }
+  #asVoice.speaking  .vx-halo{ animation:vxTalk .5s ease-in-out infinite; opacity:.9;
+    background:radial-gradient(circle, rgba(90,190,255,.7), transparent 70%); }
+  #asVoice.listening .vx-r3, #asVoice.speaking .vx-r3{ box-shadow:0 0 24px rgba(63,190,255,.95), inset 0 0 20px rgba(63,190,255,.65); }
+  #asVoice.thinking .vx-r1{ animation-duration:5s; }
+  #asVoice.thinking .vx-r2{ animation-duration:7s; }
+  #asVoice .vx-pulse.go{ animation:vxRipple .7s ease-out; }
+
   #asVoice .vx-said{ margin-top:30px; max-width:560px; width:100%; }
-  #asVoice .vx-you{ color:#e0b98a; font-size:15px; min-height:22px; margin-bottom:12px; font-style:italic; }
-  #asVoice .vx-reply{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); border-radius:14px; padding:14px 16px;
-    font-size:15.5px; line-height:1.6; white-space:pre-wrap; text-align:left; max-height:34vh; overflow-y:auto; min-height:20px; }
+  #asVoice .vx-you{ color:#8fd0ff; font-size:15px; min-height:22px; margin-bottom:12px; font-style:italic; }
+  #asVoice .vx-reply{ background:rgba(63,190,255,.06); border:1px solid rgba(63,190,255,.16); border-radius:14px; padding:14px 16px;
+    font-size:15.5px; line-height:1.6; white-space:pre-wrap; text-align:left; max-height:34vh; overflow-y:auto; min-height:20px; color:#dbeafe; }
   #asVoice .vx-reply:empty{ display:none; }
-  #asVoice .vx-reply b{ color:#f2c98a; }
-  #asVoice .vx-meta{ color:#9a8f86; font-size:11.5px; margin-top:10px; }
-  #asVoice .vx-hint{ color:#9a8f86; font-size:12.5px; margin-top:22px; }
+  #asVoice .vx-reply b{ color:#7fdcff; }
+  #asVoice .vx-meta{ color:#5f88a4; font-size:11.5px; margin-top:10px; }
+  #asVoice .vx-hint{ color:#5f88a4; font-size:12.5px; margin-top:22px; }
+  @media(max-width:600px){ #asVoice .vx-reactor{ width:186px; height:186px; } #asVoice .vx-logo-fb{ font-size:52px; } }
 
   /* "Hey Havi" hands-free wake word */
   #page-assist .as-wake-btn.on{ background:#e05a5a; color:#fff; border-color:#e05a5a; }
@@ -9335,13 +9362,47 @@ function asToggleMic(){
 let _vxOn = false, _vxRec = null, _vxFromWake = false;
 function vxSet(state, txt){
     const ov = document.getElementById("asVoice");
-    ov.className = "show " + (state || "");
-    const map = { listening:"Listening…", thinking:"Thinking…", speaking:"Havi is speaking…", tap:"Tap the circle to talk" };
+    ov.className = "show " + (state || "");   // CSS reacts to this state class (the reactor glows)
+    const map = { listening:"Listening…", thinking:"Thinking…", speaking:"Havi is speaking…", tap:"Tap the reactor to talk" };
     document.getElementById("vxState").textContent = txt || map[state] || "";
-    document.getElementById("vxOrb").textContent = state === "listening" ? "👂" : state === "speaking" ? "🔊" : state === "thinking" ? "…" : "🎙";
+}
+// A single expanding ring — fired whenever either of us speaks, so the reactor
+// visibly reacts to the voice.
+function vxRipple(){
+    const el = document.getElementById("vxPulse");
+    if(!el) return;
+    el.classList.remove("go"); void el.offsetWidth; el.classList.add("go");
+}
+// Recolour the gold-on-white brand logo into a neon-blue, transparent "S" for the
+// reactor — done once in-browser (canvas), so there's no separate asset to ship.
+let _vxLogoBuilt = false;
+function buildVxLogo(){
+    if(_vxLogoBuilt) return; _vxLogoBuilt = true;
+    const img = new Image();
+    img.onload = () => {
+        try{
+            const c = document.createElement("canvas");
+            c.width = img.naturalWidth || 300; c.height = img.naturalHeight || 300;
+            const x = c.getContext("2d");
+            x.drawImage(img, 0, 0, c.width, c.height);
+            const d = x.getImageData(0, 0, c.width, c.height), p = d.data;
+            for(let i = 0; i < p.length; i += 4){
+                const r = p[i], g = p[i+1], b = p[i+2];
+                if(r > 205 && g > 205 && b > 205){ p[i+3] = 0; }        // white background → transparent
+                else { p[i] = 95; p[i+1] = 210; p[i+2] = 255; }         // the gold S → neon cyan-blue
+            }
+            x.putImageData(d, 0, 0);
+            const el = document.getElementById("vxLogo");
+            if(el){ el.src = c.toDataURL("image/png"); el.style.display = "block"; }
+            const fb = document.getElementById("vxLogoFb"); if(fb) fb.style.display = "none";
+        }catch(e){ /* keep the text "S" fallback if the canvas is blocked */ _vxLogoBuilt = false; }
+    };
+    img.onerror = () => { _vxLogoBuilt = false; };   // keep the text "S" fallback
+    img.src = "images/logo.png";
 }
 function startVoice(){
     if(!SR_SUPPORTED){ alert("Talk-to-Havi needs Chrome, Edge or Safari. On this browser you can still type your questions."); return; }
+    buildVxLogo();
     _vxOn = true;
     document.getElementById("asVoice").classList.add("show");
     document.getElementById("vxYou").textContent = "";
@@ -9376,6 +9437,7 @@ function vxListen(){
     _vxRec.onresult = (ev) => {
         heard = [...ev.results].map(r => r[0].transcript).join("");
         document.getElementById("vxYou").textContent = heard ? "“" + heard + "”" : "";
+        vxRipple();   // the reactor pulses as you speak
     };
     _vxRec.onerror = (e) => { _vxRec = null; if(_vxOn) vxSet("tap", e.error === "not-allowed" ? "Mic blocked — allow microphone access." : "Didn't catch that — tap to try again."); };
     _vxRec.onend = () => {
@@ -9441,6 +9503,7 @@ function vxSpeak(text, onEnd){
     const vs = window.speechSynthesis.getVoices() || [];
     const pick = vs.find(v => /en[-_]PH/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang) && /female|google|samantha|zira/i.test(v.name)) || vs.find(v => /^en/i.test(v.lang));
     if(pick) u.voice = pick;
+    u.onboundary = () => vxRipple();          // reactor pulses on each word Havi speaks
     u.onend = () => { if(onEnd) onEnd(); };
     u.onerror = () => { if(onEnd) onEnd(); };
     window.speechSynthesis.speak(u);
@@ -9518,6 +9581,7 @@ function showWakePill(on){
 }
 function wakeTriggered(question){
     showWakePill(false);
+    buildVxLogo();
     _vxOn = true; _vxFromWake = true;
     const ov = document.getElementById("asVoice");
     ov.classList.add("show");
@@ -9539,6 +9603,7 @@ function renderAssist(){
     }
     // Warm the speech-synthesis voice list (loads async on first request).
     try{ if(window.speechSynthesis){ window.speechSynthesis.getVoices(); window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices(); } }catch(e){}
+    buildVxLogo();   // pre-render the neon-blue "S" for the voice reactor
     const inp = document.getElementById("assistDate");
     if(!inp) return;
     if(!inp.value) inp.value = iso(today());
@@ -14410,8 +14475,17 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
 <div id="asVoice">
     <button class="vx-close" onclick="stopVoice()" title="Close">✕</button>
     <div class="vx-title">Havi</div>
-    <div class="vx-state" id="vxState">Tap the circle and talk</div>
-    <button class="vx-orb" id="vxOrb" onclick="vxOrbTap()">🎙</button>
+    <div class="vx-state" id="vxState">Tap the reactor and talk</div>
+    <div class="vx-reactor" id="vxOrb" onclick="vxOrbTap()" role="button" tabindex="0" title="Tap to talk">
+        <div class="vx-ring vx-r1"></div>
+        <div class="vx-ring vx-r2"></div>
+        <div class="vx-ring vx-r3"></div>
+        <div class="vx-halo"></div>
+        <div class="vx-core"></div>
+        <div class="vx-pulse" id="vxPulse"></div>
+        <img class="vx-logo-s" id="vxLogo" alt="">
+        <span class="vx-logo-fb" id="vxLogoFb">S</span>
+    </div>
     <div class="vx-said">
         <div class="vx-you" id="vxYou"></div>
         <div class="vx-reply" id="vxReply"></div>
