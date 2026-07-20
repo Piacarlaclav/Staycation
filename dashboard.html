@@ -3037,6 +3037,45 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     #page-assist .as-num .n{ font-size:21px; }
     #page-assist .as-msg{ max-width:92%; font-size:14px; }
   }
+
+  /* --- "Talk to Havi": hands-free voice conversation --- */
+  #page-assist .as-talk-btn{ background:linear-gradient(135deg,var(--hv-terra),var(--hv-gold)); }
+  #asVoice{ position:fixed; inset:0; z-index:9000; display:none; flex-direction:column; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 50% 35%,#3a322c,#211d19 70%); color:#f6f2ec; text-align:center; padding:24px; }
+  #asVoice.show{ display:flex; }
+  #asVoice .vx-close{ position:absolute; top:18px; right:20px; width:42px; height:42px; border-radius:50%; border:1px solid rgba(255,255,255,.22);
+    background:rgba(255,255,255,.06); color:#f6f2ec; font-size:20px; cursor:pointer; line-height:1; }
+  #asVoice .vx-close:hover{ background:rgba(255,255,255,.14); }
+  #asVoice .vx-title{ font-family:'Playfair Display',Georgia,serif; font-size:22px; margin-bottom:4px; }
+  #asVoice .vx-state{ color:#c9bcac; font-size:14px; letter-spacing:.3px; min-height:20px; margin-bottom:26px; }
+  /* the orb — tap it to talk (needed on iPhone; auto on desktop) */
+  #asVoice .vx-orb{ width:150px; height:150px; border-radius:50%; border:none; cursor:pointer; position:relative;
+    background:radial-gradient(circle at 40% 35%,#d98b52,#bd6e3f 65%,#9a5730); box-shadow:0 0 0 0 rgba(189,110,63,.5);
+    display:flex; align-items:center; justify-content:center; font-size:52px; color:#fff; transition:transform .15s; }
+  #asVoice .vx-orb:active{ transform:scale(.96); }
+  #asVoice.listening .vx-orb{ background:radial-gradient(circle at 40% 35%,#e0705f,#c0392b 65%); animation:vxPulse 1.3s ease-out infinite; }
+  #asVoice.speaking .vx-orb{ background:radial-gradient(circle at 40% 35%,#5aa9e0,#2f6fb0 65%); animation:vxWave 1s ease-in-out infinite; }
+  #asVoice.thinking .vx-orb{ animation:vxSpin 1s linear infinite; }
+  @keyframes vxPulse{ 0%{ box-shadow:0 0 0 0 rgba(224,112,95,.5) } 100%{ box-shadow:0 0 0 40px rgba(224,112,95,0) } }
+  @keyframes vxWave{ 0%,100%{ transform:scale(1) } 50%{ transform:scale(1.06) } }
+  @keyframes vxSpin{ to{ transform:rotate(360deg) } }
+  #asVoice .vx-said{ margin-top:30px; max-width:560px; width:100%; }
+  #asVoice .vx-you{ color:#e0b98a; font-size:15px; min-height:22px; margin-bottom:12px; font-style:italic; }
+  #asVoice .vx-reply{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); border-radius:14px; padding:14px 16px;
+    font-size:15.5px; line-height:1.6; white-space:pre-wrap; text-align:left; max-height:34vh; overflow-y:auto; min-height:20px; }
+  #asVoice .vx-reply:empty{ display:none; }
+  #asVoice .vx-reply b{ color:#f2c98a; }
+  #asVoice .vx-meta{ color:#9a8f86; font-size:11.5px; margin-top:10px; }
+  #asVoice .vx-hint{ color:#9a8f86; font-size:12.5px; margin-top:22px; }
+
+  /* "Hey Havi" hands-free wake word */
+  #page-assist .as-wake-btn.on{ background:#e05a5a; color:#fff; border-color:#e05a5a; }
+  #asWakePill{ position:fixed; bottom:18px; right:18px; z-index:8000; display:none; align-items:center; gap:9px;
+    background:#2f2a25; color:#f6f2ec; border:1px solid rgba(255,255,255,.12); border-radius:24px; padding:10px 15px;
+    font-size:13px; font-weight:600; box-shadow:0 8px 22px rgba(80,60,30,.22); cursor:pointer; }
+  #asWakePill.show{ display:inline-flex; }
+  #asWakePill .dot{ width:9px; height:9px; border-radius:50%; background:#e05a5a; animation:vxPulse2 1.3s ease-out infinite; }
+  @keyframes vxPulse2{ 0%{ box-shadow:0 0 0 0 rgba(224,90,90,.6) } 100%{ box-shadow:0 0 0 11px rgba(224,90,90,0) } }
 </style>
 
     <!-- WATCH: the daily briefing. No AI, no API key, no cost — always on. -->
@@ -3051,14 +3090,18 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     <div class="panel">
         <div class="panel-head">
             <h2>Ask Havi <span class="muted" style="font-size:13.5px;">— anything about your bookings, money, availability and cleaning</span></h2>
-            <button class="btn secondary" onclick="clearAssistChat()">Clear</button>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button class="btn secondary as-wake-btn" id="asWakeBtn" onclick="toggleWake()" title="Say “Hey Havi” and I'll answer, hands-free">👂 Hey&nbsp;Havi</button>
+                <button class="btn as-talk-btn" id="asTalkBtn" onclick="startVoice()">🎙 Talk to Havi</button>
+                <button class="btn secondary" onclick="clearAssistChat()">Clear</button>
+            </div>
         </div>
         <div id="asOffNote" class="as-off" style="display:none;"></div>
         <div class="as-log" id="asLog"></div>
         <div class="as-ask">
             <textarea id="asInput" rows="1" placeholder="e.g. sino ang mag che-check in bukas? — common questions are free & instant"
                       oninput="asGrow(this)" onkeydown="asKey(event)"></textarea>
-            <button class="as-mic" id="asMic" onclick="asToggleMic()" title="Ask by voice">🎙</button>
+            <button class="as-mic" id="asMic" onclick="asToggleMic()" title="Dictate into the box (or use ‘Talk to Havi’ above for a spoken conversation)">🎙</button>
             <button class="btn as-send" onclick="askAssist()">Ask</button>
         </div>
         <div class="as-chips" id="asChips"></div>
@@ -9251,7 +9294,6 @@ async function askAssist(){
             content: j.reply || "Something went wrong — try again.",
             meta
         });
-        if(j.ok && _asSpeak) asSay(j.reply);
     }catch(e){
         _asChat.push({ role:"assistant", content:"Couldn't reach the assistant. Check your connection and try again." });
     }
@@ -9259,49 +9301,244 @@ async function askAssist(){
 }
 function clearAssistChat(){ _asChat = []; asDrawChat(); }
 
-/* ---- Voice. Browser built-in (Web Speech API), so it costs nothing and needs
-        no extra service. Chrome and Edge support it; Firefox does not, in which
-        case the mic button just hides itself. ---- */
-let _asRec = null, _asSpeak = false;
+/* ============================================================================
+   Voice — all browser-built-in (Web Speech API), so it's free and needs no
+   server. Two entry points:
+     · the small 🎙 in the input row → dictate into the text box (asDictate)
+     · "🎙 Talk to Havi"            → hands-free spoken conversation (startVoice)
+   Chrome / Edge / Safari support it; Firefox doesn't (buttons hide themselves).
+   ========================================================================== */
+const SR_SUPPORTED = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+// iPhone/iPad can't reliably auto-restart the mic without a fresh tap, so there
+// we drive the conversation tap-by-tap instead of looping automatically.
+const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+/* ---- input-row mic: plain dictation into the text box (no auto-send) ---- */
+let _dictRec = null;
 function asToggleMic(){
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     const btn = document.getElementById("asMic");
-    if(!SR){ alert("Voice input needs Chrome, Edge or Safari — please type your question instead."); return; }
-    if(_asRec){ _asRec.stop(); _asRec = null; btn.classList.remove("on"); return; }
-    _asRec = new SR();
-    _asRec.lang = "en-PH";            // handles Taglish better than en-US
-    _asRec.interimResults = true;
-    _asRec.continuous = false;
+    if(!SR){ alert("Voice needs Chrome, Edge or Safari — please type instead."); return; }
+    if(_dictRec){ _dictRec.stop(); return; }
+    _dictRec = new SR(); _dictRec.lang = "en-PH"; _dictRec.interimResults = true; _dictRec.continuous = false;
     btn.classList.add("on");
-    _asRec.onresult = (ev) => {
+    _dictRec.onresult = (ev) => {
         const said = [...ev.results].map(r => r[0].transcript).join("");
-        const box = document.getElementById("asInput");
-        box.value = said; asGrow(box);
-        // A final result means they stopped talking — send it and speak the answer back.
-        if(ev.results[ev.results.length - 1].isFinal){ _asSpeak = true; askAssist(); }
+        const box = document.getElementById("asInput"); box.value = said; asGrow(box);
     };
-    _asRec.onerror = () => { btn.classList.remove("on"); _asRec = null; };
-    _asRec.onend   = () => { btn.classList.remove("on"); _asRec = null; };
-    _asRec.start();
+    _dictRec.onerror = () => {};
+    _dictRec.onend = () => { btn.classList.remove("on"); _dictRec = null; document.getElementById("asInput").focus(); };
+    _dictRec.start();
 }
-function asSay(text){
-    _asSpeak = false;
-    if(!window.speechSynthesis) return;
-    // Strip the markdown and the peso sign — a screen reader says "P" otherwise.
-    const clean = String(text).replace(/\*\*/g, "").replace(/₱\s?/g, " ").slice(0, 700);
-    const u = new SpeechSynthesisUtterance(clean);
-    u.lang = "en-PH"; u.rate = 1.05;
+
+/* ---- "Talk to Havi": a spoken back-and-forth conversation ---- */
+let _vxOn = false, _vxRec = null, _vxFromWake = false;
+function vxSet(state, txt){
+    const ov = document.getElementById("asVoice");
+    ov.className = "show " + (state || "");
+    const map = { listening:"Listening…", thinking:"Thinking…", speaking:"Havi is speaking…", tap:"Tap the circle to talk" };
+    document.getElementById("vxState").textContent = txt || map[state] || "";
+    document.getElementById("vxOrb").textContent = state === "listening" ? "👂" : state === "speaking" ? "🔊" : state === "thinking" ? "…" : "🎙";
+}
+function startVoice(){
+    if(!SR_SUPPORTED){ alert("Talk-to-Havi needs Chrome, Edge or Safari. On this browser you can still type your questions."); return; }
+    _vxOn = true;
+    document.getElementById("asVoice").classList.add("show");
+    document.getElementById("vxYou").textContent = "";
+    document.getElementById("vxReply").innerHTML = "";
+    document.getElementById("vxMeta").textContent = "";
+    // Unlock speech synthesis on this first user gesture (needed on iOS/Safari).
+    try{ window.speechSynthesis && window.speechSynthesis.resume(); }catch(e){}
+    vxListen();
+}
+function stopVoice(){
+    _vxOn = false; _vxFromWake = false;
+    try{ if(_vxRec) _vxRec.stop(); }catch(e){}
+    _vxRec = null;
+    try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
+    document.getElementById("asVoice").className = "";
+    // Closing a session doesn't turn OFF the wake word — resume ambient listening.
+    if(_wakeOn) startWake();
+}
+function vxOrbTap(){
+    // While speaking → interrupt and listen. While idle/tap → start listening.
+    if(!_vxOn){ startVoice(); return; }
+    try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
+    if(_vxRec){ return; }   // already listening
+    vxListen();
+}
+function vxListen(){
+    if(!_vxOn) return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    vxSet("listening");
+    let heard = "";
+    _vxRec = new SR(); _vxRec.lang = "en-PH"; _vxRec.interimResults = true; _vxRec.continuous = false;
+    _vxRec.onresult = (ev) => {
+        heard = [...ev.results].map(r => r[0].transcript).join("");
+        document.getElementById("vxYou").textContent = heard ? "“" + heard + "”" : "";
+    };
+    _vxRec.onerror = (e) => { _vxRec = null; if(_vxOn) vxSet("tap", e.error === "not-allowed" ? "Mic blocked — allow microphone access." : "Didn't catch that — tap to try again."); };
+    _vxRec.onend = () => {
+        _vxRec = null;
+        if(!_vxOn) return;
+        const said = heard.trim();
+        if(!said){ vxSet("tap"); return; }
+        if(/^\s*(stop|tigil|tama na|that'?s all|done|salamat)\s*[.!]?$/i.test(said)){ vxSpeak("Okay, tawagin mo lang ako ulit.", stopVoice); return; }
+        vxAsk(said);
+    };
+    try{ _vxRec.start(); }catch(e){ /* start can throw if a prior session hasn't fully ended */ }
+}
+async function vxAsk(text){
+    vxSet("thinking", "You: " + text);
+    _asChat.push({ role:"user", content:text });
+    let reply = "Sorry, something went wrong.", meta = "", ok = false;
+    try{
+        const r = await fetch("/api/assist", {
+            method:"POST", headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({ messages: _asChat.map(m => ({ role:m.role, content:m.content })) })
+        });
+        const j = await r.json();
+        reply = j.reply || reply; ok = j.ok;
+        if(j.source === "quick") meta = "answered instantly · free";
+        else if(j.source === "ai") meta = `AI${j.cost_php ? " · ₱" + j.cost_php : ""}`;
+    }catch(e){ reply = "Couldn't reach me just now — check the connection."; }
+    _asChat.push({ role:"assistant", content:reply, meta });
+    asDrawChat();
+    document.getElementById("vxReply").innerHTML = asFormat(reply);
+    document.getElementById("vxMeta").textContent = meta;
+    // Speak a concise version; when done, decide what to do next.
+    vxSet("speaking");
+    vxSpeak(vxSpeakable(reply), () => {
+        if(!_vxOn) return;
+        if(_vxFromWake){
+            // Woken by "Hey Havi" → tuck the overlay away and go back to ambient
+            // listening, so she just says "Hey Havi …" again for the next question.
+            _vxFromWake = false; _vxOn = false;
+            setTimeout(() => { document.getElementById("asVoice").classList.remove("show"); if(_wakeOn) startWake(); }, 1300);
+        } else if(IS_IOS){ vxSet("tap"); }   // iOS needs a fresh tap to reopen the mic
+        else vxListen();                       // "Talk to Havi" mode → continuous loop
+    });
+}
+// Turn a bullet-list answer into something that sounds natural read aloud.
+function vxSpeakable(text){
+    const lines = String(text).split("\n").map(s => s.trim()).filter(Boolean);
+    const clean = s => s.replace(/^[•·\-\*]\s*/, "").replace(/\*\*/g, "")
+        .replace(/₱\s?([\d,]+(?:\.\d+)?)/g, "$1 pesos").replace(/\s+/g, " ").trim();
+    if(!lines.length) return "";
+    const head = clean(lines[0]);
+    const items = lines.slice(1);
+    if(!items.length) return head;
+    let out = head + ". " + items.slice(0, 3).map(clean).join(". ");
+    if(items.length > 3) out += `. And ${items.length - 3} more, shown on screen.`;
+    return out;
+}
+function vxSpeak(text, onEnd){
+    if(!window.speechSynthesis || !text){ if(onEnd) setTimeout(onEnd, 300); return; }
     window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-PH"; u.rate = 1.04; u.pitch = 1.0;
+    // Prefer a natural English voice if the browser exposes one.
+    const vs = window.speechSynthesis.getVoices() || [];
+    const pick = vs.find(v => /en[-_]PH/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang) && /female|google|samantha|zira/i.test(v.name)) || vs.find(v => /^en/i.test(v.lang));
+    if(pick) u.voice = pick;
+    u.onend = () => { if(onEnd) onEnd(); };
+    u.onerror = () => { if(onEnd) onEnd(); };
     window.speechSynthesis.speak(u);
+}
+
+/* ---- Wake word: say "Havi" / "Hey Havi" and it answers, hands-free ----
+   An always-on background recogniser listens for the wake word. When it hears
+   it, the voice overlay pops up and answers. Chrome/Edge on a computer keep the
+   mic open reliably; iPhone Safari stops the mic after each phrase and blocks
+   background listening, so there we tell her to use "Talk to Havi" instead.
+   Common variants are allowed because speech-to-text often mishears "Havi". */
+let _wakeOn = false, _wakeRec = null, _wakeRestart = null;
+const WAKE_RE = /\b(?:hey|hi|hoy|uy|oy|o|okay|ok|hello|helo)?\s*(hav(?:i|ie|ey|y|ee)|habi|harvey|halvey|hobby|savi|hazy)\b/i;
+
+function toggleWake(){
+    if(_wakeOn){ setWake(false); return; }
+    if(!SR_SUPPORTED){ alert("“Hey Havi” needs Chrome, Edge or Safari."); return; }
+    if(IS_IOS && !confirm("Heads up: iPhone/iPad can't keep the mic listening in the background, so “Hey Havi” may stop after each question. “Talk to Havi” works better here.\n\nTurn on “Hey Havi” anyway?")) return;
+    setWake(true);
+}
+function setWake(on){
+    _wakeOn = on;
+    const btn = document.getElementById("asWakeBtn");
+    if(btn){ btn.classList.toggle("on", on); btn.innerHTML = on ? "👂 Hey&nbsp;Havi: on" : "👂 Hey&nbsp;Havi"; }
+    if(on) startWake(); else stopWake();
+}
+function startWake(){
+    if(!_wakeOn || !SR_SUPPORTED) return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    clearTimeout(_wakeRestart);
+    try{ if(_wakeRec){ _wakeRec.onend = null; _wakeRec.stop(); } }catch(e){}
+    _wakeRec = new SR();
+    _wakeRec.lang = "en-PH"; _wakeRec.interimResults = true; _wakeRec.continuous = true;
+    let fired = false;
+    _wakeRec.onresult = (ev) => {
+        if(fired) return;
+        // only act on FINAL results so we capture the whole "Hey Havi, <question>"
+        for(let i = ev.resultIndex; i < ev.results.length; i++){
+            if(!ev.results[i].isFinal) continue;
+            const said = ev.results[i][0].transcript.toLowerCase();
+            const m = said.match(WAKE_RE);
+            if(m){
+                fired = true;
+                const after = said.slice(said.indexOf(m[0]) + m[0].length).replace(/^[\s,.:!?-]+/, "").trim();
+                try{ _wakeRec.onend = null; _wakeRec.stop(); }catch(e){}
+                _wakeRec = null;
+                wakeTriggered(after);
+                return;
+            }
+        }
+    };
+    _wakeRec.onerror = (e) => {
+        if(e.error === "not-allowed" || e.error === "service-not-allowed"){
+            setWake(false);
+            alert("To use “Hey Havi”, allow microphone access for this site, then turn it on again.");
+        }
+    };
+    _wakeRec.onend = () => {
+        // Chrome ends the session periodically — restart it so listening is continuous.
+        _wakeRec = null;
+        if(_wakeOn && !fired) _wakeRestart = setTimeout(startWake, 350);
+    };
+    try{ _wakeRec.start(); showWakePill(true); }
+    catch(e){ _wakeRestart = setTimeout(startWake, 500); }
+}
+function stopWake(){
+    clearTimeout(_wakeRestart);
+    try{ if(_wakeRec){ _wakeRec.onend = null; _wakeRec.stop(); } }catch(e){}
+    _wakeRec = null;
+    showWakePill(false);
+}
+function showWakePill(on){
+    const pill = document.getElementById("asWakePill");
+    if(pill) pill.classList.toggle("show", !!on && _wakeOn);
+}
+function wakeTriggered(question){
+    showWakePill(false);
+    _vxOn = true; _vxFromWake = true;
+    const ov = document.getElementById("asVoice");
+    ov.classList.add("show");
+    document.getElementById("vxYou").textContent = question ? "“" + question + "”" : "";
+    document.getElementById("vxReply").innerHTML = "";
+    document.getElementById("vxMeta").textContent = "";
+    try{ window.speechSynthesis && window.speechSynthesis.resume(); }catch(e){}
+    if(question) vxAsk(question);                       // "Hey Havi, who's in today?" — answer straight away
+    else { vxSet("speaking"); vxSpeak("Yes?", () => { if(_vxOn) vxListen(); }); }   // just "Hey Havi" — ask what she needs
 }
 
 function renderAssist(){
     renderAssistBrief();
     renderAssistChips();
     asDrawChat();
-    // Firefox has no Web Speech API — hide the mic rather than offer a button that fails.
-    const mic = document.getElementById("asMic");
-    if(mic && !(window.SpeechRecognition || window.webkitSpeechRecognition)) mic.style.display = "none";
+    // No Web Speech API (e.g. Firefox) → hide the voice controls rather than fail.
+    if(!SR_SUPPORTED){
+        ["asMic", "asTalkBtn", "asWakeBtn"].forEach(id => { const el = document.getElementById(id); if(el) el.style.display = "none"; });
+    }
+    // Warm the speech-synthesis voice list (loads async on first request).
+    try{ if(window.speechSynthesis){ window.speechSynthesis.getVoices(); window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices(); } }catch(e){}
     const inp = document.getElementById("assistDate");
     if(!inp) return;
     if(!inp.value) inp.value = iso(today());
@@ -14166,6 +14403,25 @@ try{
 try{ if(typeof pickDefaultPage === "function") pickDefaultPage(); }catch(e){ console.error("[startup] pickDefaultPage failed", e); }
 try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
 </script>
+
+<!-- Voice: top-level so "Hey Havi" and "Talk to Havi" work from ANY dashboard page,
+     not just the Assist page (these are position:fixed and must not live inside a
+     page div that gets display:none). -->
+<div id="asVoice">
+    <button class="vx-close" onclick="stopVoice()" title="Close">✕</button>
+    <div class="vx-title">Havi</div>
+    <div class="vx-state" id="vxState">Tap the circle and talk</div>
+    <button class="vx-orb" id="vxOrb" onclick="vxOrbTap()">🎙</button>
+    <div class="vx-said">
+        <div class="vx-you" id="vxYou"></div>
+        <div class="vx-reply" id="vxReply"></div>
+        <div class="vx-meta" id="vxMeta"></div>
+    </div>
+    <div class="vx-hint" id="vxHint">Speak in Taglish — I'll answer out loud. Say "stop" or tap ✕ to end.</div>
+</div>
+<div id="asWakePill" onclick="toggleWake()" title="Listening for “Hey Havi” — tap to turn off">
+    <span class="dot"></span> Listening for “Hey Havi”
+</div>
 
 </body>
 </html>
