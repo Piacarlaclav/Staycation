@@ -1126,6 +1126,11 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
   .sidebar .nav-item{ color:#cabdb1; border-left-color:transparent; margin:1px 8px; border-radius:9px; padding-left:14px; }
   .sidebar .nav-item:hover{ background:var(--hv-sidebar-2); color:#fff; }
   .sidebar .nav-item.active{ background:var(--hv-sidebar-2); color:#fff; border-left-color:var(--hv-terra); }
+  /* Havi — the assistant sits at the very top and is styled to read as the command centre. */
+  .sidebar .nav-havi{ color:#fff; font-weight:700; background:linear-gradient(135deg,rgba(189,110,63,.30),rgba(184,146,58,.16)); border:1px solid rgba(189,110,63,.35); margin-top:10px; margin-bottom:6px; }
+  .sidebar .nav-havi:hover{ background:linear-gradient(135deg,rgba(189,110,63,.45),rgba(184,146,58,.24)); }
+  .sidebar .nav-havi.active{ background:linear-gradient(135deg,rgba(189,110,63,.55),rgba(184,146,58,.30)); border-color:var(--hv-terra); }
+  .sidebar .nav-havi .ico svg{ stroke:#f2c98a; }
 
   /* ---- headings → serif ---- */
   .topbar h1, .panel-head h2, .modal h2{ font-family:var(--hv-serif); color:var(--hv-ink); font-weight:700; }
@@ -3047,7 +3052,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     <!-- ASK: the assistant. Costs money per question, so it only runs on demand. -->
     <div class="panel">
         <div class="panel-head">
-            <h2>Ask me anything <span class="muted" style="font-size:13.5px;">— about your bookings, money, availability and cleaning</span></h2>
+            <h2>Ask Havi <span class="muted" style="font-size:13.5px;">— anything about your bookings, money, availability and cleaning</span></h2>
             <button class="btn secondary" onclick="clearAssistChat()">Clear</button>
         </div>
         <div id="asOffNote" class="as-off" style="display:none;"></div>
@@ -13717,7 +13722,7 @@ const DASH_PAGES = [
     { key:"payroll",   label:"Payroll" },
     { key:"bills",     label:"Bills" },
     { key:"expenses",  label:"Expenses" },
-    { key:"assist",    label:"Assist" },
+    { key:"assist",    label:"Havi" },
     { key:"notes",     label:"Notes" }
 ];
 function pageLabel(key){ const p = DASH_PAGES.find(x => x.key === key); return p ? p.label : key; }
@@ -13897,7 +13902,10 @@ function applyPermissions(){
     const active = document.querySelector(".sidebar .nav-item.active");
     const shown = document.querySelector(".page.active");
     if((!active || active.style.display === "none") && !shown){
-        const SKIP = ["notes", "board", "partnerdash", "addpartner", "today"];
+        // "assist" (Havi) is skipped too: it now sits first in the sidebar, but the
+        // command centre isn't where someone should be *dumped* on login — they reach
+        // it by clicking. Keeps the pre-move default-landing behaviour intact.
+        const SKIP = ["notes", "board", "partnerdash", "addpartner", "today", "assist"];
         const first = [...document.querySelectorAll(".sidebar .nav-item")].find(n =>
             n.style.display !== "none" && SKIP.indexOf(n.dataset.page) === -1
             && document.getElementById("page-" + n.dataset.page));
@@ -14087,7 +14095,7 @@ function pickDefaultPage(){
         const _p = currentPerms(), _adm = isAdminUser();
         // Notes is the owner's private notebook and Board is a noticeboard — neither is a
         // sensible place to dump someone on login, so they're never auto-landing targets.
-        const NEVER_LAND = ["notes", "board", "partnerdash", "addpartner"];
+        const NEVER_LAND = ["notes", "board", "partnerdash", "addpartner", "assist"];
         const _ok = pg => (pg === "users" || pg === "log" || pg === "notes") ? _adm : _p.includes(pg);
         const _curOk = savedPage && document.getElementById("page-" + savedPage) && _ok(savedPage);
         if(_curOk) return;                       // the page they asked for is fine — leave it alone
