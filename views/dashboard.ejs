@@ -9445,6 +9445,7 @@ function startVoice(){
     if(!SR_SUPPORTED){ alert("Talk-to-Havi needs Chrome, Edge or Safari. On this browser you can still type your questions."); return; }
     buildVxLogo();
     setVxLang(_vxLang);   // sync the language-toggle label
+    pauseWakeRec();       // don't let the wake mic fight the conversation mic
     _vxOn = true;
     document.getElementById("asVoice").classList.add("show");
     document.getElementById("vxYou").textContent = "";
@@ -9455,9 +9456,10 @@ function startVoice(){
     vxListen();
 }
 function stopVoice(){
-    _vxOn = false; _vxFromWake = false;
+    _vxOn = false; _vxFromWake = false; _vxStopped = false;
     try{ if(_vxRec) _vxRec.stop(); }catch(e){}
     _vxRec = null;
+    stopStopListener();
     try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
     document.getElementById("asVoice").className = "";
     // Closing a session doesn't turn OFF the wake word — resume ambient listening.
@@ -9517,13 +9519,21 @@ async function vxAsk(text){
     vxSet("speaking");
     vxSpeak(vxSpeakable(reply), () => {
         if(!_vxOn) return;
+        // She said "Havi, stop" mid-answer → go quiet, don't immediately re-listen.
+        if(_vxStopped){
+            _vxStopped = false;
+            if(_vxFromWake){ _vxFromWake = false; _vxOn = false;
+                setTimeout(() => { document.getElementById("asVoice").classList.remove("show"); if(_wakeOn) startWake(); }, 300); }
+            else vxSet("tap");
+            return;
+        }
         if(_vxFromWake){
             // Woken by "Hey Havi" → tuck the overlay away and go back to ambient
             // listening, so she just says "Hey Havi …" again for the next question.
             _vxFromWake = false; _vxOn = false;
             setTimeout(() => { document.getElementById("asVoice").classList.remove("show"); if(_wakeOn) startWake(); }, 1300);
         } else if(IS_IOS){ vxSet("tap"); }   // iOS needs a fresh tap to reopen the mic
-        else vxListen();                       // "Talk to Havi" mode → continuous loop
+        else setTimeout(() => { if(_vxOn && !_vxStopped) vxListen(); }, 160);   // Talk mode → loop (small gap lets the mic free up)
     });
 }
 // Turn a bullet-list answer into something that sounds natural read aloud.
@@ -9562,6 +9572,29 @@ function vxPickVoice(){
     _vxVoice = pick;
     return pick;
 }
+// ---- "Havi, stop talking" — interrupt Havi mid-sentence by voice ----
+// While Havi is speaking we run a small recogniser JUST listening for a stop
+// command; if it hears one, we cancel the speech immediately.
+const VX_STOP = /\b(stop|tigil|itigil|tumigil|tumahimik|manahimik|hinto|humint|wag na|huwag na|tama na|shut up|quiet|enough|hush)\b/i;
+let _stopRec = null, _vxStopped = false;
+function startStopListener(){
+    if(!SR_SUPPORTED || IS_IOS) return;   // iOS can't run a second recogniser at once
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    try{ if(_stopRec){ _stopRec.onend = null; (_stopRec.abort || _stopRec.stop).call(_stopRec); } }catch(e){}
+    _stopRec = new SR(); _stopRec.lang = _vxLang; _stopRec.interimResults = true; _stopRec.continuous = true;
+    _stopRec.onresult = (ev) => {
+        const txt = [...ev.results].map(r => r[0].transcript).join(" ").toLowerCase();
+        if(VX_STOP.test(txt)){
+            _vxStopped = true;
+            try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}   // → utterance onend fires
+        }
+    };
+    _stopRec.onerror = () => {};
+    _stopRec.onend = () => { _stopRec = null; };
+    try{ _stopRec.start(); }catch(e){}
+}
+function stopStopListener(){ try{ if(_stopRec){ _stopRec.onend = null; (_stopRec.abort || _stopRec.stop).call(_stopRec); } }catch(e){} _stopRec = null; }
+
 function vxSpeak(text, onEnd){
     if(!window.speechSynthesis || !text){ if(onEnd) setTimeout(onEnd, 300); return; }
     window.speechSynthesis.cancel();
@@ -9573,8 +9606,9 @@ function vxSpeak(text, onEnd){
     u.rate = 1.0;
     u.pitch = (v && VX_FEMALE.test(v.name)) ? 0.82 : 0.95;
     u.onboundary = () => vxRipple();          // reactor pulses on each word Havi speaks
-    u.onend = () => { if(onEnd) onEnd(); };
-    u.onerror = () => { if(onEnd) onEnd(); };
+    u.onend = () => { stopStopListener(); if(onEnd) onEnd(); };
+    u.onerror = () => { stopStopListener(); if(onEnd) onEnd(); };
+    startStopListener();                       // listen for "Havi, stop" while speaking
     window.speechSynthesis.speak(u);
 }
 
@@ -9584,21 +9618,48 @@ function vxSpeak(text, onEnd){
    mic open reliably; iPhone Safari stops the mic after each phrase and blocks
    background listening, so there we tell her to use "Talk to Havi" instead.
    Common variants are allowed because speech-to-text often mishears "Havi". */
-let _wakeOn = false, _wakeRec = null, _wakeRestart = null;
+let _wakeOn = false, _wakeRec = null, _wakeRestart = null, _wakeUserAsked = false, _wakeArmed = false;
 const WAKE_RE = /\b(?:hey|hi|hoy|uy|oy|o|okay|ok|hello|helo)?\s*(hav(?:i|ie|ey|y|ee)|habi|harvey|halvey|hobby|savi|hazy)\b/i;
 
 function toggleWake(){
-    if(_wakeOn){ setWake(false); return; }
+    if(_wakeOn){ setWake(false); return; }   // she's turning it off → remembered as off
     if(!SR_SUPPORTED){ alert("“Hey Havi” needs Chrome, Edge or Safari."); return; }
     if(IS_IOS && !confirm("Heads up: iPhone/iPad can't keep the mic listening in the background, so “Hey Havi” may stop after each question. “Talk to Havi” works better here.\n\nTurn on “Hey Havi” anyway?")) return;
+    _wakeUserAsked = true;
     setWake(true);
 }
-function setWake(on){
+// persist=false → don't remember the choice (used by the silent auto-start, so a
+// browser that blocks the mic without a gesture doesn't disable the feature for good).
+function setWake(on, persist){
     _wakeOn = on;
+    if(persist !== false){ try{ localStorage.setItem("shph_havi_wake", on ? "1" : "0"); }catch(e){} }
     const btn = document.getElementById("asWakeBtn");
     if(btn){ btn.classList.toggle("on", on); btn.innerHTML = on ? "👂 Hey&nbsp;Havi: on" : "👂 Hey&nbsp;Havi"; }
     if(on) startWake(); else stopWake();
 }
+// Turn "Hey Havi" on automatically when she lands on the page — so it's ready to
+// talk with no tapping. First-ever use still needs a mic-permission grant (which
+// needs a gesture), so we also arm it to start on her first click/keypress.
+function autoStartWake(){
+    if(!SR_SUPPORTED || IS_IOS || _wakeOn) return;
+    let pref = null; try{ pref = localStorage.getItem("shph_havi_wake"); }catch(e){}
+    if(pref === "0") return;                 // she deliberately turned it off — respect that
+    _wakeUserAsked = false;
+    setWake(true, false);                    // try now (works if the mic is already allowed)
+    if(_wakeArmed) return;
+    _wakeArmed = true;
+    const go = () => {
+        document.removeEventListener("pointerdown", go, true);
+        document.removeEventListener("keydown", go, true);
+        _wakeArmed = false;
+        if(!_wakeOn){ _wakeUserAsked = false; setWake(true, false); }
+    };
+    document.addEventListener("pointerdown", go, true);
+    document.addEventListener("keydown", go, true);
+}
+// Stop the wake recogniser WITHOUT forgetting the preference — used while a Talk
+// conversation is active so two recognisers don't fight over the mic.
+function pauseWakeRec(){ clearTimeout(_wakeRestart); try{ if(_wakeRec){ _wakeRec.onend = null; _wakeRec.stop(); } }catch(e){} _wakeRec = null; }
 function startWake(){
     if(!_wakeOn || !SR_SUPPORTED) return;
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -9626,8 +9687,11 @@ function startWake(){
     };
     _wakeRec.onerror = (e) => {
         if(e.error === "not-allowed" || e.error === "service-not-allowed"){
-            setWake(false);
-            alert("To use “Hey Havi”, allow microphone access for this site, then turn it on again.");
+            // Only nag + remember "off" if SHE asked. A blocked AUTO-start (no gesture
+            // yet) just switches off quietly, so the next visit can try again.
+            if(_wakeUserAsked){ setWake(false); alert("To use “Hey Havi”, allow microphone access for this site, then turn it on again."); }
+            else { _wakeOn = false; const b = document.getElementById("asWakeBtn"); if(b){ b.classList.remove("on"); b.innerHTML = "👂 Hey&nbsp;Havi"; } stopWake(); }
+            _wakeUserAsked = false;
         }
     };
     _wakeRec.onend = () => {
@@ -9673,7 +9737,8 @@ function renderAssist(){
     // Warm the speech-synthesis voice list (loads async). Clear the cached pick when
     // it (re)loads so the male-voice selection runs against the full list.
     try{ if(window.speechSynthesis){ window.speechSynthesis.getVoices(); window.speechSynthesis.onvoiceschanged = () => { _vxVoice = undefined; window.speechSynthesis.getVoices(); }; } }catch(e){}
-    buildVxLogo();   // pre-render the neon-blue "S" for the voice reactor
+    buildVxLogo();     // pre-render the neon-blue "S" for the voice reactor
+    autoStartWake();   // hands-free the moment she lands on Havi (ready to talk)
     const inp = document.getElementById("assistDate");
     if(!inp) return;
     if(!inp.value) inp.value = iso(today());
