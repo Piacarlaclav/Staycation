@@ -3056,37 +3056,46 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     text-shadow:0 0 18px rgba(63,190,255,.5); }
   #asVoice .vx-state{ color:#7fb4d4; font-size:14px; letter-spacing:.3px; min-height:20px; margin-bottom:26px; }
 
-  /* ---- the arc-reactor orb: your brand "S" inside glowing rings ---- */
-  #asVoice .vx-reactor{ width:230px; height:230px; position:relative; cursor:pointer; transition:transform .15s; }
-  #asVoice .vx-reactor:active{ transform:scale(.97); }
-  #asVoice .vx-reactor > *{ position:absolute; inset:0; margin:auto; border-radius:50%; pointer-events:none; }
-  #asVoice .vx-ring{ box-sizing:border-box; }
-  #asVoice .vx-r1{ width:100%; height:100%; border:2px dashed rgba(79,208,255,.55); animation:vxSpin 22s linear infinite; }
-  #asVoice .vx-r2{ width:84%; height:84%; border:1px dashed rgba(58,169,224,.4); animation:vxSpin 32s linear infinite reverse; }
-  #asVoice .vx-r3{ width:66%; height:66%; border:2px solid rgba(95,214,255,.85);
+  /* ---- the arc-reactor: your brand "S" inside glowing rings.
+       A reusable component (.vxr) used BOTH on the Havi page and inside the
+       full-screen voice overlay. Its own is-* state classes drive the glow, so
+       every reactor on the page reacts together when Havi listens/speaks. ---- */
+  .vxr{ width:230px; height:230px; position:relative; cursor:pointer; transition:transform .15s; flex:none; }
+  .vxr:active{ transform:scale(.97); }
+  .vxr > *{ position:absolute; inset:0; margin:auto; border-radius:50%; pointer-events:none; }
+  .vxr .vx-r1{ width:100%; height:100%; box-sizing:border-box; border:2px dashed rgba(79,208,255,.55); animation:vxSpin 22s linear infinite; }
+  .vxr .vx-r2{ width:84%; height:84%; box-sizing:border-box; border:1px dashed rgba(58,169,224,.4); animation:vxSpin 32s linear infinite reverse; }
+  .vxr .vx-r3{ width:66%; height:66%; box-sizing:border-box; border:2px solid rgba(95,214,255,.85);
     box-shadow:0 0 16px rgba(63,190,255,.7), inset 0 0 16px rgba(63,190,255,.45); }
-  #asVoice .vx-core{ width:60%; height:60%; background:radial-gradient(circle at 50% 40%, #123a54, #061019 76%);
+  .vxr .vx-core{ width:60%; height:60%; background:radial-gradient(circle at 50% 40%, #123a54, #061019 76%);
     box-shadow:inset 0 0 34px rgba(0,0,0,.65); }
-  #asVoice .vx-halo{ width:62%; height:62%; background:radial-gradient(circle, rgba(63,190,255,.55), transparent 70%);
-    filter:blur(7px); opacity:.45; }
-  #asVoice .vx-pulse{ width:66%; height:66%; border:2px solid rgba(95,214,255,.8); opacity:0; }
-  #asVoice .vx-logo-s, #asVoice .vx-logo-fb{ width:34%; height:34%; border-radius:0; display:flex; align-items:center; justify-content:center; z-index:3; }
-  #asVoice .vx-logo-s{ object-fit:contain; filter:drop-shadow(0 0 7px rgba(79,208,255,.9)); }
-  #asVoice .vx-logo-s[src=""]{ display:none; }
-  #asVoice .vx-logo-fb{ font-family:Georgia,serif; font-weight:700; font-size:62px; color:#7fdcff;
+  .vxr .vx-halo{ width:62%; height:62%; background:radial-gradient(circle, rgba(63,190,255,.55), transparent 70%);
+    filter:blur(7px); opacity:.4; animation:vxBreathe 3.8s ease-in-out infinite; }   /* gentle idle glow */
+  .vxr .vx-pulse{ width:66%; height:66%; box-sizing:border-box; border:2px solid rgba(95,214,255,.8); opacity:0; }
+  .vxr .vx-logo-s, .vxr .vx-logo-fb{ width:40%; height:40%; border-radius:0; align-items:center; justify-content:center; z-index:3; }
+  .vxr .vx-logo-s{ display:none; object-fit:contain; filter:drop-shadow(0 0 8px rgba(79,208,255,.95)); }  /* shown by buildVxLogo() once tinted */
+  .vxr .vx-logo-fb{ display:flex; font-family:Georgia,serif; font-weight:700; font-size:66px; color:#7fdcff;
     text-shadow:0 0 14px rgba(79,208,255,.9); }
   @keyframes vxSpin{ to{ transform:rotate(360deg) } }
-  @keyframes vxBreathe{ 0%,100%{ transform:scale(1); opacity:.4 } 50%{ transform:scale(1.14); opacity:.75 } }
+  @keyframes vxBreathe{ 0%,100%{ transform:scale(1); opacity:.35 } 50%{ transform:scale(1.12); opacity:.6 } }
   @keyframes vxTalk{ 0%,100%{ transform:scale(1); opacity:.55 } 50%{ transform:scale(1.3); opacity:1 } }
   @keyframes vxRipple{ 0%{ transform:scale(.62); opacity:.75 } 100%{ transform:scale(1.55); opacity:0 } }
-  /* state reactions */
-  #asVoice.listening .vx-halo{ animation:vxBreathe 2.3s ease-in-out infinite; opacity:.7; }
-  #asVoice.speaking  .vx-halo{ animation:vxTalk .5s ease-in-out infinite; opacity:.9;
-    background:radial-gradient(circle, rgba(90,190,255,.7), transparent 70%); }
-  #asVoice.listening .vx-r3, #asVoice.speaking .vx-r3{ box-shadow:0 0 24px rgba(63,190,255,.95), inset 0 0 20px rgba(63,190,255,.65); }
-  #asVoice.thinking .vx-r1{ animation-duration:5s; }
-  #asVoice.thinking .vx-r2{ animation-duration:7s; }
-  #asVoice .vx-pulse.go{ animation:vxRipple .7s ease-out; }
+  /* state reactions — same on any reactor */
+  .vxr.is-listening .vx-halo{ animation:vxBreathe 2.1s ease-in-out infinite; opacity:.75; }
+  .vxr.is-speaking  .vx-halo{ animation:vxTalk .5s ease-in-out infinite; opacity:.95;
+    background:radial-gradient(circle, rgba(90,190,255,.72), transparent 70%); }
+  .vxr.is-listening .vx-r3, .vxr.is-speaking .vx-r3{ box-shadow:0 0 24px rgba(63,190,255,.95), inset 0 0 20px rgba(63,190,255,.65); }
+  .vxr.is-thinking .vx-r1{ animation-duration:5s; }
+  .vxr.is-thinking .vx-r2{ animation-duration:7s; }
+  .vxr .vx-pulse.go{ animation:vxRipple .7s ease-out; }
+  /* the smaller reactor that lives on the Havi page */
+  .vxr.sm{ width:150px; height:150px; }
+  .vxr.sm .vx-logo-fb{ font-size:42px; }
+
+  /* Havi's presence on the page: the reactor + a tap-to-talk caption */
+  #page-assist .havi-face{ display:flex; flex-direction:column; align-items:center; gap:10px; padding:6px 0 20px; }
+  #page-assist .havi-face .cap{ color:var(--hv-muted); font-size:13px; font-weight:600; }
+  #page-assist .havi-face .cap b{ color:var(--hv-terra-d); }
 
   #asVoice .vx-said{ margin-top:30px; max-width:560px; width:100%; }
   #asVoice .vx-you{ color:#8fd0ff; font-size:15px; min-height:22px; margin-bottom:12px; font-style:italic; }
@@ -3125,6 +3134,21 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <button class="btn as-talk-btn" id="asTalkBtn" onclick="startVoice()">🎙 Talk to Havi</button>
                 <button class="btn secondary" onclick="clearAssistChat()">Clear</button>
             </div>
+        </div>
+        <!-- Havi's presence on the page: the glowing reactor. Tap it to talk;
+             it glows and ripples whenever Havi is listening or speaking. -->
+        <div class="havi-face">
+            <div class="vxr sm" onclick="startVoice()" role="button" tabindex="0" title="Tap to talk to Havi">
+                <div class="vx-r1"></div>
+                <div class="vx-r2"></div>
+                <div class="vx-r3"></div>
+                <div class="vx-halo"></div>
+                <div class="vx-core"></div>
+                <div class="vx-pulse"></div>
+                <img class="vx-logo-s" alt="">
+                <span class="vx-logo-fb">S</span>
+            </div>
+            <div class="cap">Tap the reactor or say <b>“Hey Havi”</b> to talk</div>
         </div>
         <div id="asOffNote" class="as-off" style="display:none;"></div>
         <div class="as-log" id="asLog"></div>
@@ -8469,7 +8493,7 @@ function showPage(page, _nav){
         havens:["Property","Havens"], booking:["Property","Rates & Add-ons"], cleaners:["Property","Housekeeping"],
         finance:["Finance","Finance"], payments:["Finance","Payments"], payroll:["Finance","Payroll"],
         bills:["Finance","Bills"], expenses:["Finance","Expenses"], analytics:["Finance","Analytics"],
-        users:["Team","Users"], employees:["Team","Employees"], assist:["Team","Assist"], log:["Team","Log"]
+        users:["Team","Users"], employees:["Team","Employees"], assist:["Assistant","Havi"], log:["Team","Log"]
     };
     const cr = CRUMB[page] || (window.PARTNER_CRUMB && window.PARTNER_CRUMB[page]) || ["Main", page];
     const cg = document.getElementById("crumbGroup"), cp = document.getElementById("crumbPage");
@@ -9365,16 +9389,20 @@ function asToggleMic(){
 let _vxOn = false, _vxRec = null, _vxFromWake = false;
 function vxSet(state, txt){
     const ov = document.getElementById("asVoice");
-    ov.className = "show " + (state || "");   // CSS reacts to this state class (the reactor glows)
+    ov.className = "show " + (state || "");
     const map = { listening:"Listening…", thinking:"Thinking…", speaking:"Havi is speaking…", tap:"Tap the reactor to talk" };
     document.getElementById("vxState").textContent = txt || map[state] || "";
+    // Drive EVERY reactor on the page (the page one + the overlay one) so they
+    // glow together whether or not the overlay is what she's looking at.
+    document.querySelectorAll(".vxr").forEach(r => {
+        r.classList.remove("is-listening", "is-thinking", "is-speaking");
+        if(state === "listening" || state === "thinking" || state === "speaking") r.classList.add("is-" + state);
+    });
 }
-// A single expanding ring — fired whenever either of us speaks, so the reactor
-// visibly reacts to the voice.
+// A single expanding ring on every reactor — fired whenever either of us speaks,
+// so the reactor visibly reacts to the voice.
 function vxRipple(){
-    const el = document.getElementById("vxPulse");
-    if(!el) return;
-    el.classList.remove("go"); void el.offsetWidth; el.classList.add("go");
+    document.querySelectorAll(".vx-pulse").forEach(el => { el.classList.remove("go"); void el.offsetWidth; el.classList.add("go"); });
 }
 // Recolour the gold-on-white brand logo into a neon-blue, transparent "S" for the
 // reactor — done once in-browser (canvas), so there's no separate asset to ship.
@@ -9395,9 +9423,9 @@ function buildVxLogo(){
                 else { p[i] = 95; p[i+1] = 210; p[i+2] = 255; }         // the gold S → neon cyan-blue
             }
             x.putImageData(d, 0, 0);
-            const el = document.getElementById("vxLogo");
-            if(el){ el.src = c.toDataURL("image/png"); }
-            const fb = document.getElementById("vxLogoFb"); if(fb) fb.style.display = "none";
+            const url = c.toDataURL("image/png");
+            document.querySelectorAll(".vx-logo-s").forEach(el => { el.src = url; el.style.display = "block"; });
+            document.querySelectorAll(".vx-logo-fb").forEach(fb => { fb.style.display = "none"; });
         }catch(e){ /* keep the text "S" fallback if the canvas is blocked */ _vxLogoBuilt = false; }
     };
     img.onerror = () => { _vxLogoBuilt = false; };   // keep the text "S" fallback
@@ -14479,15 +14507,15 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
     <button class="vx-close" onclick="stopVoice()" title="Close">✕</button>
     <div class="vx-title">Havi</div>
     <div class="vx-state" id="vxState">Tap the reactor and talk</div>
-    <div class="vx-reactor" id="vxOrb" onclick="vxOrbTap()" role="button" tabindex="0" title="Tap to talk">
-        <div class="vx-ring vx-r1"></div>
-        <div class="vx-ring vx-r2"></div>
-        <div class="vx-ring vx-r3"></div>
+    <div class="vxr" onclick="vxOrbTap()" role="button" tabindex="0" title="Tap to talk">
+        <div class="vx-r1"></div>
+        <div class="vx-r2"></div>
+        <div class="vx-r3"></div>
         <div class="vx-halo"></div>
         <div class="vx-core"></div>
-        <div class="vx-pulse" id="vxPulse"></div>
-        <img class="vx-logo-s" id="vxLogo" alt="">
-        <span class="vx-logo-fb" id="vxLogoFb">S</span>
+        <div class="vx-pulse"></div>
+        <img class="vx-logo-s" alt="">
+        <span class="vx-logo-fb">S</span>
     </div>
     <div class="vx-said">
         <div class="vx-you" id="vxYou"></div>
