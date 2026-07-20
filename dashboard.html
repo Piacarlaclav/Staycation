@@ -9537,15 +9537,39 @@ function vxSpeakable(text){
     if(items.length > 3) out += `. And ${items.length - 3} more, shown on screen.`;
     return out;
 }
+// Havi's voice: pick a natural-sounding MALE English voice from whatever the
+// browser/device offers. Names vary by platform, so we try male-sounding names
+// (and the higher-quality "natural"/"neural"/"online" variants) first, and only
+// fall back to a neutral/female voice with a lowered pitch if no male exists.
+const VX_MALE   = /(^|[^a-z])(male|guy|david|mark|daniel|james|george|ryan|brian|christopher|eric|andrew|andrei|alex|fred|diego|enrique|liam|william|thomas|arthur|matthew|aaron|oliver)([^a-z]|$)/i;
+const VX_FEMALE = /(female|zira|samantha|victoria|karen|moira|tessa|fiona|susan|hazel|serena|catherine|linda|heather|angelo|rosa|maria|female|woman)/i;
+let _vxVoice;   // undefined = not chosen yet; a Voice or null once chosen
+function vxPickVoice(){
+    if(_vxVoice !== undefined) return _vxVoice;
+    const vs = (window.speechSynthesis && window.speechSynthesis.getVoices()) || [];
+    if(!vs.length) return null;   // voices not loaded yet — try again next time (don't cache)
+    const en = v => /^en/i.test(v.lang);
+    const nat = v => /natural|neural|online|wavenet|premium|enhanced/i.test(v.name);
+    const pick =
+        vs.find(v => en(v) && nat(v) && VX_MALE.test(v.name)) ||          // natural + male (best)
+        vs.find(v => en(v) && VX_MALE.test(v.name)) ||                    // any male English
+        vs.find(v => /google uk english male/i.test(v.name)) ||
+        vs.find(v => en(v) && !VX_FEMALE.test(v.name) && nat(v)) ||       // natural, not obviously female
+        vs.find(v => en(v) && !VX_FEMALE.test(v.name)) ||
+        vs.find(en) || vs[0] || null;
+    _vxVoice = pick;
+    return pick;
+}
 function vxSpeak(text, onEnd){
     if(!window.speechSynthesis || !text){ if(onEnd) setTimeout(onEnd, 300); return; }
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = "en-PH"; u.rate = 1.04; u.pitch = 1.0;
-    // Prefer a natural English voice if the browser exposes one.
-    const vs = window.speechSynthesis.getVoices() || [];
-    const pick = vs.find(v => /en[-_]PH/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang) && /female|google|samantha|zira/i.test(v.name)) || vs.find(v => /^en/i.test(v.lang));
-    if(pick) u.voice = pick;
+    const v = vxPickVoice();
+    if(v){ u.voice = v; u.lang = v.lang || "en-US"; } else { u.lang = "en-US"; }
+    // A touch slower for a natural cadence; drop the pitch a little for a male tone
+    // (and drop it more if we only found a female voice to fall back on).
+    u.rate = 1.0;
+    u.pitch = (v && VX_FEMALE.test(v.name)) ? 0.82 : 0.95;
     u.onboundary = () => vxRipple();          // reactor pulses on each word Havi speaks
     u.onend = () => { if(onEnd) onEnd(); };
     u.onerror = () => { if(onEnd) onEnd(); };
@@ -9644,8 +9668,9 @@ function renderAssist(){
     if(!SR_SUPPORTED){
         ["asMic", "asTalkBtn", "asWakeBtn"].forEach(id => { const el = document.getElementById(id); if(el) el.style.display = "none"; });
     }
-    // Warm the speech-synthesis voice list (loads async on first request).
-    try{ if(window.speechSynthesis){ window.speechSynthesis.getVoices(); window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices(); } }catch(e){}
+    // Warm the speech-synthesis voice list (loads async). Clear the cached pick when
+    // it (re)loads so the male-voice selection runs against the full list.
+    try{ if(window.speechSynthesis){ window.speechSynthesis.getVoices(); window.speechSynthesis.onvoiceschanged = () => { _vxVoice = undefined; window.speechSynthesis.getVoices(); }; } }catch(e){}
     buildVxLogo();   // pre-render the neon-blue "S" for the voice reactor
     const inp = document.getElementById("assistDate");
     if(!inp) return;
