@@ -3244,6 +3244,12 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   #page-deposit .seg button.active{ background:var(--hv-ink); color:#fff; }
   #page-deposit #sdDpPopup{ left:auto; right:0; transform:none; top:46px; }
   #page-deposit #sdDpPopup::before{ left:auto; right:30px; transform:rotate(45deg); }
+  /* mobile: the .dp-wrap collapses to the left edge, so opening the 300px popup
+     rightward-anchored pushes it off-screen. Pin it centered in the viewport. */
+  @media (max-width:600px){
+    #page-deposit #sdDpPopup{ position:fixed; top:auto; bottom:16px; left:50%; right:auto; transform:translateX(-50%); width:min(340px,calc(100vw - 24px)); }
+    #page-deposit #sdDpPopup::before{ display:none; }
+  }
   #page-deposit .dep-status{ display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; padding:4px 11px; border-radius:20px; }
   #page-deposit .dep-status.held{ background:#f6ecd9; color:#9a7700; }
   #page-deposit .dep-status.returned{ background:#e7f3ec; color:#2e7d4f; }
