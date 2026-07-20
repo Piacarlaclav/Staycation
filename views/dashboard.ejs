@@ -3058,7 +3058,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <div id="asOffNote" class="as-off" style="display:none;"></div>
         <div class="as-log" id="asLog"></div>
         <div class="as-ask">
-            <textarea id="asInput" rows="1" placeholder="e.g. sino ang mag che-check in bukas? — ask in Taglish, I'll answer in English"
+            <textarea id="asInput" rows="1" placeholder="e.g. sino ang mag che-check in bukas? — common questions are free & instant"
                       oninput="asGrow(this)" onkeydown="asKey(event)"></textarea>
             <button class="as-mic" id="asMic" onclick="asToggleMic()" title="Ask by voice">🎙</button>
             <button class="btn as-send" onclick="askAssist()">Ask</button>
@@ -9190,13 +9190,14 @@ async function renderAssistBrief(){
                 </div>`).join("")
             : `<div class="as-clear">All clear — no unsold gaps, no unpaid balances, no turnovers waiting.</div>`;
 
-        // The chat is the only part that needs the API key.
+        // Quick answers work with or without a key. The key only unlocks the AI for
+        // open-ended questions — so the note is an FYI, not a "switched off" warning.
         const off = document.getElementById("asOffNote");
         if(off){
             off.style.display = b.ai ? "none" : "";
-            if(!b.ai) off.innerHTML = "<b>The chat isn't switched on yet.</b> It needs an <code>ANTHROPIC_API_KEY</code> "
-                + "added to the Vercel project settings (Settings → Environment Variables), then a redeploy. "
-                + "Everything above this box works without it.";
+            if(!b.ai) off.innerHTML = "<b>Quick answers are on and free</b> — ask about check-ins, availability, money, "
+                + "who owes you, or cleaning and I'll answer instantly. For open-ended questions, add an "
+                + "<code>ANTHROPIC_API_KEY</code> in Vercel (Settings → Environment Variables) and redeploy.";
         }
     }catch(e){
         document.getElementById("asBriefSub").textContent = "Couldn't load today's briefing — refresh to try again.";
@@ -9243,10 +9244,14 @@ async function askAssist(){
             body: JSON.stringify({ messages: _asChat.map(m => ({ role:m.role, content:m.content })) })
         });
         const j = await r.json();
+        // Label how the answer was produced: free rule-based ("quick") vs the paid AI.
+        let meta = "";
+        if(j.source === "quick") meta = "answered instantly · free";
+        else if(j.source === "ai") meta = `AI${j.cost_php ? " · ₱" + j.cost_php : ""}`;
         _asChat.push({
             role:"assistant",
             content: j.reply || "Something went wrong — try again.",
-            meta: j.cost_php ? `checked: ${(j.tools || []).join(", ") || "—"} · ₱${j.cost_php}` : ""
+            meta
         });
         if(j.ok && _asSpeak) asSay(j.reply);
     }catch(e){
