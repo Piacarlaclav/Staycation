@@ -13297,6 +13297,39 @@ function chargeReportViolation(bookingId, type){
     createHousekeepingViolation(b, type, (CLEAN_LABELS[type] || type) + " — mula sa housekeeping report");
     if(typeof renderCleaners === "function") renderCleaners();
 }
+// Any non-waived fine already on this booking? — avoids auto-charging twice (covers manually-added
+// violations too, which carry no vtype).
+function _bookingHasFine(bookingId){
+    return loadViolations().some(v => v && v.bookingId === bookingId && !v.waived && Number(v.deduction) > 0);
+}
+// Auto-record a violation for every housekeeping report that names one but hasn't been charged yet —
+// so "pag may report, KUSA nang marerecord" without pressing anything. Conservative: skips a booking
+// that already has ANY fine (never double-charges) and only fires on a recognised keyword. Runs at
+// the top of the housekeeping render.
+let _reconcilingViol = false;
+function reconcileHousekeepingViolations(){
+    if(_reconcilingViol) return 0;   // the creates below re-render; don't re-enter
+    if(typeof _partnerReadOnly === "function" && _partnerReadOnly()) return 0;   // read-only partners never auto-write
+    _reconcilingViol = true;
+    let created = 0;
+    try{
+        const map = (typeof cleaning !== "undefined" && cleaning) ? cleaning : {};
+        Object.keys(map).forEach(bid => {
+            const log = map[bid];
+            if(!log || !Array.isArray(log.reports) || !log.reports.length) return;
+            const type = detectViolationType(log.reports.map(r => r && r.note).join("  "));
+            if(!type) return;
+            if((Number(violationFines()[type]) || 0) <= 0) return;   // only auto-charge types with a set fine (Smoking/Mess); ₱0 types stay a note / use the button
+            const b = bookings.find(x => String(x.id) === String(bid));
+            if(!b) return;
+            if(_hasViolationType(b.id, type) || _bookingHasFine(b.id)) return;   // already handled — leave it
+            createHousekeepingViolation(b, type, (CLEAN_LABELS[type] || type) + " — auto mula sa housekeeping report");
+            created++;
+        });
+    }catch(e){ /* never let reconciliation break the page */ }
+    finally{ _reconcilingViol = false; }
+    return created;
+}
 function openCleanReport(id){
     cleanReportId = id;
     const b = bookings.find(x => x.id === id);
@@ -13392,7 +13425,7 @@ function cleanCardHtml(b){
         // A report that names a violation but hasn't been charged yet → offer a one-tap charge (this
         // catches older notes logged before reports auto-charged). If it's already charged, say so.
         const detType = detectViolationType(reports.map(r => r.note).join("  "));
-        const charged = detType && _hasViolationType(b.id, detType);
+        const charged = detType && (_hasViolationType(b.id, detType) || _bookingHasFine(b.id));
         const fine = detType ? Math.max(0, Number(violationFines()[detType]) || 0) : 0;
         reportsHtml = `<div class="clean-reports"><b>⚠ Damage / issue reports</b>` +
             reports.map(r => `<div class="clean-report-item">${escHtml(r.note)} <span class="muted">— ${r.user} · ${nowFmt(r.at)}</span></div>`).join("") +
@@ -13437,6 +13470,7 @@ function cleanCardHtml(b){
 
 function renderCleaners(){
     fillCleanUser();
+    reconcileHousekeepingViolations();   // auto-record any un-charged report as a violation before drawing
     const start = iso(cleanStart);
     const end = iso(addDays(cleanStart, cleanDays));   // exclusive
     const lastDay = fmt(iso(addDays(cleanStart, cleanDays - 1)));
