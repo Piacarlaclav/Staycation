@@ -13372,13 +13372,11 @@ function resizeImage(file, cb){
 // Compress an image so the stored file stays under maxBytes — keeps IDs legible
 // while saving storage. Steps resolution/quality down until it fits. Returns a
 // JPEG data URL (or null if the file isn't a readable image).
-// Cap for ID photos. compressImageTo measures the DECODED image bytes, but the /img store caps on
-// the base64 DATA-URL string (~1.04MB, Firestore's per-doc limit) — and base64 is ~33% bigger than
-// the bytes it encodes. So a 950KB "decoded" target became a ~1.3MB data-url and the offload threw,
-// silently losing the photo. Target ~700KB decoded → ~0.95MB encoded, safely under the cap. Once
-// /api/health reports Cloud Storage is on (no 1MB cap), bump to 2MB for better quality.
-let idMaxBytes = 700 * 1024;
-fetch("/api/health").then(r => r.json()).then(h => { if(h && h.imageStorage) idMaxBytes = 2 * 1024 * 1024; }).catch(() => {});
+// Cap for ID photos = 2MB (decoded). The /img store handles this either way: Cloud Storage has no
+// limit, and the Firestore fallback now SPLITS a big image across chunk docs (see firestoreWriteImage)
+// instead of rejecting anything over ~1MB — so no photo is lost and quality stays high. The upload
+// path also self-heals (shrink-and-retry) and reports any real failure, so nothing fails silently.
+let idMaxBytes = 2 * 1024 * 1024;
 function compressImageTo(file, maxBytes, cb){
     const reader = new FileReader();
     reader.onload = e => {
