@@ -11583,6 +11583,15 @@ function commissionPayOn(dateIso){
 }
 // rooms a housekeeper actually FINISHED (marked DONE) on a date — only DONE turnovers count
 function safeCleaning(){ try { return cleaning || {}; } catch(e){ return {}; } }  // may run before `cleaning` is initialized
+// Who finished a cleaning — prefer the explicit doneBy, but fall back to the "Marked done" entry in
+// the history (so an older/stale record with no doneBy still credits the right person for payroll).
+function _cleanerOf(lg){
+    const by = (lg && lg.doneBy || "").trim();
+    if(by) return by;
+    const h = (lg && lg.history) || [];
+    for(let i = h.length - 1; i >= 0; i--){ const a = h[i]; if(a && /done/i.test(a.action || "") && (a.user || "").trim()) return a.user.trim(); }
+    return "";
+}
 function roomsCleanedOn(dateIso, staffName){
     if(!dateIso) return 0;
     const data = safeCleaning();
@@ -11591,7 +11600,7 @@ function roomsCleanedOn(dateIso, staffName){
     for(const id in data){
         const lg = data[id];
         if(lg && lg.doneAt && iso(new Date(lg.doneAt)) === dateIso){
-            if(!nm || (lg.doneBy || "").trim().toLowerCase() === nm) count++;
+            if(!nm || _cleanerOf(lg).toLowerCase() === nm) count++;
         }
     }
     return count;
@@ -11629,7 +11638,7 @@ function cleaningDatesFor(staffName){
     const data = safeCleaning();
     for(const id in data){
         const lg = data[id];
-        if(lg && lg.doneAt && (lg.doneBy || "").trim().toLowerCase() === nm){
+        if(lg && lg.doneAt && _cleanerOf(lg).toLowerCase() === nm){
             const dt = iso(new Date(lg.doneAt));
             dates[dt] = (dates[dt] || 0) + 1;
         }
@@ -12085,7 +12094,27 @@ function canAddBooking(){
     if(currentPerms().includes("addbooking")) return true;
     return staff.filter(s => payrollOwns(s)).some(s => s.role === "CSR");
 }
+// Housekeeping pay is derived from the shared cleaning log. If this browser's copy is stale (e.g. the
+// cleanings were finished on another device), payroll would show nothing — so pull the live cleaning
+// log when the page renders, then re-render if it changed. Throttled so it fires at most occasionally.
+let _payFetching = false, _payFetchedAt = 0;
+function ensurePayrollDataFresh(){
+    if(_payFetching) return;
+    if(Date.now() - _payFetchedAt < 12000) return;   // throttle
+    _payFetching = true;
+    fetch("/api/kv/shph_cleaning_v1", { cache: "no-store" })
+        .then(r => r.ok ? r.json() : null)
+        .then(j => {
+            _payFetching = false; _payFetchedAt = Date.now();
+            if(j && typeof j === "object" && !Array.isArray(j) && JSON.stringify(j) !== JSON.stringify(cleaning)){
+                cleaning = j;                       // refresh the in-memory copy the payroll reads
+                if(typeof renderPayroll === "function") renderPayroll();
+            }
+        })
+        .catch(() => { _payFetching = false; });
+}
 function renderPayroll(){
+    ensurePayrollDataFresh();   // make sure housekeeping pay reflects the latest cleanings
     fillPayrollStaffFilter();
     const admin = payrollIsAdmin();
     const me = currentUser().toLowerCase();
