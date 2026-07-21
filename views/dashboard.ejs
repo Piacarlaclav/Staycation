@@ -7505,23 +7505,6 @@ function buildConfirmationHTML(){
 
 // download the confirmation as a PDF (lazy-loads the generator from a CDN)
 async function downloadConfirmation(){
-    const el = document.getElementById("bkConfirm");
-    if(!el) return;
-    el.innerHTML = buildConfirmationHTML();   // fresh content
-    // The preview wrapper crops the card: it has overflow:hidden and a SHORT (scaled) height.
-    // When we un-scale the card to full height for capture, that clip would cut off the bottom of
-    // the PDF — so temporarily let the wrapper grow, then restore the preview.
-    const wrap = document.getElementById("bkcWrap");
-    const prev = el.style.transform;
-    const prevWrapOverflow = wrap ? wrap.style.overflow : "";
-    const prevWrapHeight   = wrap ? wrap.style.height   : "";
-    el.style.transform = "none";              // capture at full 760px (not the scaled preview)
-    if(wrap){ wrap.style.overflow = "visible"; wrap.style.height = "auto"; }
-    const restore = () => {
-        el.style.transform = prev;
-        if(wrap){ wrap.style.overflow = prevWrapOverflow; wrap.style.height = prevWrapHeight; }
-        fitConfirmPreview();
-    };
     // filename = <check-in MMDDYY>-D<unit>, e.g. Jun 29 2026 · Haven 4 → 062926-D2602
     const ci = (document.getElementById("f_checkin") || {}).value || "";
     const havenVal = (document.getElementById("f_haven") || {}).value || "";
@@ -7533,14 +7516,23 @@ async function downloadConfirmation(){
     } else {
         fname = "Booking-Confirmation-" + (bookingCode(bookings.find(x => x.id === editingId)) || "new") + ".pdf";
     }
-    // Capture the card DIRECTLY with html2canvas (the same proven path as the guest-form PDF),
-    // NOT html2pdf. html2pdf was pinned to a fixed box at document (0,0) via width/windowWidth/
-    // scrollX; because the card lives inside a centred modal, that box landed to the LEFT of the
-    // card — so the PDF came out with the content crammed into a thin left strip and a blank page
-    // beside it. Letting html2canvas measure the element itself avoids the offset entirely.
+    // Render a FRESH copy of the card in a clean container pinned to the top-left of the viewport,
+    // then capture THAT — never the in-modal preview. The card is centred inside a ~94vw modal, so
+    // on screen its left edge sits ~600px in; html2canvas bakes that page offset into the capture and
+    // the whole 760px card gets shifted off the left of the page (content crammed in a thin strip,
+    // blank page beside it). A container at left:0/top:0 has ~zero offset, so the card lands flush.
+    // z-index:-1 keeps it hidden behind the page while it renders (html2canvas still captures it).
+    const holder = document.createElement("div");
+    holder.style.cssText = "position:fixed; left:0; top:0; z-index:-1; background:#edeae3; pointer-events:none;";
+    const doc = document.createElement("div");
+    doc.className = "bkc-doc";
+    doc.style.margin = "0";
+    doc.style.transform = "none";
+    doc.style.boxShadow = "none";
+    doc.innerHTML = buildConfirmationHTML();
+    holder.appendChild(doc);
+    document.body.appendChild(holder);
     const loadScript = src => new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej; document.body.appendChild(s); });
-    // In the clone, strip the preview scale/centring/shadow so the card renders flush at full width.
-    const onclone = cd => { const c = cd.getElementById("bkConfirm"); if(c){ c.style.transform = "none"; c.style.margin = "0"; c.style.boxShadow = "none"; } };
     try{
         if(!window.html2canvas) await loadScript("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js");
         if(!(window.jspdf && window.jspdf.jsPDF)) await loadScript("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js");
@@ -7548,17 +7540,17 @@ async function downloadConfirmation(){
         // its TRUE final size before we measure — measuring too early shifts the height.
         try{ if(document.fonts && document.fonts.ready) await document.fonts.ready; }catch(e){}
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-        const w = Math.ceil(el.offsetWidth) || 760;
-        const h = Math.ceil(el.offsetHeight);
-        const canvas = await window.html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#ffffff", onclone });
+        const w = Math.ceil(doc.offsetWidth) || 760;
+        const h = Math.ceil(doc.offsetHeight);
+        const canvas = await window.html2canvas(doc, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
         const img = canvas.toDataURL("image/jpeg", 0.98);
         const pdf = new window.jspdf.jsPDF({ unit:"px", format:[w, h], orientation:"portrait" });
         pdf.addImage(img, "JPEG", 0, 0, w, h);
         pdf.save(fname);
-        restore();
     }catch(e){
-        restore();
         alert("Couldn't build the PDF here. Use your browser's Print (Ctrl+P) → Save as PDF on this tab instead.");
+    }finally{
+        if(holder.parentNode) holder.parentNode.removeChild(holder);
     }
 }
 
