@@ -13254,6 +13254,49 @@ function violationFines(){
 }
 const CLEAN_LABELS = { Smoking: "Smoking", Damage: "Damage", Missing: "Missing item", Mess: "Excess mess", Other: "Violation" };
 const CLEAN_SEV    = { Smoking: "Major", Damage: "Major", Missing: "Item lost", Mess: "Minor", Other: "Major" };
+// Recognise a violation TYPE from free text (English + Taglish), so even a plain "Smoked" note
+// (no type picked) is understood and can become a violation automatically.
+const VIOLATION_KEYWORDS = [
+    { type: "Smoking", re: /(smok|smoke|vap|yosi|sigar|cigarette|usok|naninigar)/i },
+    { type: "Damage",  re: /(damage|broke|broken|sira|nasira|basag|nabasag|crack|nabakli|sib[aá]k)/i },
+    { type: "Missing", re: /(missing|nawawala|nawala|kulang|ninakaw|stolen|nakaw)/i }
+];
+function detectViolationType(text){
+    for(const k of VIOLATION_KEYWORDS) if(k.re.test(String(text || ""))) return k.type;
+    return "";
+}
+// Already a (non-waived) violation of this type on the booking? — dedupe so we never double-charge.
+function _hasViolationType(bookingId, type){
+    return loadViolations().some(v => v && v.bookingId === bookingId && !v.waived && v.vtype === type);
+}
+// Create ONE housekeeping violation for a booking. The configured fine (violationFines) auto-deducts
+// from the security deposit; fineOverride lets the report form pass an edited amount.
+function createHousekeepingViolation(b, type, descText, fineOverride){
+    const fine = (fineOverride != null) ? Math.max(0, Number(fineOverride) || 0) : Math.max(0, Number(violationFines()[type]) || 0);
+    const rec = {
+        id: uid(), haven: b.haven, guest: primaryName(b),
+        code: (typeof bookingCode === "function" ? bookingCode(b) : "") || "",
+        date: iso(today()), desc: descText || (CLEAN_LABELS[type] || "Violation"),
+        severity: CLEAN_SEV[type] || "Major", deduction: fine,
+        waived: false, resolved: false, bookingId: b.id, source: "housekeeping", vtype: type
+    };
+    const arr = loadViolations(); arr.push(rec); saveViolationsStore(arr);
+    logActivity(`housekeeping logged a ${(CLEAN_LABELS[type] || "violation").toLowerCase()} — ${b.haven} (${primaryName(b)})` + (fine > 0 ? ` · ${peso(fine)} fine` : ""));
+    if(typeof renderViolations === "function") renderViolations();
+    if(typeof renderDeposit === "function") renderDeposit();
+    return rec;
+}
+// One-tap: charge a violation for a report that already exists (older reports that were logged as a
+// plain note before this became automatic). Confirms first, then deducts from the deposit.
+function chargeReportViolation(bookingId, type){
+    const b = bookings.find(x => x.id === bookingId);
+    if(!b){ return; }
+    if(_hasViolationType(bookingId, type)){ if(typeof renderCleaners === "function") renderCleaners(); return; }
+    const fine = Math.max(0, Number(violationFines()[type]) || 0);
+    if(!confirm(`I-charge ang ${(CLEAN_LABELS[type] || type)} kay ${primaryName(b)}?` + (fine ? `\n${peso(fine)} na fine ang ibabawas sa security deposit.` : "") + (Number(b.deposit) > 0 ? `\nDeposit ${peso(b.deposit)} → isasauli ${peso(Math.max(0, Number(b.deposit) - fine))}.` : "\n(Walang deposit na naka-file para dito.)"))) return;
+    createHousekeepingViolation(b, type, (CLEAN_LABELS[type] || type) + " — mula sa housekeeping report");
+    if(typeof renderCleaners === "function") renderCleaners();
+}
 function openCleanReport(id){
     cleanReportId = id;
     const b = bookings.find(x => x.id === id);
@@ -13285,11 +13328,14 @@ function cleanReportFineHint(){
 function closeCleanReport(){ cleanReportId = null; document.getElementById("cleanReportOverlay").classList.remove("show"); }
 function saveCleanReport(){
     if(cleanReportId == null) return;
-    const type = document.getElementById("cleanReportType").value;
+    const picked = document.getElementById("cleanReportType").value;
     const note = document.getElementById("cleanReportNote").value.trim();
-    if(!type && !note){ alert("Pick a type or describe the issue."); return; }
+    if(!picked && !note){ alert("Pumili ng type o ilarawan ang isyu."); return; }
     const b = bookings.find(x => x.id === cleanReportId);
-    const label = type ? CLEAN_LABELS[type] : "";
+    // If no type was picked but the note clearly names one (e.g. "Smoked"), auto-detect it — so a
+    // report that describes a violation ALWAYS becomes one, kahit note lang ang nilagay.
+    const effType = picked || detectViolationType(note);
+    const label = effType ? CLEAN_LABELS[effType] : "";
     const reportText = [label, note].filter(Boolean).join(" — ") || note;
 
     const log = cleanLog(cleanReportId);
@@ -13298,22 +13344,12 @@ function saveCleanReport(){
     cleanAddHistory(log, "Reported an issue: " + reportText, cleanReportId);
     saveCleanEntry(cleanReportId);
 
-    // A TYPED issue also creates a Violations & Damages record, so its fine is automatically
-    // deducted from the guest's security deposit at return — and shows on the Security Deposit list
-    // the moment it's logged (the list reads _vdDeductForBooking). A plain "general note" doesn't.
-    if(type && b){
-        const fine = Math.max(0, Number(document.getElementById("cleanReportFine").value) || 0);
-        const rec = {
-            id: uid(),
-            haven: b.haven, guest: primaryName(b), code: (typeof bookingCode === "function" ? bookingCode(b) : "") || "",
-            date: iso(today()), desc: reportText,
-            severity: CLEAN_SEV[type] || "Major", deduction: fine,
-            waived: false, resolved: false, bookingId: b.id, source: "housekeeping"
-        };
-        const arr = loadViolations(); arr.push(rec); saveViolationsStore(arr);
-        logActivity(`housekeeping logged a ${(label || "violation").toLowerCase()} — ${b.haven} (${primaryName(b)})` + (fine > 0 ? ` · ${peso(fine)} fine` : ""));
-        if(typeof renderViolations === "function") renderViolations();
-        if(typeof renderDeposit === "function") renderDeposit();   // refresh the deposit list so the fine shows now
+    // A recognised issue creates a Violations & Damages record, so its fine auto-deducts from the
+    // guest's security deposit (shows on the Security Deposit list immediately). A general note with
+    // no recognised violation stays a note. Dedupe so re-reporting the same thing doesn't double-charge.
+    if(effType && b && !_hasViolationType(b.id, effType)){
+        const fineOverride = picked ? (Number(document.getElementById("cleanReportFine").value) || 0) : null;
+        createHousekeepingViolation(b, effType, reportText, fineOverride);
     }
     closeCleanReport();
 }
@@ -13351,11 +13387,23 @@ function cleanCardHtml(b){
         : `<div class="muted" style="font-size:12px;">No activity yet.</div>`;
 
     const reports = (log.reports || []).slice().reverse();
-    const reportsHtml = reports.length
-        ? `<div class="clean-reports"><b>⚠ Damage / issue reports</b>` +
+    let reportsHtml = "";
+    if(reports.length){
+        // A report that names a violation but hasn't been charged yet → offer a one-tap charge (this
+        // catches older notes logged before reports auto-charged). If it's already charged, say so.
+        const detType = detectViolationType(reports.map(r => r.note).join("  "));
+        const charged = detType && _hasViolationType(b.id, detType);
+        const fine = detType ? Math.max(0, Number(violationFines()[detType]) || 0) : 0;
+        reportsHtml = `<div class="clean-reports"><b>⚠ Damage / issue reports</b>` +
             reports.map(r => `<div class="clean-report-item">${escHtml(r.note)} <span class="muted">— ${r.user} · ${nowFmt(r.at)}</span></div>`).join("") +
-          `</div>`
-        : "";
+            (detType && !charged
+                ? `<div style="margin-top:10px;"><button class="btn-report" onclick="chargeReportViolation(${b.id}, '${detType}')">⚠ I-charge ang ${escHtml(CLEAN_LABELS[detType] || detType)}${fine ? " · " + peso(fine) : ""} sa deposit</button></div>`
+                : "") +
+            (charged
+                ? `<div class="muted" style="margin-top:8px; font-size:12px; color:#2e7d4f;">✓ ${escHtml(CLEAN_LABELS[detType] || detType)} — naka-charge na sa security deposit.</div>`
+                : "") +
+          `</div>`;
+    }
 
     const dot = (HAVEN_COLORS[b.haven] || { am:"#ccc" }).am;
 
