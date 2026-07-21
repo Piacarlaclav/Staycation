@@ -2480,7 +2480,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <label>Damage / breakage<span class="peso"><input type="number" id="s_fineDamage" min="0"></span></label>
             <label>Missing item<span class="peso"><input type="number" id="s_fineMissing" min="0"></span></label>
             <label>Excess mess / extra cleaning<span class="peso"><input type="number" id="s_fineMess" min="0"></span></label>
-            <label>Other violation<span class="peso"><input type="number" id="s_fineOther" min="0"></span></label>
+            <label>Unwashed dishes<span class="peso"><input type="number" id="s_fineDishes" min="0"></span></label>
         </div>
     </div>
 </div><!-- /page-booking -->
@@ -2625,7 +2625,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <option value="Damage">Damage / breakage</option>
                 <option value="Missing">Missing item</option>
                 <option value="Mess">Excess mess / extra cleaning</option>
-                <option value="Other">Other violation</option>
+                <option value="Dishes">Unwashed dishes</option>
             </select>
         </div>
         <div class="field full" id="cleanReportFineRow" style="display:none;">
@@ -13242,7 +13242,7 @@ document.addEventListener("click", e => { if(!e.target.closest(".dp-wrap")) clos
 let cleanReportId = null;
 // Default fine per issue type. These are the built-in fallbacks; the owner can override each one in
 // Rates & Add-ons → Fines (saved to settings.violationFines) and violationFines() merges them.
-const CLEAN_FINE_DEFAULTS = { Smoking: 1000, Damage: 0, Missing: 0, Mess: 500, Other: 0 };
+const CLEAN_FINE_DEFAULTS = { Smoking: 1000, Damage: 1000, Missing: 1000, Mess: 500, Dishes: 300 };
 function violationFines(){
     let vf = {};
     try{ vf = (loadSettings().violationFines) || {}; }catch(e){}
@@ -13250,14 +13250,16 @@ function violationFines(){
     for(const k in CLEAN_FINE_DEFAULTS) if(vf[k] != null && vf[k] !== "") out[k] = Number(vf[k]) || 0;
     return out;
 }
-const CLEAN_LABELS = { Smoking: "Smoking", Damage: "Damage", Missing: "Missing item", Mess: "Excess mess", Other: "Violation" };
-const CLEAN_SEV    = { Smoking: "Major", Damage: "Major", Missing: "Item lost", Mess: "Minor", Other: "Major" };
+const CLEAN_LABELS = { Smoking: "Smoking", Damage: "Damage", Missing: "Missing item", Mess: "Excess mess", Dishes: "Unwashed dishes" };
+const CLEAN_SEV    = { Smoking: "Major", Damage: "Major", Missing: "Item lost", Mess: "Minor", Dishes: "Minor" };
 // Recognise a violation TYPE from free text (English + Taglish), so even a plain "Smoked" note
-// (no type picked) is understood and can become a violation automatically.
+// (no type picked) is understood and can become a violation automatically. First match wins.
 const VIOLATION_KEYWORDS = [
     { type: "Smoking", re: /(smok|smoke|vap|yosi|sigar|cigarette|usok|naninigar)/i },
     { type: "Damage",  re: /(damage|broke|broken|sira|nasira|basag|nabasag|crack|nabakli|sib[aá]k)/i },
-    { type: "Missing", re: /(missing|nawawala|nawala|kulang|ninakaw|stolen|nakaw)/i }
+    { type: "Missing", re: /(missing|nawawala|nawala|kulang|ninakaw|stolen|nakaw)/i },
+    { type: "Dishes",  re: /(unwashed|dish|dishes|pinggan|plato|hugas|kaldero|kaserola)/i },
+    { type: "Mess",    re: /(excess mess|sobrang kalat|sobra.*kalat|napaka.*kalat|very messy|super messy)/i }
 ];
 function detectViolationType(text){
     for(const k of VIOLATION_KEYWORDS) if(k.re.test(String(text || ""))) return k.type;
@@ -14122,7 +14124,7 @@ function fillBookingSettings(){
 
     const vf = violationFines();   // saved fines, falling back to the built-in defaults
     setVal("s_fineSmoking", vf.Smoking); setVal("s_fineDamage", vf.Damage); setVal("s_fineMissing", vf.Missing);
-    setVal("s_fineMess", vf.Mess); setVal("s_fineOther", vf.Other);
+    setVal("s_fineMess", vf.Mess); setVal("s_fineDishes", vf.Dishes);
 
     customAddons = (s.customAddons || []).map(a => ({ name:a.name, price:Number(a.price)||0, perPax: !!a.perPax }));
     renderCustomAddons();
@@ -14258,7 +14260,7 @@ function saveBookingSettings(){
     s.promos = promos;
     s.violationFines = {
         Smoking: getNum("s_fineSmoking"), Damage: getNum("s_fineDamage"), Missing: getNum("s_fineMissing"),
-        Mess: getNum("s_fineMess"), Other: getNum("s_fineOther")
+        Mess: getNum("s_fineMess"), Dishes: getNum("s_fineDishes")
     };
     saveSettings(s);
     syncPricingFromSettings();   // apply the new rates to the dashboard's own pricing immediately
