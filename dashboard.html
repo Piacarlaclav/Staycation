@@ -3902,8 +3902,8 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         </style>
         <div id="bkPage4" style="display:none;">
             <div class="bkc-bar">
-                <div class="muted" style="font-size:13px;">Tap the preview to view it full size · then Download a PDF for the guest.</div>
-                <button type="button" class="btn" onclick="downloadConfirmation()">⬇ Download PDF</button>
+                <div class="muted" style="font-size:13px;">Tap the preview to view it full size · then Download an image for the guest.</div>
+                <button type="button" class="btn" onclick="downloadConfirmation()">⬇ Download PNG</button>
             </div>
             <div class="bkc-wrap" id="bkcWrap" onclick="openConfirmFull()" title="Click to view full size">
                 <div id="bkConfirm" class="bkc-doc"></div>
@@ -3914,7 +3914,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <div class="overlay" id="confirmFullOverlay" onclick="closeConfirmFull()" title="Click anywhere to minimize">
             <div style="max-width:96vw; max-height:96vh; display:flex; flex-direction:column; gap:10px;">
                 <div style="display:flex; gap:8px; justify-content:flex-end;" onclick="event.stopPropagation()">
-                    <button type="button" class="btn" onclick="downloadConfirmation()">⬇ Download PDF</button>
+                    <button type="button" class="btn" onclick="downloadConfirmation()">⬇ Download PNG</button>
                     <button type="button" class="btn secondary" onclick="closeConfirmFull()">Close</button>
                 </div>
                 <div style="overflow:auto; background:#e7e3dc; padding:18px; border-radius:14px; cursor:zoom-out;">
@@ -7501,7 +7501,7 @@ function buildConfirmationHTML(){
     <div class="foot">Thank you for booking with Staycation Haven PH · staycationhaven.ph</div>`;
 }
 
-// download the confirmation as a PDF (lazy-loads the generator from a CDN)
+// download the confirmation as a PNG image (lazy-loads html2canvas from a CDN)
 async function downloadConfirmation(){
     // filename = <check-in MMDDYY>-D<unit>, e.g. Jun 29 2026 · Haven 4 → 062926-D2602
     const ci = (document.getElementById("f_checkin") || {}).value || "";
@@ -7510,9 +7510,9 @@ async function downloadConfirmation(){
     let fname;
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ci);
     if(m && unitNo){
-        fname = `${m[2]}${m[3]}${m[1].slice(-2)}-${GF_TOWER}${unitNo}.pdf`;
+        fname = `${m[2]}${m[3]}${m[1].slice(-2)}-${GF_TOWER}${unitNo}.png`;
     } else {
-        fname = "Booking-Confirmation-" + (bookingCode(bookings.find(x => x.id === editingId)) || "new") + ".pdf";
+        fname = "Booking-Confirmation-" + (bookingCode(bookings.find(x => x.id === editingId)) || "new") + ".png";
     }
     // Render a FRESH copy of the card in a clean container pinned to the top-left of the viewport,
     // then capture THAT — never the in-modal preview. The card is centred inside a ~94vw modal, so
@@ -7533,20 +7533,30 @@ async function downloadConfirmation(){
     const loadScript = src => new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej; document.body.appendChild(s); });
     try{
         if(!window.html2canvas) await loadScript("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js");
-        if(!(window.jspdf && window.jspdf.jsPDF)) await loadScript("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js");
         // Wait for the web fonts (Playfair/Mulish) to actually apply + two frames, so the card is at
         // its TRUE final size before we measure — measuring too early shifts the height.
         try{ if(document.fonts && document.fonts.ready) await document.fonts.ready; }catch(e){}
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-        const w = Math.ceil(doc.offsetWidth) || 760;
-        const h = Math.ceil(doc.offsetHeight);
         const canvas = await window.html2canvas(doc, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
-        const img = canvas.toDataURL("image/jpeg", 0.98);
-        const pdf = new window.jspdf.jsPDF({ unit:"px", format:[w, h], orientation:"portrait" });
-        pdf.addImage(img, "JPEG", 0, 0, w, h);
-        pdf.save(fname);
+        // Save the canvas straight to a PNG (no PDF layer). Prefer a Blob download; fall back to a
+        // data-URL href if toBlob isn't available.
+        const trigger = (href, revoke) => {
+            const a = document.createElement("a");
+            a.href = href; a.download = fname;
+            document.body.appendChild(a); a.click(); a.remove();
+            if(revoke) setTimeout(() => URL.revokeObjectURL(href), 4000);
+        };
+        if(canvas.toBlob){
+            await new Promise(res => canvas.toBlob(b => {
+                if(b) trigger(URL.createObjectURL(b), true);
+                else trigger(canvas.toDataURL("image/png"), false);
+                res();
+            }, "image/png"));
+        } else {
+            trigger(canvas.toDataURL("image/png"), false);
+        }
     }catch(e){
-        alert("Couldn't build the PDF here. Use your browser's Print (Ctrl+P) → Save as PDF on this tab instead.");
+        alert("Couldn't build the image here. Use your browser's Print (Ctrl+P) → Save as PDF on this tab instead.");
     }finally{
         if(holder.parentNode) holder.parentNode.removeChild(holder);
     }
