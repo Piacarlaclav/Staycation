@@ -4644,7 +4644,9 @@ function analyticsRevenueOf(b){
 function statusOf(b){
     if(b.cancelled) return "cancelled";
     const paid = paidOf(b);
-    if(paid >= b.total && b.total > 0) return "paid";
+    const total = Number(b.total || 0);
+    if(total <= 0) return "paid";          // free / fully-discounted stay — nothing left to collect
+    if(paid >= total) return "paid";
     if(paid > 0) return "partial";
     return "unpaid";
 }

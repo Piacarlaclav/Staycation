@@ -981,7 +981,9 @@
   function balanceOf(b){ return Math.max(0, Number(b.total || 0) - paidOf(b)); }
   function statusOf(b){
     const paid = paidOf(b);
-    if(paid >= b.total && b.total > 0) return "paid";
+    const total = Number(b.total || 0);
+    if(total <= 0) return "paid";          // free / fully-discounted stay — nothing left to collect
+    if(paid >= total) return "paid";
     if(paid > 0) return "partial";
     return "unpaid";
   }
