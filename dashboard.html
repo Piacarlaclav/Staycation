@@ -2605,8 +2605,24 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <h2>⚠ Report an issue</h2>
         <p class="muted" id="cleanReportInfo" style="margin-bottom:10px;"></p>
         <div class="field full">
-            <label>Note <span class="muted">(e.g. broken glass, damaged TV, missing item)</span></label>
-            <textarea id="cleanReportNote" rows="4" placeholder="Describe what was damaged or broken..."></textarea>
+            <label>Type of issue</label>
+            <select id="cleanReportType" onchange="cleanReportTypeChange()">
+                <option value="">General note — no fine</option>
+                <option value="Smoking">Smoking / vaping</option>
+                <option value="Damage">Damage / breakage</option>
+                <option value="Missing">Missing item</option>
+                <option value="Mess">Excess mess / extra cleaning</option>
+                <option value="Other">Other violation</option>
+            </select>
+        </div>
+        <div class="field full" id="cleanReportFineRow" style="display:none;">
+            <label>Fine — auto-deducted from the security deposit <span class="muted">(₱)</span></label>
+            <input type="number" id="cleanReportFine" min="0" value="0" oninput="cleanReportFineHint()">
+            <div class="muted" id="cleanReportFineMsg" style="margin-top:6px;"></div>
+        </div>
+        <div class="field full">
+            <label>Note <span class="muted">(what happened — e.g. cigarette smell, broken glass)</span></label>
+            <textarea id="cleanReportNote" rows="3" placeholder="Describe what happened..."></textarea>
         </div>
         <div class="modal-actions">
             <button class="btn secondary" onclick="closeCleanReport()">Cancel</button>
@@ -10222,6 +10238,14 @@ function _vdReasonForBooking(bookingId){
     if(bookingId == null) return "";
     return loadViolations().filter(v => v.bookingId === bookingId && !v.waived && Number(v.deduction) > 0 && v.desc).map(v => v.desc).join("; ");
 }
+// Map a free-text violation reason onto one of the deposit-deduction dropdown's options, so the
+// fine actually applies (the select only recognises Damage / Smoking / Others).
+function _vdMapReason(desc){
+    const d = String(desc || "").toLowerCase();
+    if(/smok|vap|cigarette|yosi/.test(d)) return "Smoking";
+    if(/damage|broke|broken|sira|basag|crack/.test(d)) return "Damage";
+    return "Others";
+}
 function loadViolations(){ try{ return JSON.parse(localStorage.getItem(VIOLATIONS_KEY)) || []; }catch(e){ return []; } }
 function saveViolationsStore(arr){ try{ localStorage.setItem(VIOLATIONS_KEY, JSON.stringify(arr)); }catch(e){} }   // shared key → seed-bridge mirrors it
 function vdSevClass(s){ return s === "Major" ? "major" : (s === "Item lost" ? "item" : "minor"); }
@@ -10461,9 +10485,13 @@ function openDepReturn(id){
     // already set/finalised), so the violation deduction is subtracted from the deposit at return.
     const _vSum = (typeof _vdDeductForBooking === "function") ? _vdDeductForBooking(b.id) : 0;
     const _vReason = (typeof _vdReasonForBooking === "function") ? _vdReasonForBooking(b.id) : "";
-    document.getElementById("depDeduct").value = b.depositDeductReason || _vReason;
+    // The deduction dropdown must match one of its options (Damage/Smoking/Others) or depRecalcRefund
+    // treats the cost as 0 and the violation fine would silently NOT apply. Map the logged reason onto
+    // a real option (defaulting to Others, with the reason kept in the note).
+    const _preset = b.depositDeductReason || (_vSum > 0 ? _vdMapReason(_vReason) : "");
+    document.getElementById("depDeduct").value = _preset;
     document.getElementById("depDeductAmt").value = (b.depositDeductAmount != null && Number(b.depositDeductAmount) > 0) ? b.depositDeductAmount : _vSum;
-    document.getElementById("depDeductNote").value = b.depositDeductNote || "";
+    document.getElementById("depDeductNote").value = b.depositDeductNote || (_preset === "Others" ? _vReason : "");
     document.getElementById("depAddAmt").value = (b.depositAddAmount != null && Number(b.depositAddAmount) > 0) ? b.depositAddAmount : 0;
     document.getElementById("depAddNote").value = b.depositAddNote || "";
     depRecalcRefund();
@@ -13199,23 +13227,72 @@ document.addEventListener("click", e => { if(!e.target.closest(".dp-wrap")) clos
 
 /* ---------- housekeeping damage/issue reports ---------- */
 let cleanReportId = null;
+// Default fine per issue type (editable in the form). Smoking is a flat ₱1,000; damage/missing
+// depend on the item so they start at 0 for the reporter to fill in.
+const CLEAN_FINES  = { Smoking: 1000, Damage: 0, Missing: 0, Mess: 500, Other: 0 };
+const CLEAN_LABELS = { Smoking: "Smoking", Damage: "Damage", Missing: "Missing item", Mess: "Excess mess", Other: "Violation" };
+const CLEAN_SEV    = { Smoking: "Major", Damage: "Major", Missing: "Item lost", Mess: "Minor", Other: "Major" };
 function openCleanReport(id){
     cleanReportId = id;
     const b = bookings.find(x => x.id === id);
-    document.getElementById("cleanReportInfo").textContent = b ? `${b.haven} — ${primaryName(b)}` : "";
+    document.getElementById("cleanReportInfo").textContent = b
+        ? `${b.haven} — ${primaryName(b)}` + (Number(b.deposit) > 0 ? ` · deposit ${peso(b.deposit)}` : " · no deposit on file")
+        : "";
+    document.getElementById("cleanReportType").value = "";
     document.getElementById("cleanReportNote").value = "";
+    document.getElementById("cleanReportFine").value = 0;
+    document.getElementById("cleanReportFineRow").style.display = "none";
+    document.getElementById("cleanReportFineMsg").textContent = "";
     document.getElementById("cleanReportOverlay").classList.add("show");
+}
+function cleanReportTypeChange(){
+    const t = document.getElementById("cleanReportType").value;
+    document.getElementById("cleanReportFineRow").style.display = t ? "block" : "none";
+    if(t) document.getElementById("cleanReportFine").value = CLEAN_FINES[t] || 0;
+    cleanReportFineHint();
+}
+function cleanReportFineHint(){
+    const msg = document.getElementById("cleanReportFineMsg");
+    const b = bookings.find(x => x.id === cleanReportId);
+    const dep = b ? Number(b.deposit || 0) : 0;
+    const fine = Math.max(0, Number(document.getElementById("cleanReportFine").value) || 0);
+    if(!fine){ msg.textContent = ""; return; }
+    if(!dep){ msg.textContent = `${peso(fine)} fine — this booking has no security deposit on file, so it can't be auto-deducted.`; return; }
+    msg.innerHTML = `Deposit ${peso(dep)} → guest gets back <b>${peso(Math.max(0, dep - fine))}</b> after this ${peso(fine)} fine.`;
 }
 function closeCleanReport(){ cleanReportId = null; document.getElementById("cleanReportOverlay").classList.remove("show"); }
 function saveCleanReport(){
     if(cleanReportId == null) return;
+    const type = document.getElementById("cleanReportType").value;
     const note = document.getElementById("cleanReportNote").value.trim();
-    if(!note){ alert("Please describe the issue."); return; }
+    if(!type && !note){ alert("Pick a type or describe the issue."); return; }
+    const b = bookings.find(x => x.id === cleanReportId);
+    const label = type ? CLEAN_LABELS[type] : "";
+    const reportText = [label, note].filter(Boolean).join(" — ") || note;
+
     const log = cleanLog(cleanReportId);
     log.reports = log.reports || [];
-    log.reports.push({ note, user: cleanCurrentUser(), at: new Date().toISOString() });
-    cleanAddHistory(log, "Reported an issue: " + note, cleanReportId);
+    log.reports.push({ note: reportText, user: cleanCurrentUser(), at: new Date().toISOString() });
+    cleanAddHistory(log, "Reported an issue: " + reportText, cleanReportId);
     saveCleanEntry(cleanReportId);
+
+    // A TYPED issue also creates a Violations & Damages record, so its fine is automatically
+    // deducted from the guest's security deposit at return — and shows on the Security Deposit list
+    // the moment it's logged (the list reads _vdDeductForBooking). A plain "general note" doesn't.
+    if(type && b){
+        const fine = Math.max(0, Number(document.getElementById("cleanReportFine").value) || 0);
+        const rec = {
+            id: uid(),
+            haven: b.haven, guest: primaryName(b), code: (typeof bookingCode === "function" ? bookingCode(b) : "") || "",
+            date: iso(today()), desc: reportText,
+            severity: CLEAN_SEV[type] || "Major", deduction: fine,
+            waived: false, resolved: false, bookingId: b.id, source: "housekeeping"
+        };
+        const arr = loadViolations(); arr.push(rec); saveViolationsStore(arr);
+        logActivity(`housekeeping logged a ${(label || "violation").toLowerCase()} — ${b.haven} (${primaryName(b)})` + (fine > 0 ? ` · ${peso(fine)} fine` : ""));
+        if(typeof renderViolations === "function") renderViolations();
+        if(typeof renderDeposit === "function") renderDeposit();   // refresh the deposit list so the fine shows now
+    }
     closeCleanReport();
 }
 
