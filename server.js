@@ -513,8 +513,10 @@ app.get("/img/:id", async (req, res) => {
 // delete one key (resets it)
 apiRouter.delete("/kv/:key", async (req, res) => {
   if (!store.isShared(req.params.key)) return res.status(403).json({ error: "key not shared" });
-  // deleting any shared key resets live data — never allow it without a session
-  if (!readSession(req)) return res.status(401).json({ error: "login required" });
+  // Deleting a shared key WIPES live data (and wiping shph_users would let the login bootstrap
+  // recreate an admin with password "1234" → takeover). ADMIN ONLY — a partner/staff session
+  // (or an affiliate) must never be able to reset the database.
+  if (!isAdminSession(req)) return res.status(403).json({ error: "admin only" });
   await store.remove(req.params.key);
   res.json({ ok: true });
 });
@@ -579,10 +581,21 @@ apiRouter.post("/list/:key", async (req, res) => {
     if (key !== "shph_bookings_v3" || del != null || !upsert || upsert.id == null) {
       return res.status(401).json({ error: "login required" });
     }
+    // The incoming record must itself be a website booking, and may NOT arrive already
+    // deleted/cancelled. A public visitor knows real booking ids (they're in the page seed), so
+    // without this an anonymous POST could flip a paid booking to deleted:true (it vanishes from the
+    // dashboard) or cancelled:true (its slot frees for re-sale). The guest create + retry both send a
+    // live, website-sourced record, so they're unaffected.
+    if (String(upsert.source || "") !== "website" || upsert.deleted === true || upsert.cancelled === true) {
+      return res.status(401).json({ error: "login required" });
+    }
     try {
       const list = await store.readFreshList(key);
       const existing = (list || []).find(x => x && String(x.id) === String(upsert.id));
-      if (existing && existing.source !== "website") return res.status(401).json({ error: "login required" });
+      // never overwrite a staff-made record, and never resurrect/flip one already deleted or cancelled
+      if (existing && (existing.source !== "website" || existing.deleted === true || existing.cancelled === true)) {
+        return res.status(401).json({ error: "login required" });
+      }
     } catch (e) { /* fresh read failed → fall through; upsertOne itself is merge-safe */ }
   }
   try {
@@ -824,7 +837,10 @@ apiRouter.post("/affiliate/post", async (req, res) => {
   const sess = affiliateSession(req);
   if (!sess) return res.status(401).json({ error: "login required" });
   const url = String((req.body || {}).url || "").trim();
-  if (!/^https?:\/\/.{4,}/i.test(url) || url.length > 400) return res.status(400).json({ error: "Please paste a valid post link (starting with http)." });
+  // Anchored + character-restricted: a real URL has no spaces, quotes or angle brackets. This
+  // blocks an attribute-breakout payload (e.g. https://x" onmouseover=…) at ingestion — the admin
+  // review panel renders this into an href. (esc() there also escapes quotes as defence in depth.)
+  if (!/^https?:\/\/[^\s"'<>`]{4,400}$/i.test(url)) return res.status(400).json({ error: "Please paste a valid post link (starting with http, no spaces)." });
   try {
     let dup = false;
     const ok = await store.updateOneFresh("shph_affiliates_v1", sess.aid, a => {
@@ -865,6 +881,70 @@ apiRouter.post("/affiliate/redeem", async (req, res) => {
   }
 });
 
+// ADMIN-side affiliate actions (verify/reject a post, approve/decline a redemption, manual credit/
+// redeem). Every mutation runs INSIDE one store.updateOneFresh transaction on the live record —
+// so a concurrent portal write (the affiliate logging a post / requesting a redemption at the same
+// moment) can never be clobbered by a whole-record overwrite, and the redemption math is atomic:
+// a voucher is issued only for the credits ACTUALLY marked used, never for a stale snapshot amount.
+function _affInitials(name) {
+  const w = String(name || "").trim().split(/\s+/).filter(Boolean);
+  return (((w[0] || "")[0] || "") + (w.length > 1 ? (w[w.length - 1][0] || "") : "")).toUpperCase() || "SHP";
+}
+apiRouter.post("/affiliate-admin", async (req, res) => {
+  if (!isAdminSession(req)) return res.status(403).json({ error: "admin only" });
+  const b = req.body || {};
+  const id = b.id, op = String(b.op || "");
+  if (id == null || !op) return res.status(400).json({ error: "missing id or op" });
+  const who = (readSession(req) || {}).u || "Admin";
+  const out = {};
+  try {
+    const found = await store.updateOneFresh("shph_affiliates_v1", id, a => {
+      const now = new Date().toISOString();
+      a.credits = Array.isArray(a.credits) ? a.credits : [];
+      a.posts = Array.isArray(a.posts) ? a.posts : [];
+      a.redemptions = Array.isArray(a.redemptions) ? a.redemptions : [];
+      if (op === "verifyPost" || op === "rejectPost") {
+        const p = a.posts.find(x => x && x.id === b.postId && x.status === "pending");
+        if (!p) { out.conflict = "That post was already handled."; return; }
+        if (op === "verifyPost") {
+          p.status = "verified"; p.verifiedAt = now; p.verifiedBy = who;
+          a.credits.push({ amount: 50, reason: "verified post", at: now, by: who, used: false });
+        } else { p.status = "rejected"; p.reviewedAt = now; p.reviewedBy = who; }
+        out.ok = true;
+      } else if (op === "approveRedeem" || op === "declineRedeem") {
+        const r = a.redemptions.find(x => x && x.id === b.redId && x.status === "pending");
+        if (!r) { out.conflict = "That request was already handled."; return; }
+        if (op === "declineRedeem") { r.status = "declined"; r.reviewedAt = now; r.reviewedBy = who; out.ok = true; return; }
+        // approve: consume oldest-unused credits up to the requested amount; issue the voucher for
+        // the amount ACTUALLY covered (guards against over-issue if credits were spent since the request).
+        let need = Number(r.amount) || 0, covered = 0;
+        a.credits.filter(c => c && !c.used).sort((x, y) => String(x.at || "").localeCompare(String(y.at || "")))
+          .forEach(c => { if (need > 0) { const amt = Number(c.amount) || 0; c.used = true; c.usedAt = now; c.usedBy = "voucher"; need -= amt; covered += amt; } });
+        const voucher = "HAVENCREDIT-" + _affInitials(a.name) + "-" + crypto.randomBytes(2).toString("hex").toUpperCase();
+        r.status = "approved"; r.amount = covered; r.voucher = voucher; r.approvedAt = now; r.approvedBy = who;
+        out.ok = true; out.voucher = voucher; out.amount = covered;
+      } else if (op === "addCredit") {
+        a.credits.push({ amount: 50, reason: "verified post", at: now, by: who, used: false });
+        out.ok = true;
+      } else if (op === "redeemCredit") {
+        const c = a.credits.find(x => x && !x.used);
+        if (!c) { out.conflict = "No unused credit to redeem."; return; }
+        c.used = true; c.usedAt = now; c.usedBy = who;
+        out.ok = true;
+      } else {
+        out.badop = true;
+      }
+    });
+    if (!found) return res.status(404).json({ error: "affiliate not found" });
+    if (out.badop) return res.status(400).json({ error: "unknown op" });
+    if (out.conflict) return res.status(409).json({ error: out.conflict });
+    res.json(out);
+  } catch (e) {
+    console.error("[affiliate-admin]", op, "failed:", e.message);
+    res.status(502).json({ error: "could not save — please try again" });
+  }
+});
+
 /* ---- ID-photo retention (data privacy). Runs daily via Vercel Cron (same CRON_SECRET guard
    as the backup) or manually by a signed-in admin hitting /api/retention. Deletes GUEST ID
    PHOTOS 30 days after check-out (settings.site.idRetentionDays overrides) for bookings that
@@ -875,7 +955,9 @@ apiRouter.post("/affiliate/redeem", async (req, res) => {
    idsPurged so the "missing ID photo" flag doesn't light up for purged stays. The daily
    backup runs 30 minutes BEFORE this, so every purged photo is in that day's backup. */
 apiRouter.all("/retention", async (req, res) => {
-  if (!backupAuthorized(req) && !readSession(req)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  // Destructive (deletes guest ID photos). Only the cron/backup token OR an ADMIN may trigger it —
+  // not any logged-in staff/partner.
+  if (!backupAuthorized(req) && !isAdminSession(req)) return res.status(401).json({ ok: false, error: "unauthorized" });
   try {
     const settings = (await store.readFreshKey("shph_settings")) || {};
     const days = Number(settings.site && settings.site.idRetentionDays) || 30;
@@ -1089,7 +1171,7 @@ const PUBLIC_BOOKING_FIELDS = [
   "id",                                                              // merge identity
   "haven", "checkin", "checkout", "checkinTime", "stayHours",        // availability window
   "slot", "extend", "cancelled", "deleted",                          // …and what frees it
-  "source", "contact", "bookingNo"                                   // website duplicate check + SH-000x sequence
+  "source", "bookingNo"                                              // SH-000x sequence (contact REMOVED — it leaked every guest's phone in page source; the website dup-check still catches same-session re-clicks and slot conflicts are refused separately)
 ];
 function publicSeed(seed) {
   const out = {};

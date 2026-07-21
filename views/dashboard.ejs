@@ -4527,7 +4527,13 @@ function computeTotal(b){
     const ext  = (Number(b.extend) || 0) * PRICING.extendPerHr;
     const resched = Number(b.reschedFee) || 0;
     const dep  = (b.deposit === undefined ? PRICING.deposit : Number(b.deposit)) || 0;
-    return Math.max(0, base + pax + swim + tow + ext + resched + dep - (Number(b.discount) || 0));
+    // The discount reduces ONLY the stay + add-ons — NEVER the refundable deposit. If the deposit
+    // were inside the discountable/floored sum, a discount bigger than the stay would silently eat
+    // the deposit (payable < deposit), yet the full deposit is still refunded at check-out — that's
+    // real cash out the door. Keeping the deposit on top means total is always ≥ deposit. To fully
+    // comp a stay, discount the stay to ₱0 AND set the deposit to ₱0.
+    const chargeable = Math.max(0, base + pax + swim + tow + ext + resched - (Number(b.discount) || 0));
+    return chargeable + dep;
 }
 
 /* ---------- data ---------- */
@@ -7211,7 +7217,8 @@ function recalc(){
     const resched = document.getElementById("f_resched").checked ? PRICING.reschedFee : 0;
     const dep  = Number(b.deposit) || 0;
     const discount = Number(document.getElementById("f_discount").value) || 0;
-    const total = Math.max(0, base + pax + swim + tow + ext + resched + dep - discount);
+    // discount reduces ONLY the stay + add-ons; the refundable deposit is always on top (see computeTotal)
+    const total = Math.max(0, base + pax + swim + tow + ext + resched - discount) + dep;
 
     document.getElementById("f_total").value = total;
     const down = Number(document.getElementById("f_down").value) || 0;
@@ -7430,7 +7437,8 @@ function buildConfirmationHTML(){
     const pax = extraHeads * PRICING.addPax;
     const swimRate = (b.holiday || bookingIsHoliday({ checkin, checkout })) ? PRICING.swimHoliday : PRICING.swimRegular;   // date OR checkbox — keep the confirmation preview equal to the saved total
     const swim = b.swimpass * swimRate, tow = b.towels * PRICING.towel, ext = b.extend * PRICING.extendPerHr;
-    const total = Math.max(0, base + pax + swim + tow + ext + resched + dep - discount);
+    // discount reduces ONLY the stay + add-ons; the refundable deposit is always on top (see computeTotal)
+    const total = Math.max(0, base + pax + swim + tow + ext + resched - discount) + dep;
     const balance = Math.max(0, total - down - collected);
 
     const isON = stayH === 21;

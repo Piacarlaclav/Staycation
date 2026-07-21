@@ -1129,7 +1129,7 @@ async function renderApplications(){
         body.innerHTML = `<tr><td colspan="7" class="empty">No applications${filter ? " of this type" : ""} yet. Share <strong>staycationhaven-ph.com/be-a-partner</strong> to start recruiting.</td></tr>`;
         return;
     }
-    const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
     body.innerHTML = list.map(a => {
         const when = a.createdAt ? new Date(a.createdAt).toLocaleDateString("en-PH", { month:"short", day:"numeric" }) : "—";
         const chip = a.type === "partner"
@@ -1249,7 +1249,7 @@ async function renderAffiliates(){
     if(!body) return;
     await loadAffiliatesFresh();
     renderAffiliatePending();
-    const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
     const list = _affiliates.filter(a => a && !a.deleted)
         .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
     if(!list.length){
@@ -1281,31 +1281,32 @@ function copyAffLink(code, el){
     try{ navigator.clipboard.writeText(link).then(done, () => { prompt("Copy this link:", link); }); }
     catch(e){ prompt("Copy this link:", link); }
 }
+// All admin affiliate mutations go through ONE transactional server endpoint (per-record
+// updateOneFresh) so a concurrent portal write can't be clobbered and redemptions can't over-issue.
+async function _affAdmin(id, op, extra){
+    const r = await fetch("/api/affiliate-admin", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ id, op, ...(extra || {}) }) });
+    const j = await r.json().catch(() => ({}));
+    if(!r.ok || j.error) throw new Error(j.error || "save failed");
+    return j;
+}
 async function addAffiliateCredit(id){
     const a = _affiliates.find(x => x && x.id === id);
     if(!a) return;
     if(!confirm(`Credit ₱50 to ${a.name} for a verified post?\n(Check the post includes their link before confirming.)`)) return;
-    a.credits = a.credits || [];
-    a.credits.push({ amount: 50, reason: "verified post", at: new Date().toISOString(), by: (typeof _whoami === "function" ? _whoami() : "Admin"), used: false });
-    a.updatedAt = new Date().toISOString();
     try{
-        await _saveAffiliate(a);
+        await _affAdmin(id, "addCredit");
         if(typeof logActivity === "function") logActivity(`credited ₱50 to affiliate ${a.name} (${a.code}) — verified post`);
-    }catch(e){ alert("Couldn't save the credit — please try again."); }
+    }catch(e){ alert(e.message || "Couldn't save the credit — please try again."); }
     renderAffiliates();
 }
 async function redeemAffiliateCredit(id){
     const a = _affiliates.find(x => x && x.id === id);
     if(!a) return;
-    const c = (a.credits || []).find(x => x && !x.used);
-    if(!c){ alert("No unused credit."); return; }
-    if(!confirm(`Redeem ₱${c.amount} for ${a.name}?\nApply the discount to their booking first, then confirm here.`)) return;
-    c.used = true; c.usedAt = new Date().toISOString(); c.usedBy = (typeof _whoami === "function" ? _whoami() : "Admin");
-    a.updatedAt = new Date().toISOString();
+    if(!confirm(`Redeem the oldest ₱50 credit for ${a.name}?\nApply the discount to their booking first, then confirm here.`)) return;
     try{
-        await _saveAffiliate(a);
-        if(typeof logActivity === "function") logActivity(`redeemed ₱${c.amount} credit for affiliate ${a.name} (${a.code})`);
-    }catch(e){ alert("Couldn't save — please try again."); }
+        await _affAdmin(id, "redeemCredit");
+        if(typeof logActivity === "function") logActivity(`redeemed a credit for affiliate ${a.name} (${a.code})`);
+    }catch(e){ alert(e.message || "Couldn't save — please try again."); }
     renderAffiliates();
 }
 async function deleteAffiliate(id){
@@ -1330,7 +1331,7 @@ function _affVoucherCode(a){
 function renderAffiliatePending(){
     const box = document.getElementById("affiliatesPending");
     if(!box) return;
-    const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
     const fmt = iso => { if(!iso) return ""; const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString("en-PH", { month:"short", day:"numeric" }); };
     const posts = [], redeems = [];
     _affiliates.filter(a => a && !a.deleted).forEach(a => {
@@ -1360,58 +1361,43 @@ function renderAffiliatePending(){
     html += "</div>";
     box.innerHTML = html;
 }
-async function _mutateAffiliate(id, mutate, activity){
-    await loadAffiliatesFresh();
-    const a = _affiliates.find(x => x && x.id === id);
-    if(!a){ alert("Affiliate not found — refresh and try again."); return false; }
-    if(mutate(a) === false) return false;      // mutate can abort by returning false
-    a.updatedAt = new Date().toISOString();
-    try{
-        await _saveAffiliate(a);
-        if(activity && typeof logActivity === "function") logActivity(activity(a));
-    }catch(e){ alert("Couldn't save — please try again."); return false; }
-    renderAffiliates();
-    return true;
-}
 async function verifyAffiliatePost(id, postId){
-    await _mutateAffiliate(id, a => {
-        const p = (a.posts || []).find(x => x && x.id === postId && x.status === "pending");
-        if(!p){ alert("That post was already handled."); return false; }
-        if(!confirm(`Verify ${a.name}'s post and credit ₱50?\nMake sure it shows their referral link first.`)) return false;
-        p.status = "verified"; p.verifiedAt = new Date().toISOString(); p.verifiedBy = (typeof _whoami === "function" ? _whoami() : "Admin");
-        a.credits = a.credits || [];
-        a.credits.push({ amount: 50, reason: "verified post", at: p.verifiedAt, by: p.verifiedBy, used: false });
-    }, a => `verified affiliate post + credited ₱50 to ${a.name} (${a.code})`);
+    const a = _affiliates.find(x => x && x.id === id); if(!a) return;
+    if(!confirm(`Verify ${a.name}'s post and credit ₱50?\nMake sure it shows their referral link first.`)) return;
+    try{
+        await _affAdmin(id, "verifyPost", { postId });
+        if(typeof logActivity === "function") logActivity(`verified affiliate post + credited ₱50 to ${a.name} (${a.code})`);
+    }catch(e){ alert(e.message || "Couldn't save — please try again."); }
+    renderAffiliates();
 }
 async function rejectAffiliatePost(id, postId){
-    await _mutateAffiliate(id, a => {
-        const p = (a.posts || []).find(x => x && x.id === postId && x.status === "pending");
-        if(!p){ return false; }
-        if(!confirm(`Reject ${a.name}'s post? No credit is given.`)) return false;
-        p.status = "rejected"; p.reviewedAt = new Date().toISOString();
-    }, a => `rejected affiliate post from ${a.name} (${a.code})`);
+    const a = _affiliates.find(x => x && x.id === id); if(!a) return;
+    if(!confirm(`Reject ${a.name}'s post? No credit is given.`)) return;
+    try{
+        await _affAdmin(id, "rejectPost", { postId });
+        if(typeof logActivity === "function") logActivity(`rejected affiliate post from ${a.name} (${a.code})`);
+    }catch(e){ alert(e.message || "Couldn't save — please try again."); }
+    renderAffiliates();
 }
 async function approveAffiliateRedemption(id, redId){
-    await _mutateAffiliate(id, a => {
-        const r = (a.redemptions || []).find(x => x && x.id === redId && x.status === "pending");
-        if(!r){ alert("That request was already handled."); return false; }
-        const voucher = _affVoucherCode(a);
-        if(!confirm(`Approve ${a.name}'s ₱${Number(r.amount)||0} redemption?\nVoucher ${voucher} will be issued — apply it to their booking.`)) return false;
-        // mark oldest unused credits used until the redeemed amount is covered
-        let need = Number(r.amount) || 0;
-        (a.credits || []).filter(c => c && !c.used)
-            .sort((x, y) => String(x.at || "").localeCompare(String(y.at || "")))
-            .forEach(c => { if(need > 0){ c.used = true; c.usedAt = new Date().toISOString(); c.usedBy = "voucher " + voucher; need -= (Number(c.amount) || 0); } });
-        r.status = "approved"; r.voucher = voucher; r.approvedAt = new Date().toISOString(); r.approvedBy = (typeof _whoami === "function" ? _whoami() : "Admin");
-    }, a => `approved affiliate redemption for ${a.name} (${a.code})`);
+    const a = _affiliates.find(x => x && x.id === id); if(!a) return;
+    const r = (a.redemptions || []).find(x => x && x.id === redId && x.status === "pending");
+    if(!confirm(`Approve ${a.name}'s ₱${Number(r && r.amount)||0} redemption?\nA voucher will be issued — apply it to their booking.`)) return;
+    try{
+        const j = await _affAdmin(id, "approveRedeem", { redId });
+        alert(`✅ Voucher issued: ${j.voucher}\nFor ₱${j.amount}. Apply it as a discount on ${a.name}'s booking.`);
+        if(typeof logActivity === "function") logActivity(`approved affiliate redemption ${j.voucher} (₱${j.amount}) for ${a.name} (${a.code})`);
+    }catch(e){ alert(e.message || "Couldn't save — please try again."); }
+    renderAffiliates();
 }
 async function declineAffiliateRedemption(id, redId){
-    await _mutateAffiliate(id, a => {
-        const r = (a.redemptions || []).find(x => x && x.id === redId && x.status === "pending");
-        if(!r){ return false; }
-        if(!confirm(`Decline ${a.name}'s redemption request? Their balance stays as-is.`)) return false;
-        r.status = "declined"; r.reviewedAt = new Date().toISOString();
-    }, a => `declined affiliate redemption for ${a.name} (${a.code})`);
+    const a = _affiliates.find(x => x && x.id === id); if(!a) return;
+    if(!confirm(`Decline ${a.name}'s redemption request? Their balance stays as-is.`)) return;
+    try{
+        await _affAdmin(id, "declineRedeem", { redId });
+        if(typeof logActivity === "function") logActivity(`declined affiliate redemption for ${a.name} (${a.code})`);
+    }catch(e){ alert(e.message || "Couldn't save — please try again."); }
+    renderAffiliates();
 }
 
 function partnersOnShowPage(page){
