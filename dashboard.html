@@ -7692,32 +7692,81 @@ function removeId(i){
 // Save guest IDs IMMEDIATELY & per-record (for existing bookings) so a later whole-array save from a
 // stale tab/device can never wipe them. A NEW booking's IDs are saved with its first create.
 let _idSaving = false, _idSaveAgain = false;
+// Offload ONE image to a durable /img ref. Returns the ref URL, or null if it couldn't be stored
+// (e.g. bigger than the 1MB Firestore cap when no Cloud Storage bucket is configured). A base64
+// data-url passed straight back would be null-detectable, so callers can react instead of guessing.
+async function _offloadOnce(dataUrl){
+    if(typeof dataUrl !== "string") return null;
+    if(dataUrl.indexOf("data:image") !== 0) return dataUrl;   // already a ref → keep as-is
+    try{
+        const r = await fetch("/api/img", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ data: dataUrl }) });
+        if(r.ok){ const j = await r.json(); if(j && j.url) return j.url; }
+    }catch(e){}
+    return null;
+}
+// Re-compress a data-url down until it fits maxBytes — the rescue path when an ID photo is too big
+// to offload (so it can never be silently dropped again).
+function _shrinkDataUrl(dataUrl, maxBytes){
+    return new Promise(res => {
+        const img = new Image();
+        img.onload = () => {
+            const bytesOf = u => { const i = u.indexOf(","); return Math.ceil((u.length - i - 1) * 3 / 4); };
+            const render = (maxDim, q) => {
+                let w = img.width, h = img.height;
+                if(w > maxDim || h > maxDim){ const r = Math.min(maxDim/w, maxDim/h); w = Math.round(w*r); h = Math.round(h*r); }
+                const c = document.createElement("canvas"); c.width = w; c.height = h;
+                c.getContext("2d").drawImage(img, 0, 0, w, h);
+                return c.toDataURL("image/jpeg", q);
+            };
+            const steps = [[1400,0.75],[1100,0.7],[900,0.65],[750,0.6],[600,0.55]];
+            let out = render(steps[0][0], steps[0][1]);
+            for(let i = 1; i < steps.length && bytesOf(out) > maxBytes; i++) out = render(steps[i][0], steps[i][1]);
+            res(out);
+        };
+        img.onerror = () => res(null);
+        img.src = dataUrl;
+    });
+}
 async function persistBookingIds(){
     if(typeof editingId === "undefined" || editingId == null) return;   // new booking → saved on create
     if(_idSaving){ _idSaveAgain = true; return; }                       // coalesce rapid add/removes
     _idSaving = true;
+    let offloadFailed = false;
     try{
-        // offload any base64 photos to durable /img refs first (tiny request; the image is never lost)
+        // Offload every base64 photo to a durable /img ref FIRST — the bookings doc must never carry a
+        // raw base64 image (one big photo can push the shared Firestore doc past its 1MB limit and make
+        // the WHOLE save fail). If an offload fails, shrink the photo hard and retry — so a too-large
+        // ID can't be silently dropped the way it was before.
         for(let i = 0; i < idsData.length; i++){
             const v = idsData[i];
             if(typeof v === "string" && v.indexOf("data:image") === 0){
-                try{
-                    const r = await fetch("/api/img", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ data: v }) });
-                    if(r.ok){ const j = await r.json(); if(j && j.url) idsData[i] = j.url; }
-                }catch(e){}
+                let ref = await _offloadOnce(v);
+                if(!ref){
+                    const smaller = await _shrinkDataUrl(v, 720 * 1024);
+                    if(smaller){ idsData[i] = smaller; ref = await _offloadOnce(smaller); }
+                }
+                if(ref && ref.indexOf("data:image") !== 0) idsData[i] = ref;
+                else offloadFailed = true;   // couldn't store it even after shrinking
             }
         }
         const idOptOut = document.getElementById("f_idOptOut").checked;
+        // Only save refs — never a photo we failed to offload (that could corrupt the shared doc).
+        const safeIds = idsData.filter(v => typeof v === "string" && v.indexOf("data:image") !== 0);
         const r = await fetch("/api/booking/" + encodeURIComponent(editingId) + "/ids", {
             method:"POST", headers:{"Content-Type":"application/json"},
-            body: JSON.stringify({ ids: idsData.slice(), idOptOut })
+            body: JSON.stringify({ ids: safeIds, idOptOut })
         });
         if(r.ok){
             const idx = bookings.findIndex(b => b.id === editingId);
-            if(idx !== -1){ bookings[idx].ids = idsData.slice(); bookings[idx].idOptOut = idOptOut; }
+            if(idx !== -1){ bookings[idx].ids = safeIds.slice(); bookings[idx].idOptOut = idOptOut; }
             setLocalKey(KEY, bookings);
-            renderIdGrid();
+            if(offloadFailed) alert("⚠️ One ID photo couldn't be stored (the image is too large or the connection dropped). Please re-add a clearer photo of that ID — the others were saved.");
+        } else {
+            alert("⚠️ The ID photos didn't save — the server didn't confirm (slow or offline). Please check your connection and add them again.");
         }
+        renderIdGrid();
+    } catch(e){
+        alert("⚠️ Couldn't save the ID photos — please check your connection and try again.");
     } finally {
         _idSaving = false;
         if(_idSaveAgain){ _idSaveAgain = false; persistBookingIds(); }
@@ -13321,10 +13370,12 @@ function resizeImage(file, cb){
 // Compress an image so the stored file stays under maxBytes — keeps IDs legible
 // while saving storage. Steps resolution/quality down until it fits. Returns a
 // JPEG data URL (or null if the file isn't a readable image).
-// Cap for ID photos. Until Cloud Storage is active we must fit the 1MB Firestore
-// fallback, so default to ~0.9MB (no photo is lost). Once /api/health reports
-// Storage is on, bump to 2MB for better quality — auto-upgrades, no redeploy.
-let idMaxBytes = 950 * 1024;
+// Cap for ID photos. compressImageTo measures the DECODED image bytes, but the /img store caps on
+// the base64 DATA-URL string (~1.04MB, Firestore's per-doc limit) — and base64 is ~33% bigger than
+// the bytes it encodes. So a 950KB "decoded" target became a ~1.3MB data-url and the offload threw,
+// silently losing the photo. Target ~700KB decoded → ~0.95MB encoded, safely under the cap. Once
+// /api/health reports Cloud Storage is on (no 1MB cap), bump to 2MB for better quality.
+let idMaxBytes = 700 * 1024;
 fetch("/api/health").then(r => r.json()).then(h => { if(h && h.imageStorage) idMaxBytes = 2 * 1024 * 1024; }).catch(() => {});
 function compressImageTo(file, maxBytes, cb){
     const reader = new FileReader();
