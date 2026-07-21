@@ -2399,6 +2399,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <button class="rtab" data-rt="addons" onclick="rateTab('addons')">Add-ons</button>
         <button class="rtab" data-rt="dp" onclick="rateTab('dp')">Downpayment</button>
         <button class="rtab" data-rt="promos" onclick="rateTab('promos')">Promos</button>
+        <button class="rtab" data-rt="fines" onclick="rateTab('fines')">Fines</button>
     </div>
 
     <div class="rcard">
@@ -2471,6 +2472,18 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <div class="custom-addons-head">Promotions <span class="muted">Title, optional code &amp; discount — only “active” ones show on the website</span></div>
         <div id="promoList"></div>
         <button class="btn secondary" onclick="addPromo()" style="margin-top:8px;">+ Add promo</button>
+    </div>
+
+    <div class="rcard">
+        <h3><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg></span>Violation fines <span class="unit">(₱)</span></h3>
+        <p class="muted" style="margin:-6px 0 14px;">Default fine per issue type. When housekeeping reports one of these, this amount is auto-deducted from the guest's security deposit (still editable per report).</p>
+        <div class="settings-form">
+            <label>Smoking / vaping<span class="peso"><input type="number" id="s_fineSmoking" min="0"></span></label>
+            <label>Damage / breakage<span class="peso"><input type="number" id="s_fineDamage" min="0"></span></label>
+            <label>Missing item<span class="peso"><input type="number" id="s_fineMissing" min="0"></span></label>
+            <label>Excess mess / extra cleaning<span class="peso"><input type="number" id="s_fineMess" min="0"></span></label>
+            <label>Other violation<span class="peso"><input type="number" id="s_fineOther" min="0"></span></label>
+        </div>
     </div>
 </div><!-- /page-booking -->
 
@@ -13229,9 +13242,16 @@ document.addEventListener("click", e => { if(!e.target.closest(".dp-wrap")) clos
 
 /* ---------- housekeeping damage/issue reports ---------- */
 let cleanReportId = null;
-// Default fine per issue type (editable in the form). Smoking is a flat ₱1,000; damage/missing
-// depend on the item so they start at 0 for the reporter to fill in.
-const CLEAN_FINES  = { Smoking: 1000, Damage: 0, Missing: 0, Mess: 500, Other: 0 };
+// Default fine per issue type. These are the built-in fallbacks; the owner can override each one in
+// Rates & Add-ons → Fines (saved to settings.violationFines) and violationFines() merges them.
+const CLEAN_FINE_DEFAULTS = { Smoking: 1000, Damage: 0, Missing: 0, Mess: 500, Other: 0 };
+function violationFines(){
+    let vf = {};
+    try{ vf = (loadSettings().violationFines) || {}; }catch(e){}
+    const out = Object.assign({}, CLEAN_FINE_DEFAULTS);
+    for(const k in CLEAN_FINE_DEFAULTS) if(vf[k] != null && vf[k] !== "") out[k] = Number(vf[k]) || 0;
+    return out;
+}
 const CLEAN_LABELS = { Smoking: "Smoking", Damage: "Damage", Missing: "Missing item", Mess: "Excess mess", Other: "Violation" };
 const CLEAN_SEV    = { Smoking: "Major", Damage: "Major", Missing: "Item lost", Mess: "Minor", Other: "Major" };
 function openCleanReport(id){
@@ -13250,7 +13270,7 @@ function openCleanReport(id){
 function cleanReportTypeChange(){
     const t = document.getElementById("cleanReportType").value;
     document.getElementById("cleanReportFineRow").style.display = t ? "block" : "none";
-    if(t) document.getElementById("cleanReportFine").value = CLEAN_FINES[t] || 0;
+    if(t) document.getElementById("cleanReportFine").value = violationFines()[t] || 0;
     cleanReportFineHint();
 }
 function cleanReportFineHint(){
@@ -14020,6 +14040,10 @@ function fillBookingSettings(){
     document.getElementById("s_offer10").checked = p.offer10 !== false;
     document.getElementById("s_offer21").checked = p.offer21 !== false;
 
+    const vf = violationFines();   // saved fines, falling back to the built-in defaults
+    setVal("s_fineSmoking", vf.Smoking); setVal("s_fineDamage", vf.Damage); setVal("s_fineMissing", vf.Missing);
+    setVal("s_fineMess", vf.Mess); setVal("s_fineOther", vf.Other);
+
     customAddons = (s.customAddons || []).map(a => ({ name:a.name, price:Number(a.price)||0, perPax: !!a.perPax }));
     renderCustomAddons();
 
@@ -14037,7 +14061,7 @@ let customAddons = [];
 (function initRateTabs(){
     const page = document.getElementById("page-booking");
     if(!page) return;
-    const keys = ["rates", "guests", "addons", "dp", "promos"];
+    const keys = ["rates", "guests", "addons", "dp", "promos", "fines"];
     page.querySelectorAll(".rcard").forEach(function(c, i){ c.classList.add("rpanel"); if(keys[i]) c.dataset.rt = keys[i]; if(i === 0) c.classList.add("active"); });
 })();
 function rateTab(key){
@@ -14152,9 +14176,13 @@ function saveBookingSettings(){
     s.customAddons = customAddons;
     collectPromos();
     s.promos = promos;
+    s.violationFines = {
+        Smoking: getNum("s_fineSmoking"), Damage: getNum("s_fineDamage"), Missing: getNum("s_fineMissing"),
+        Mess: getNum("s_fineMess"), Other: getNum("s_fineOther")
+    };
     saveSettings(s);
     syncPricingFromSettings();   // apply the new rates to the dashboard's own pricing immediately
-    alert("Saved! Rates, add-ons and promos now apply to the website and the dashboard.");
+    alert("Saved! Rates, add-ons, promos and violation fines now apply across the dashboard.");
 }
 
 function resetBookingSettings(){
