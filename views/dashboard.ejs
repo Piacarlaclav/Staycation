@@ -4117,6 +4117,16 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                     <option value="COMMISSION">Commission — ₱50 overnight / ₱25 day-use</option>
                 </select>
             </div>
+            <div class="field full">
+                <label>Additional role <span class="muted">(optional — kikita sa dalawa)</span></label>
+                <select id="st_role2">
+                    <option value="">— None —</option>
+                    <option value="CSR">CSR — ₱695/day (8 hrs) + OT</option>
+                    <option value="ASSIST">Assist — ₱100 per room booked</option>
+                    <option value="HOUSEKEEPING">Housekeeping — ₱100 per room cleaned</option>
+                    <option value="COMMISSION">Commission — ₱50 overnight / ₱25 day-use</option>
+                </select>
+            </div>
             <div class="field full"><label class="muted" style="margin-top:4px;">Benefits / deductions — SSS &amp; PhilHealth are % of monthly salary</label></div>
             <div class="field"><label>SSS rate (%)</label><input type="number" id="st_ssspct" min="0" step="0.1" value="5"></div>
             <div class="field"><label>PhilHealth rate (%)</label><input type="number" id="st_philpct" min="0" step="0.1" value="2.5"></div>
@@ -11482,6 +11492,17 @@ const ROLE_RATE_INFO = {
     HOUSEKEEPING:"₱100 per room cleaned",
     COMMISSION:"₱50 per overnight · ₱25 per day-use booking"
 };
+// A staff's role(s) as one label — "Assist + Housekeeping" when a second role is set.
+function roleLabelOf(s){
+    const a = ROLE_LABEL[s.role] || s.role || "";
+    const b = (s.role2 && s.role2 !== s.role) ? (ROLE_LABEL[s.role2] || s.role2) : "";
+    return b ? a + " + " + b : a;
+}
+function roleRateInfoOf(s){
+    const a = ROLE_RATE_INFO[s.role] || "";
+    const b = (s.role2 && s.role2 !== s.role) ? (ROLE_RATE_INFO[s.role2] || "") : "";
+    return b ? a + " · " + b : a;
+}
 function monthLabel(ym){ const [y, m] = ym.split("-"); return MONTHS[Number(m) - 1] + " " + y; }
 
 function loadStaff(){
@@ -11580,23 +11601,26 @@ function roomsCleanedOn(dateIso, staffName){
 // the room count that drives pay for a given staff/day, by role
 function roomsForDay(s, d){
     const cleaned = roomsCleanedOn(d.date, s.name);
-    if(s.role === "ASSIST" || s.role === "COMMISSION") return roomsBookedOn(d.date) + cleaned;
-    return cleaned;
+    const booksRooms = [s.role, s.role2].some(r => r === "ASSIST" || r === "COMMISSION");
+    return (booksRooms ? roomsBookedOn(d.date) : 0) + cleaned;
+}
+// Pay for ONE role on a day, WITHOUT the universal cleaning credit (added once in dayPay).
+// HOUSEKEEPING returns 0 here because its pay IS the cleaning credit.
+function rolePayOnly(role, d){
+    if(role === "CSR"){
+        if(d.dayOff) return 0;
+        const hourly = PAY_RATES.csrDay / PAY_RATES.csrHours;
+        return Math.min(regHoursOf(d), PAY_RATES.csrHours) * hourly    // caps at ₱695
+             + otPaidHoursOf(d) * hourly * PAY_RATES.otMult;            // includes +0.5h night diff
+    }
+    if(role === "ASSIST")     return roomsBookedOn(d.date) * PAY_RATES.assistRoom;
+    if(role === "COMMISSION") return commissionPayOn(d.date);          // ₱50 overnight · ₱25 day-use, per booking
+    return 0;
 }
 function dayPay(s, d){
-    let pay = 0;
-    if(s.role === "CSR"){
-        if(!d.dayOff){
-            const hourly = PAY_RATES.csrDay / PAY_RATES.csrHours;
-            pay += Math.min(regHoursOf(d), PAY_RATES.csrHours) * hourly; // caps at ₱695
-            pay += otPaidHoursOf(d) * hourly * PAY_RATES.otMult;          // includes +0.5h night diff
-        }
-    } else if(s.role === "ASSIST"){
-        pay += roomsBookedOn(d.date) * PAY_RATES.assistRoom;
-    } else if(s.role === "COMMISSION"){
-        pay += commissionPayOn(d.date);   // ₱50 overnight · ₱25 day-use, per booking
-    }
-    // cleaning credit — anyone who marked rooms DONE earns the housekeeping room rate
+    let pay = rolePayOnly(s.role, d);
+    if(s.role2 && s.role2 !== s.role) pay += rolePayOnly(s.role2, d);   // a second role earns too
+    // cleaning credit — anyone who marked rooms DONE earns the housekeeping room rate (counted ONCE)
     pay += roomsCleanedOn(d.date, s.name) * PAY_RATES.hkRoom;
     return pay;
 }
@@ -11617,8 +11641,10 @@ function cleaningDatesFor(staffName){
 // the day list that drives a staff's payroll (auto for housekeeping, manual otherwise)
 function staffAllDays(s){
     const map = {};
-    // manual entries (CSR hours, or ASSIST/COMMISSION date markers)
-    if(s.role !== "HOUSEKEEPING") (s.days || []).forEach(d => { if(d.date) map[d.date] = { ...d }; });
+    // manual entries (CSR hours, or ASSIST/COMMISSION date markers) — used by any role that isn't
+    // purely housekeeping (housekeeping days come from completed cleanings instead)
+    const usesManualDays = [s.role, s.role2].some(r => r && r !== "HOUSEKEEPING");
+    if(usesManualDays) (s.days || []).forEach(d => { if(d.date) map[d.date] = { ...d }; });
     // dates this person finished cleanings (DONE) — counts for any role
     const dc = cleaningDatesFor(s.name);
     Object.keys(dc).forEach(dt => { if(!map[dt]) map[dt] = { id: "clean-" + dt, date: dt }; });
@@ -11796,7 +11822,7 @@ function dayTableHtml(s, days, recordId){
         }).join("");
     } else {
         cols = 4;
-        const booksRooms = s.role === "ASSIST" || s.role === "COMMISSION";
+        const booksRooms = [s.role, s.role2].some(r => r === "ASSIST" || r === "COMMISSION");
         head = `<tr><th>Date</th><th>Rooms</th><th>Pay</th><th class="col-actions"></th></tr>`;
         rows = days.map(d => {
             const booked = booksRooms ? roomsBookedOn(d.date) : 0;
@@ -11870,7 +11896,7 @@ function staffBoxHtml(s, scope){
         <div class="pay-staff-head">
             <div>
                 <div class="pay-name">${s.name}</div>
-                <div class="muted">${ROLE_LABEL[s.role]} · ${ROLE_RATE_INFO[s.role]}</div>
+                <div class="muted">${roleLabelOf(s)} · ${roleRateInfoOf(s)}</div>
                 <div class="muted" style="font-weight:bold; color:#b8923a;">Cut-off: ${scope.label}</div>
             </div>
             <div class="pay-staff-actions">
@@ -12137,6 +12163,7 @@ function openStaffModal(id){
         g("staffModalTitle").textContent = "Edit Staff";
         g("st_name").value = s.name;
         g("st_role").value = s.role;
+        g("st_role2").value = s.role2 || "";
         g("st_ssspct").value = (b.sssPct == null ? DEFAULT_SSS_RATE : b.sssPct);
         g("st_philpct").value = (b.philhealthPct == null ? DEFAULT_PHILHEALTH_RATE : b.philhealthPct);
         g("st_pagibig").value = b.pagibig || 0;
@@ -12145,6 +12172,7 @@ function openStaffModal(id){
         g("staffModalTitle").textContent = "Add Staff";
         g("st_name").value = "";
         g("st_role").selectedIndex = 0;
+        g("st_role2").value = "";
         g("st_ssspct").value = DEFAULT_SSS_RATE;
         g("st_philpct").value = DEFAULT_PHILHEALTH_RATE;
         g("st_pagibig").value = 0; g("st_loans").value = 0;
@@ -12158,9 +12186,12 @@ function saveStaff(){
     if(!g("staffOverlay").classList.contains("show")) return;   // block double-submit: 2nd rapid click after the modal closed
     const name = g("st_name").value.trim();
     if(!name){ alert("Please enter a staff name."); return; }
+    const _role = g("st_role").value;
+    const _role2raw = g("st_role2").value;
     const data = {
         name,
-        role: g("st_role").value,
+        role: _role,
+        role2: (_role2raw && _role2raw !== _role) ? _role2raw : "",   // "" clears a previously-set second role
         benefits:{
             sssPct:Number(g("st_ssspct").value) || 0,
             philhealthPct:Number(g("st_philpct").value) || 0,
@@ -12207,7 +12238,7 @@ function renderEmployees(){
         return `<div class="pay-staff">
             <div class="pay-staff-head">
                 <div>
-                    <div class="pay-name">${escHtml(s.name)} <span class="tag yes">${escHtml(s.role || "")}</span></div>
+                    <div class="pay-name">${escHtml(s.name)} <span class="tag yes">${escHtml(roleLabelOf(s))}</span></div>
                     <div class="muted">${benefitText}</div>
                 </div>
                 <div class="pay-staff-actions">
@@ -12380,7 +12411,7 @@ function toggleDayOff(){
     document.getElementById("d_pmoff").disabled = off;
 }
 function fillDayStaffOptions(){
-    document.getElementById("d_staff").innerHTML = staff.map(s => `<option value="${s.id}">${escHtml(s.name)} (${ROLE_LABEL[s.role]})</option>`).join("");
+    document.getElementById("d_staff").innerHTML = staff.map(s => `<option value="${s.id}">${escHtml(s.name)} (${roleLabelOf(s)})</option>`).join("");
 }
 // when the chosen staff changes in the modal, switch the role-specific fields
 function onDayStaffChange(){
@@ -12514,7 +12545,7 @@ function fillRecordCutoffOptions(){
 }
 function openRecordModal(){
     if(!staff.length){ alert("Add a staff member first."); return; }
-    document.getElementById("r_staff").innerHTML = staff.map(s => `<option value="${s.id}">${escHtml(s.name)} (${ROLE_LABEL[s.role]})</option>`).join("");
+    document.getElementById("r_staff").innerHTML = staff.map(s => `<option value="${s.id}">${escHtml(s.name)} (${roleLabelOf(s)})</option>`).join("");
     fillRecordCutoffOptions();
     document.getElementById("recordOverlay").classList.add("show");
 }
@@ -12562,7 +12593,7 @@ function staffPayslipSection(s, scope){
         table = `<table><thead><tr><th>Date</th><th>Morning</th><th>Afternoon</th><th>OT</th><th>Reg hrs</th><th>OT hrs</th><th>Pay</th></tr></thead>
             <tbody>${rows || '<tr><td colspan="7">No entries</td></tr>'}</tbody></table>`;
     } else {
-        const usesBooked = s.role === "ASSIST" || s.role === "COMMISSION";
+        const usesBooked = [s.role, s.role2].some(r => r === "ASSIST" || r === "COMMISSION");
         const rows = days.map(d => {
             const rooms = roomsForDay(s, d);
             return `<tr><td>${fmt(d.date)}${d.notes ? "<br><i>" + escHtml(d.notes) + "</i>" : ""}</td><td>${rooms}</td><td>${peso2(dayPay(s, d))}</td></tr>`;
@@ -12574,7 +12605,7 @@ function staffPayslipSection(s, scope){
         : `SSS ${peso2(dd.sss)} · PhilHealth ${peso2(dd.philhealth)} · Pag-IBIG ${peso2(dd.pagibig)} · Loan ${peso2(dd.loan)}`;
     return `<section class="staff">
         <h2>${escHtml(s.name)}</h2>
-        <div class="role">${ROLE_LABEL[s.role]} · ${ROLE_RATE_INFO[s.role]}</div>
+        <div class="role">${roleLabelOf(s)} · ${roleRateInfoOf(s)}</div>
         ${table}
         <div class="ded"><b>Deductions:</b> ${ded}</div>
         <div class="totals">Gross: <b>${peso2(gross)}</b> &nbsp;·&nbsp; Deductions: <b>−${peso2(dd.total)}</b> &nbsp;·&nbsp; <b>Net: ${peso2(net)}</b></div>
@@ -13144,7 +13175,7 @@ function fillCleanUser(){
     sel.style.display = "";
     if(staticEl) staticEl.remove();
     const prev = sel.value;
-    const hk = staff.filter(s => s.role === "HOUSEKEEPING").map(s => s.name);
+    const hk = staff.filter(s => s.role === "HOUSEKEEPING" || s.role2 === "HOUSEKEEPING").map(s => s.name);
     const names = hk.length ? hk : ["Housekeeper"];
     sel.innerHTML = names.map(n => `<option>${n}</option>`).join("");
     if(names.includes(prev)) sel.value = prev;
