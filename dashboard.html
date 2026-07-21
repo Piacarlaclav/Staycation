@@ -1124,7 +1124,7 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
   .sidebar .nav-item{ color:#cabdb1; border-left-color:transparent; margin:1px 8px; border-radius:9px; padding-left:14px; }
   .sidebar .nav-item:hover{ background:var(--hv-sidebar-2); color:#fff; }
   .sidebar .nav-item.active{ background:var(--hv-sidebar-2); color:#fff; border-left-color:var(--hv-terra); }
-  /* Havi — the assistant sits at the very top and is styled to read as the command centre. */
+  /* Trav — the assistant sits at the very top and is styled to read as the command centre. */
   .sidebar .nav-havi{ color:#fff; font-weight:700; background:linear-gradient(135deg,rgba(189,110,63,.30),rgba(184,146,58,.16)); border:1px solid rgba(189,110,63,.35); margin-top:10px; margin-bottom:6px; }
   .sidebar .nav-havi:hover{ background:linear-gradient(135deg,rgba(189,110,63,.45),rgba(184,146,58,.24)); }
   .sidebar .nav-havi.active{ background:linear-gradient(135deg,rgba(189,110,63,.55),rgba(184,146,58,.30)); border-color:var(--hv-terra); }
@@ -3038,7 +3038,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     #page-assist .as-msg{ max-width:92%; font-size:14px; }
   }
 
-  /* --- "Talk to Havi": hands-free voice conversation --- */
+  /* --- "Talk to Trav": hands-free voice conversation --- */
   #page-assist .as-talk-btn{ background:linear-gradient(135deg,var(--hv-terra),var(--hv-gold)); }
   #asVoice{ position:fixed; inset:0; z-index:9000; display:none; flex-direction:column; align-items:center; justify-content:center;
     color:#dbeafe; text-align:center; padding:24px;
@@ -3060,9 +3060,9 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   #asVoice .vx-state{ color:#7fb4d4; font-size:14px; letter-spacing:.3px; min-height:20px; margin-bottom:26px; }
 
   /* ---- the arc-reactor: your brand "S" inside glowing rings.
-       A reusable component (.vxr) used BOTH on the Havi page and inside the
+       A reusable component (.vxr) used BOTH on the Trav page and inside the
        full-screen voice overlay. Its own is-* state classes drive the glow, so
-       every reactor on the page reacts together when Havi listens/speaks. ---- */
+       every reactor on the page reacts together when Trav listens/speaks. ---- */
   .vxr{ width:230px; height:230px; position:relative; cursor:pointer; transition:transform .15s; flex:none; }
   .vxr:active{ transform:scale(.97); }
   .vxr > *{ position:absolute; inset:0; margin:auto; border-radius:50%; pointer-events:none; }
@@ -3091,11 +3091,11 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   .vxr.is-thinking .vx-r1{ animation-duration:5s; }
   .vxr.is-thinking .vx-r2{ animation-duration:7s; }
   .vxr .vx-pulse.go{ animation:vxRipple .7s ease-out; }
-  /* the smaller reactor that lives on the Havi page */
+  /* the smaller reactor that lives on the Trav page */
   .vxr.sm{ width:150px; height:150px; }
   .vxr.sm .vx-logo-fb{ font-size:42px; }
 
-  /* Havi's presence on the page: the reactor + a tap-to-talk caption */
+  /* Trav's presence on the page: the reactor + a tap-to-talk caption */
   #page-assist .havi-face{ display:flex; flex-direction:column; align-items:center; gap:10px; padding:6px 0 20px; }
   #page-assist .havi-face .cap{ color:var(--hv-muted); font-size:13px; font-weight:600; }
   #page-assist .havi-face .cap b{ color:var(--hv-terra-d); }
@@ -3110,7 +3110,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   #asVoice .vx-hint{ color:#5f88a4; font-size:12.5px; margin-top:22px; }
   @media(max-width:600px){ #asVoice .vx-reactor{ width:186px; height:186px; } #asVoice .vx-logo-fb{ font-size:52px; } }
 
-  /* "Hey Havi" hands-free wake word */
+  /* "Hey Trav" hands-free wake word */
   #page-assist .as-wake-btn.on{ background:#e05a5a; color:#fff; border-color:#e05a5a; }
   #asWakePill{ position:fixed; bottom:18px; right:18px; z-index:8000; display:none; align-items:center; gap:9px;
     background:#2f2a25; color:#f6f2ec; border:1px solid rgba(255,255,255,.12); border-radius:24px; padding:10px 15px;
@@ -3119,7 +3119,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   #asWakePill .dot{ width:9px; height:9px; border-radius:50%; background:#e05a5a; animation:vxPulse2 1.3s ease-out infinite; }
   @keyframes vxPulse2{ 0%{ box-shadow:0 0 0 0 rgba(224,90,90,.6) } 100%{ box-shadow:0 0 0 11px rgba(224,90,90,0) } }
 
-  /* ============ Havi console: dark, premium hero so the neon reactor pops ============ */
+  /* ============ Trav console: dark, premium hero so the neon reactor pops ============ */
   #page-assist .havi-console{ position:relative; overflow:hidden; border-radius:20px; padding:30px 26px 22px; margin-bottom:30px; color:#dbeafe;
     background:
       linear-gradient(rgba(63,190,255,.045) 1px, transparent 1px) 0 0 / 42px 42px,
@@ -3170,13 +3170,13 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
 </style>
 
     <!-- The daily briefing card was removed on request (2026-07-20). The same
-         info is available on demand by asking Havi ("what's unsold this week?",
+         info is available on demand by asking Trav ("what's unsold this week?",
          "who owes me money?"), and the briefing engine still feeds the AI. -->
 
-    <!-- ASK: the Havi console — a dark, premium hero so the neon reactor pops. -->
+    <!-- ASK: the Trav console — a dark, premium hero so the neon reactor pops. -->
     <div class="havi-console">
         <div class="hc-hero">
-            <div class="vxr hero" onclick="startVoice()" role="button" tabindex="0" title="Tap to talk to Havi">
+            <div class="vxr hero" onclick="startVoice()" role="button" tabindex="0" title="Tap to talk to Trav">
                 <div class="vx-r1"></div>
                 <div class="vx-r2"></div>
                 <div class="vx-r3"></div>
@@ -3186,13 +3186,13 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <img class="vx-logo-s" alt="">
                 <span class="vx-logo-fb">S</span>
             </div>
-            <div class="hc-title">Havi</div>
+            <div class="hc-title">Trav</div>
             <div class="hc-sub">Your assistant — ask anything about bookings, money, availability &amp; cleaning</div>
             <div class="hc-actions">
-                <button class="hc-btn primary" id="asTalkBtn" onclick="startVoice()">🎙 Talk to Havi</button>
-                <button class="hc-btn" id="asWakeBtn" onclick="toggleWake()" title="Say “Hey Havi” and I'll answer, hands-free">👂 Hey&nbsp;Havi</button>
+                <button class="hc-btn primary" id="asTalkBtn" onclick="startVoice()">🎙 Talk to Trav</button>
+                <button class="hc-btn" id="asWakeBtn" onclick="toggleWake()" title="Say “Hey Trav” and I'll answer, hands-free">👂 Hey&nbsp;Trav</button>
             </div>
-            <div class="hc-hint">Tap the reactor or say <b>“Hey Havi”</b> to talk</div>
+            <div class="hc-hint">Tap the reactor or say <b>“Hey Trav”</b> to talk</div>
         </div>
 
         <div id="asOffNote" class="as-off" style="display:none;"></div>
@@ -3201,7 +3201,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <div class="as-ask">
             <textarea id="asInput" rows="1" placeholder="e.g. sino ang mag che-check in bukas? — common questions are free & instant"
                       oninput="asGrow(this)" onkeydown="asKey(event)"></textarea>
-            <button class="as-mic" id="asMic" onclick="asToggleMic()" title="Dictate into the box (or use ‘Talk to Havi’ above for a spoken conversation)">🎙</button>
+            <button class="as-mic" id="asMic" onclick="asToggleMic()" title="Dictate into the box (or use ‘Talk to Trav’ above for a spoken conversation)">🎙</button>
             <button class="hc-btn primary as-send" onclick="askAssist()">Ask</button>
         </div>
         <button class="hc-clear" onclick="clearAssistChat()">Clear conversation</button>
@@ -8524,7 +8524,7 @@ function showPage(page, _nav){
         havens:["Property","Havens"], booking:["Property","Rates & Add-ons"], cleaners:["Property","Housekeeping"],
         finance:["Finance","Finance"], payments:["Finance","Payments"], payroll:["Finance","Payroll"],
         bills:["Finance","Bills"], expenses:["Finance","Expenses"], analytics:["Finance","Analytics"],
-        users:["Team","Users"], employees:["Team","Employees"], assist:["Assistant","Havi"], log:["Team","Log"]
+        users:["Team","Users"], employees:["Team","Employees"], assist:["Assistant","Trav"], log:["Team","Log"]
     };
     const cr = CRUMB[page] || (window.PARTNER_CRUMB && window.PARTNER_CRUMB[page]) || ["Main", page];
     const cg = document.getElementById("crumbGroup"), cp = document.getElementById("crumbPage");
@@ -9363,7 +9363,7 @@ function clearAssistChat(){ _asChat = []; asDrawChat(); }
    Voice — all browser-built-in (Web Speech API), so it's free and needs no
    server. Two entry points:
      · the small 🎙 in the input row → dictate into the text box (asDictate)
-     · "🎙 Talk to Havi"            → hands-free spoken conversation (startVoice)
+     · "🎙 Talk to Trav"            → hands-free spoken conversation (startVoice)
    Chrome / Edge / Safari support it; Firefox doesn't (buttons hide themselves).
    ========================================================================== */
 const SR_SUPPORTED = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -9386,8 +9386,8 @@ function toggleVxLang(){
     // If we're mid-listen, restart in the new language right away.
     if(_vxOn && _vxRec){ try{ (_vxRec.abort || _vxRec.stop).call(_vxRec); }catch(e){} setTimeout(() => { if(_vxOn && !_vxRec) vxListen(); }, 280); }
 }
-// A leading "Hey Havi" (or a mishear of it) that we strip off a spoken question.
-const VX_LEAD = /^\s*(?:hey|hi|o|hoy|uy|okay|ok|oh)?\s*(?:hav(?:i|ie|ey|y|ee)|heavy|heavi|habi|harvey|halvey|hobby|savi|hazy|happy)\b[\s,.:!?-]*/i;
+// A leading "Hey Trav" (or a mishear of it) that we strip off a spoken question.
+const VX_LEAD = /^\s*(?:hey|hi|o|hoy|uy|okay|ok|oh)?\s*(?:trav(?:is|s|e)?|traff?|trab|trapp?|drav|drab|trove|trob)\b[\s,.:!?-]*/i;
 
 /* ---- input-row mic: plain dictation into the text box (no auto-send) ---- */
 let _dictRec = null;
@@ -9407,12 +9407,12 @@ function asToggleMic(){
     _dictRec.start();
 }
 
-/* ---- "Talk to Havi": a spoken back-and-forth conversation ---- */
+/* ---- "Talk to Trav": a spoken back-and-forth conversation ---- */
 let _vxOn = false, _vxRec = null, _vxFromWake = false;
 function vxSet(state, txt){
     const ov = document.getElementById("asVoice");
     ov.className = "show " + (state || "");
-    const map = { listening:"Listening…", thinking:"Thinking…", speaking:"Havi is speaking…", tap:"Tap the reactor to talk" };
+    const map = { listening:"Listening…", thinking:"Thinking…", speaking:"Trav is speaking…", tap:"Tap the reactor to talk" };
     document.getElementById("vxState").textContent = txt || map[state] || "";
     // Drive EVERY reactor on the page (the page one + the overlay one) so they
     // glow together whether or not the overlay is what she's looking at.
@@ -9454,7 +9454,7 @@ function buildVxLogo(){
     img.src = "images/logo.png";
 }
 function startVoice(){
-    if(!SR_SUPPORTED){ alert("Talk-to-Havi needs Chrome, Edge or Safari. On this browser you can still type your questions."); return; }
+    if(!SR_SUPPORTED){ alert("Talk-to-Trav needs Chrome, Edge or Safari. On this browser you can still type your questions."); return; }
     buildVxLogo();
     setVxLang(_vxLang);   // sync the language-toggle label
     pauseWakeRec();       // don't let the wake mic fight the conversation mic
@@ -9502,7 +9502,7 @@ function vxListen(){
         const said = heard.trim();
         if(!said){ vxSet("tap"); return; }
         if(/^\s*(stop|tigil|tama na|that'?s all|done|salamat)\s*[.!]?$/i.test(said)){ vxSpeak("Okay, tawagin mo lang ako ulit.", stopVoice); return; }
-        // Drop a stray "Hey Havi" that landed in front of the question.
+        // Drop a stray "Hey Trav" that landed in front of the question.
         const q = said.replace(VX_LEAD, "").trim();
         if(!q){ vxSet("tap"); return; }   // she only said the wake word — wait for the actual question
         vxAsk(q);
@@ -9531,7 +9531,7 @@ async function vxAsk(text){
     vxSet("speaking");
     vxSpeak(vxSpeakable(reply), () => {
         if(!_vxOn) return;
-        // She said "Havi, stop" mid-answer → go quiet, don't immediately re-listen.
+        // She said "Trav, stop" mid-answer → go quiet, don't immediately re-listen.
         if(_vxStopped){
             _vxStopped = false;
             if(_vxFromWake){ _vxFromWake = false; _vxOn = false;
@@ -9540,8 +9540,8 @@ async function vxAsk(text){
             return;
         }
         if(_vxFromWake){
-            // Woken by "Hey Havi" → tuck the overlay away and go back to ambient
-            // listening, so she just says "Hey Havi …" again for the next question.
+            // Woken by "Hey Trav" → tuck the overlay away and go back to ambient
+            // listening, so she just says "Hey Trav …" again for the next question.
             _vxFromWake = false; _vxOn = false;
             setTimeout(() => { document.getElementById("asVoice").classList.remove("show"); if(_wakeOn) startWake(); }, 1300);
         } else if(IS_IOS){ vxSet("tap"); }   // iOS needs a fresh tap to reopen the mic
@@ -9561,7 +9561,7 @@ function vxSpeakable(text){
     if(items.length > 3) out += `. And ${items.length - 3} more, shown on screen.`;
     return out;
 }
-// Havi's voice: pick a natural-sounding MALE English voice from whatever the
+// Trav's voice: pick a natural-sounding MALE English voice from whatever the
 // browser/device offers. Names vary by platform, so we try male-sounding names
 // (and the higher-quality "natural"/"neural"/"online" variants) first, and only
 // fall back to a neutral/female voice with a lowered pitch if no male exists.
@@ -9584,8 +9584,8 @@ function vxPickVoice(){
     _vxVoice = pick;
     return pick;
 }
-// ---- "Havi, stop talking" — interrupt Havi mid-sentence by voice ----
-// While Havi is speaking we run a small recogniser JUST listening for a stop
+// ---- "Trav, stop talking" — interrupt Trav mid-sentence by voice ----
+// While Trav is speaking we run a small recogniser JUST listening for a stop
 // command; if it hears one, we cancel the speech immediately.
 const VX_STOP = /\b(stop|tigil|itigil|tumigil|tumahimik|manahimik|hinto|humint|wag na|huwag na|tama na|shut up|quiet|enough|hush)\b/i;
 let _stopRec = null, _vxStopped = false;
@@ -9617,26 +9617,26 @@ function vxSpeak(text, onEnd){
     // (and drop it more if we only found a female voice to fall back on).
     u.rate = 1.0;
     u.pitch = (v && VX_FEMALE.test(v.name)) ? 0.82 : 0.95;
-    u.onboundary = () => vxRipple();          // reactor pulses on each word Havi speaks
+    u.onboundary = () => vxRipple();          // reactor pulses on each word Trav speaks
     u.onend = () => { stopStopListener(); if(onEnd) onEnd(); };
     u.onerror = () => { stopStopListener(); if(onEnd) onEnd(); };
-    startStopListener();                       // listen for "Havi, stop" while speaking
+    startStopListener();                       // listen for "Trav, stop" while speaking
     window.speechSynthesis.speak(u);
 }
 
-/* ---- Wake word: say "Havi" / "Hey Havi" and it answers, hands-free ----
+/* ---- Wake word: say "Trav" / "Hey Trav" and it answers, hands-free ----
    An always-on background recogniser listens for the wake word. When it hears
    it, the voice overlay pops up and answers. Chrome/Edge on a computer keep the
    mic open reliably; iPhone Safari stops the mic after each phrase and blocks
-   background listening, so there we tell her to use "Talk to Havi" instead.
-   Common variants are allowed because speech-to-text often mishears "Havi". */
+   background listening, so there we tell her to use "Talk to Trav" instead.
+   Common variants are allowed because speech-to-text often mishears "Trav". */
 let _wakeOn = false, _wakeRec = null, _wakeRestart = null, _wakeUserAsked = false, _wakeArmed = false;
-const WAKE_RE = /\b(?:hey|hi|hoy|uy|oy|o|okay|ok|hello|helo)?\s*(hav(?:i|ie|ey|y|ee)|habi|harvey|halvey|hobby|savi|hazy)\b/i;
+const WAKE_RE = /\b(?:hey|hi|hoy|uy|oy|o|okay|ok|hello|helo)?\s*(trav(?:is|s|e)?|traff?|trab|trapp?|drav|trove|trob)\b/i;
 
 function toggleWake(){
     if(_wakeOn){ setWake(false); return; }   // she's turning it off → remembered as off
-    if(!SR_SUPPORTED){ alert("“Hey Havi” needs Chrome, Edge or Safari."); return; }
-    if(IS_IOS && !confirm("Heads up: iPhone/iPad can't keep the mic listening in the background, so “Hey Havi” may stop after each question. “Talk to Havi” works better here.\n\nTurn on “Hey Havi” anyway?")) return;
+    if(!SR_SUPPORTED){ alert("“Hey Trav” needs Chrome, Edge or Safari."); return; }
+    if(IS_IOS && !confirm("Heads up: iPhone/iPad can't keep the mic listening in the background, so “Hey Trav” may stop after each question. “Talk to Trav” works better here.\n\nTurn on “Hey Trav” anyway?")) return;
     _wakeUserAsked = true;
     setWake(true);
 }
@@ -9646,10 +9646,10 @@ function setWake(on, persist){
     _wakeOn = on;
     if(persist !== false){ try{ localStorage.setItem("shph_havi_wake", on ? "1" : "0"); }catch(e){} }
     const btn = document.getElementById("asWakeBtn");
-    if(btn){ btn.classList.toggle("on", on); btn.innerHTML = on ? "👂 Hey&nbsp;Havi: on" : "👂 Hey&nbsp;Havi"; }
+    if(btn){ btn.classList.toggle("on", on); btn.innerHTML = on ? "👂 Hey&nbsp;Trav: on" : "👂 Hey&nbsp;Trav"; }
     if(on) startWake(); else stopWake();
 }
-// Turn "Hey Havi" on automatically when she lands on the page — so it's ready to
+// Turn "Hey Trav" on automatically when she lands on the page — so it's ready to
 // talk with no tapping. First-ever use still needs a mic-permission grant (which
 // needs a gesture), so we also arm it to start on her first click/keypress.
 function autoStartWake(){
@@ -9682,7 +9682,7 @@ function startWake(){
     let fired = false;
     _wakeRec.onresult = (ev) => {
         if(fired) return;
-        // only act on FINAL results so we capture the whole "Hey Havi, <question>"
+        // only act on FINAL results so we capture the whole "Hey Trav, <question>"
         for(let i = ev.resultIndex; i < ev.results.length; i++){
             if(!ev.results[i].isFinal) continue;
             const said = ev.results[i][0].transcript.toLowerCase();
@@ -9701,8 +9701,8 @@ function startWake(){
         if(e.error === "not-allowed" || e.error === "service-not-allowed"){
             // Only nag + remember "off" if SHE asked. A blocked AUTO-start (no gesture
             // yet) just switches off quietly, so the next visit can try again.
-            if(_wakeUserAsked){ setWake(false); alert("To use “Hey Havi”, allow microphone access for this site, then turn it on again."); }
-            else { _wakeOn = false; const b = document.getElementById("asWakeBtn"); if(b){ b.classList.remove("on"); b.innerHTML = "👂 Hey&nbsp;Havi"; } stopWake(); }
+            if(_wakeUserAsked){ setWake(false); alert("To use “Hey Trav”, allow microphone access for this site, then turn it on again."); }
+            else { _wakeOn = false; const b = document.getElementById("asWakeBtn"); if(b){ b.classList.remove("on"); b.innerHTML = "👂 Hey&nbsp;Trav"; } stopWake(); }
             _wakeUserAsked = false;
         }
     };
@@ -9734,8 +9734,61 @@ function wakeTriggered(question){
     document.getElementById("vxReply").innerHTML = "";
     document.getElementById("vxMeta").textContent = "";
     try{ window.speechSynthesis && window.speechSynthesis.resume(); }catch(e){}
-    if(question) vxAsk(question);                       // "Hey Havi, who's in today?" — answer straight away
-    else { vxSet("speaking"); vxSpeak("Yes?", () => { if(_vxOn) vxListen(); }); }   // just "Hey Havi" — ask what she needs
+    if(question) vxAsk(question);                       // "Hey Trav, who's in today?" — answer straight away
+    else { vxSet("speaking"); vxSpeak("Yes?", () => { if(_vxOn) vxListen(); }); }   // just "Hey Trav" — ask what she needs
+}
+
+/* ---- Landing on Trav: open the talk console and greet, ready to listen ----
+   Clicking "Trav" in the sidebar IS a user gesture, so we can start the mic and
+   speak straight away. If we somehow land without a gesture (a deep link or a
+   refresh), we fall back to arming the ambient "Hey Trav" wake word instead. */
+function travUserName(){
+    try{
+        let n = (typeof currentUser === "function" ? currentUser() : "") || "";
+        n = String(n).trim().split(/\s+/)[0] || "";
+        if(!n || /^admin$/i.test(n)) return "";              // don't greet a generic "Admin" by name
+        return n.charAt(0).toUpperCase() + n.slice(1);
+    }catch(e){ return ""; }
+}
+function travGreeting(){
+    const h = new Date().getHours();                          // client clock = Manila for Pia
+    const part = h < 12 ? "Good morning" : (h < 18 ? "Good afternoon" : "Good evening");
+    const name = travUserName();
+    return name ? `${part}, ${name}. How are you today?` : `${part}! How are you today?`;
+}
+// Open the dark voice console, greet out loud, then start listening — no tapping.
+function travGreetAndListen(){
+    if(!SR_SUPPORTED || _vxOn) return;
+    buildVxLogo();
+    setVxLang(_vxLang);
+    pauseWakeRec();                                           // don't let the wake mic fight the console mic
+    _vxOn = true; _vxFromWake = false;
+    document.getElementById("asVoice").classList.add("show");
+    document.getElementById("vxYou").textContent = "";
+    document.getElementById("vxMeta").textContent = "";
+    try{ window.speechSynthesis && window.speechSynthesis.resume(); }catch(e){}
+    const greet = travGreeting();
+    document.getElementById("vxReply").innerHTML = (typeof asFormat === "function" ? asFormat(greet) : greet);
+    vxSet("speaking");
+    vxSpeak(greet, () => { if(_vxOn) vxListen(); });
+}
+let _travArmed = false;
+function travLand(){
+    if(!SR_SUPPORTED) return;                                 // no speech engine → keep the typed console
+    // Transient user activation stays live for a few seconds after the sidebar click.
+    const active = !("userActivation" in navigator) || navigator.userActivation.isActive;
+    if(active){ travGreetAndListen(); return; }
+    // Landed with no gesture (deep link / refresh) → arm to greet on her first tap/keypress.
+    if(_travArmed) return; _travArmed = true;
+    const go = () => {
+        document.removeEventListener("pointerdown", go, true);
+        document.removeEventListener("keydown", go, true);
+        _travArmed = false;
+        const onTrav = (typeof currentPage === "undefined") || currentPage === "assist";
+        if(!_vxOn && onTrav) travGreetAndListen();
+    };
+    document.addEventListener("pointerdown", go, true);
+    document.addEventListener("keydown", go, true);
 }
 
 function renderAssist(){
@@ -9750,7 +9803,7 @@ function renderAssist(){
     // it (re)loads so the male-voice selection runs against the full list.
     try{ if(window.speechSynthesis){ window.speechSynthesis.getVoices(); window.speechSynthesis.onvoiceschanged = () => { _vxVoice = undefined; window.speechSynthesis.getVoices(); }; } }catch(e){}
     buildVxLogo();     // pre-render the neon-blue "S" for the voice reactor
-    autoStartWake();   // hands-free the moment she lands on Havi (ready to talk)
+    travLand();        // open the console + greet the moment she lands on Trav (ready to talk)
     const inp = document.getElementById("assistDate");
     if(!inp) return;
     if(!inp.value) inp.value = iso(today());
@@ -12907,7 +12960,9 @@ const PHOTO_ROOMS = [
     ["bedroom", "Bedroom"],
     ["dining", "Dining"],
     ["comfortRoom", "Comfort Room"],
-    ["electronics", "Electronics"]
+    ["electronics", "Electronics"],
+    ["keys", "Keys"],
+    ["wholeRoom", "Whole Room"]
 ];
 let cleaning = (() => { const raw = localStorage.getItem(CLEAN_KEY); return raw ? JSON.parse(raw) : {}; })();
 function persistCleaning(){
@@ -13162,7 +13217,7 @@ function cleanCardHtml(b){
             <div><span class="ci-label">Stay</span><b>${b.stayHours ? b.stayHours + "h" : "—"}</b></div>
         </div>
         ${towelsBanner}
-        <div class="clean-photos-title">Room photos <span class="muted">— attach at least these 5</span></div>
+        <div class="clean-photos-title">Room photos <span class="muted">— attach at least these 7</span></div>
         <div class="clean-photos">${photoSlots}</div>
         <div class="clean-actions">
             <button class="btn" onclick="cleanBegin(${b.id})" ${started ? "disabled" : ""}>START</button>
@@ -14174,7 +14229,7 @@ const DASH_PAGES = [
     { key:"payroll",   label:"Payroll" },
     { key:"bills",     label:"Bills" },
     { key:"expenses",  label:"Expenses" },
-    { key:"assist",    label:"Havi" },
+    { key:"assist",    label:"Trav" },
     { key:"notes",     label:"Notes" }
 ];
 function pageLabel(key){ const p = DASH_PAGES.find(x => x.key === key); return p ? p.label : key; }
@@ -14354,7 +14409,7 @@ function applyPermissions(){
     const active = document.querySelector(".sidebar .nav-item.active");
     const shown = document.querySelector(".page.active");
     if((!active || active.style.display === "none") && !shown){
-        // "assist" (Havi) is skipped too: it now sits first in the sidebar, but the
+        // "assist" (Trav) is skipped too: it now sits first in the sidebar, but the
         // command centre isn't where someone should be *dumped* on login — they reach
         // it by clicking. Keeps the pre-move default-landing behaviour intact.
         const SKIP = ["notes", "board", "partnerdash", "addpartner", "today", "assist"];
@@ -14616,13 +14671,13 @@ try{ if(typeof pickDefaultPage === "function") pickDefaultPage(); }catch(e){ con
 try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
 </script>
 
-<!-- Voice: top-level so "Hey Havi" and "Talk to Havi" work from ANY dashboard page,
+<!-- Voice: top-level so "Hey Trav" and "Talk to Trav" work from ANY dashboard page,
      not just the Assist page (these are position:fixed and must not live inside a
      page div that gets display:none). -->
 <div id="asVoice">
     <button class="vx-lang" id="vxLangBtn" onclick="toggleVxLang()" title="Switch what language I listen for — Tagalog understands a Filipino accent best">🌐 Tagalog</button>
     <button class="vx-close" onclick="stopVoice()" title="Close">✕</button>
-    <div class="vx-title">Havi</div>
+    <div class="vx-title">Trav</div>
     <div class="vx-state" id="vxState">Tap the reactor and talk</div>
     <div class="vxr" onclick="vxOrbTap()" role="button" tabindex="0" title="Tap to talk">
         <div class="vx-r1"></div>
@@ -14641,8 +14696,8 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
     </div>
     <div class="vx-hint" id="vxHint">Speak in Taglish — I'll answer out loud. If I keep mishearing you, tap 🌐 to switch language. Say "stop" or tap ✕ to end.</div>
 </div>
-<div id="asWakePill" onclick="toggleWake()" title="Listening for “Hey Havi” — tap to turn off">
-    <span class="dot"></span> Listening for “Hey Havi”
+<div id="asWakePill" onclick="toggleWake()" title="Listening for “Hey Trav” — tap to turn off">
+    <span class="dot"></span> Listening for “Hey Trav”
 </div>
 
 </body>
