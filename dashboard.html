@@ -2052,20 +2052,45 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <div class="legend" id="legend"></div>
     </div>
     <div id="availBody" style="display:none;">
+        <style>
+          #availBody .av-seg{ display:inline-flex; background:#f4efe7; border-radius:10px; padding:3px; }
+          #availBody .av-seg-btn{ border:none; background:none; padding:7px 15px; border-radius:8px; font:inherit; font-size:13px; font-weight:700; color:var(--hv-muted); cursor:pointer; }
+          #availBody .av-seg-btn.active{ background:var(--hv-ink); color:#fff; }
+          #availBody .av-mc-count{ font-size:11.5px; font-weight:800; color:#2e7d4f; margin-top:2px; }
+          #availBody .av-mc-count.some{ color:#a9842b; }
+          #availBody .av-mc-dots{ display:flex; flex-wrap:wrap; gap:3px; margin-top:4px; }
+          #availBody .av-mc-dot{ width:9px; height:9px; border-radius:50%; }
+          #availBody .av-mc-full{ font-size:11px; font-weight:700; color:#c0283d; margin-top:3px; }
+          #availBody .av-mc-none{ color:var(--hv-muted); margin-top:3px; }
+          #availBody .mc-cell.avail-full{ background:#f4faf5; }
+        </style>
         <div style="display:flex; align-items:center; gap:10px; margin:6px 0 16px; flex-wrap:wrap;">
-            <label style="font-size:13px; color:var(--hv-muted);">Date</label>
-            <div class="dp-wrap" style="position:relative;">
-                <span class="date-pill" onclick="openAvailPicker(event)" title="Pick a date"><svg class="cal-ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span id="availDateLabel"></span></span>
-                <div class="dp-popup" id="availDpPopup" onclick="event.stopPropagation()">
-                    <div class="dp-head"><button type="button" onclick="availPickerNav(-1)">‹</button><span id="availDpTitle"></span><button type="button" onclick="availPickerNav(1)">›</button></div>
-                    <div class="dp-grid" id="availDpGrid"></div>
-                    <div class="dp-foot"><span onclick="availPickerToday()">Today</span></div>
-                </div>
+            <div class="av-seg">
+                <button class="av-seg-btn active" id="availSegDay" onclick="setAvailView('day')">Day</button>
+                <button class="av-seg-btn" id="availSegMonth" onclick="setAvailView('month')">Month</button>
             </div>
-            <button class="btn secondary" onclick="availPickerToday()">Today</button>
-            <span class="muted" style="font-size:13px; margin-left:6px;">Earliest a new guest can check in each haven, and their next booking.</span>
+            <span id="availDayControls" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <label style="font-size:13px; color:var(--hv-muted);">Date</label>
+                <div class="dp-wrap" style="position:relative;">
+                    <span class="date-pill" onclick="openAvailPicker(event)" title="Pick a date"><svg class="cal-ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span id="availDateLabel"></span></span>
+                    <div class="dp-popup" id="availDpPopup" onclick="event.stopPropagation()">
+                        <div class="dp-head"><button type="button" onclick="availPickerNav(-1)">‹</button><span id="availDpTitle"></span><button type="button" onclick="availPickerNav(1)">›</button></div>
+                        <div class="dp-grid" id="availDpGrid"></div>
+                        <div class="dp-foot"><span onclick="availPickerToday()">Today</span></div>
+                    </div>
+                </div>
+                <button class="btn secondary" onclick="availPickerToday()">Today</button>
+            </span>
+            <span id="availMonthControls" style="display:none; align-items:center; gap:8px;">
+                <button class="btn secondary" onclick="availMonthShift(-1)">‹ Prev</button>
+                <b id="availMonthLabel" style="min-width:130px; text-align:center;"></b>
+                <button class="btn secondary" onclick="availMonthShift(1)">Next ›</button>
+                <button class="btn secondary" onclick="availMonthToday()">This month</button>
+            </span>
+            <span class="muted" id="availHint" style="font-size:13px; margin-left:6px;">Earliest a new guest can check in each haven, and their next booking.</span>
         </div>
         <div id="availList"></div>
+        <div id="availMonthGrid" style="display:none;"></div>
     </div>
 </div>
 
@@ -5205,6 +5230,7 @@ function tlHourShort(h){ const ap = h < 12 ? "a" : "p"; let hh = h % 12; if(hh =
 // single-day view → hourly timeline; the hour window auto-fits the day's bookings
 /* ---------- Month / Timeline / Availability tabs (inside the calendar panel) ---------- */
 let calView = "calendar";   // "calendar" (the timeline — default) | "availability" | "month"
+let availViewMode = "day";  // Availability tab sub-view: "day" | "month" (declared early so calTab, which reads it, never hits a TDZ during init)
 
 // Snap the SHARED date window to the calendar month containing `d`, so the summary cards and the
 // bookings table below stay in step with the month on screen (same window the timeline uses).
@@ -5232,7 +5258,7 @@ function calTab(view){
     if(nav) nav.style.display = isAvail ? "none" : "";   // Prev/Next/date controls drive Month + Timeline
     // "Custom range" is timeline-only — the month view always shows one whole month
     const cr = document.getElementById("calCustomRangeBtn"); if(cr) cr.style.display = view === "month" ? "none" : "";
-    if(isAvail){ renderAvailability(); return; }
+    if(isAvail){ setAvailView(availViewMode); return; }   // Day or Month sub-view
     if(view === "month"){
         calSetMonth(rangeStart);
         renderSummary(); renderMonth(); renderTable();
@@ -5401,6 +5427,94 @@ function renderAvailability(){
     document.getElementById("availList").innerHTML = rows
         ? `<div style="overflow-x:auto;"><table class="av-table"><thead><tr><th>Haven</th><th>Available check-in</th><th>Hours of stay available</th><th>Next check-in</th></tr></thead><tbody>${rows}</tbody></table></div>`
         : `<p class="muted">No havens.</p>`;
+}
+/* ---------- Availability: Month view (which havens are still bookable each day) ---------- */
+// The stay lengths the owner offers (Rates & Add-ons toggles) — same rule as the day view.
+function offeredStaysList(){
+    const p = ((typeof loadSettings === "function" ? loadSettings() : null) || {}).pricing || {};
+    const out = [[6,"offer6"],[10,"offer10"],[21,"offer21"]].filter(x => p[x[1]] !== false).map(x => x[0]);
+    return out.length ? out : [21];
+}
+// Is `haven` still bookable on `dateIso`? Mirrors the day-view gap logic (earliest check-in floor,
+// 1-hour cleaning gap, skip past occupancy to the next real gap).
+function havenAvailableOn(haven, dateIso, OFFERED){
+    OFFERED = OFFERED || offeredStaysList();
+    const dayAbs = Math.round(new Date(dateIso + "T00:00:00").getTime() / 60000);
+    const dayEnd = dayAbs + 1440;
+    let floor = dayAbs + earliestCheckinMin();
+    if(dateIso === iso(today())) floor = Math.max(floor, Math.round(Date.now() / 60000));
+    const intervals = bookings.filter(b => b && !b.cancelled && b.haven === haven && b.checkin)
+        .map(b => { const iv = bookingInterval(b); return { ci: iv.start, freeAt: iv.end + CLEANING_GAP_MIN }; })
+        .sort((a, b) => a.ci - b.ci);
+    let availFrom = floor, next = null, fits = [], hop = 0;
+    while(hop++ < 40){
+        let changed = true, guard = 0;
+        while(changed && guard++ < 80){ changed = false; intervals.forEach(it => { if(it.ci <= availFrom && it.freeAt > availFrom){ availFrom = it.freeAt; changed = true; } }); }
+        if(availFrom >= dayEnd) break;
+        next = null; intervals.forEach(it => { if(it.ci >= availFrom && (next === null || it.ci < next)) next = it.ci; });
+        const windowMin = (next !== null) ? (next - availFrom) : Infinity;
+        fits = OFFERED.filter(H => (H * 60 + CLEANING_GAP_MIN) <= windowMin);
+        if(fits.length || next === null) break;
+        availFrom = next + 1;
+    }
+    return availFrom < dayEnd && fits.length > 0;
+}
+function setAvailView(mode){
+    availViewMode = (mode === "month") ? "month" : "day";
+    const isMonth = availViewMode === "month";
+    document.getElementById("availSegDay").classList.toggle("active", !isMonth);
+    document.getElementById("availSegMonth").classList.toggle("active", isMonth);
+    document.getElementById("availDayControls").style.display = isMonth ? "none" : "flex";
+    document.getElementById("availMonthControls").style.display = isMonth ? "inline-flex" : "none";
+    document.getElementById("availList").style.display = isMonth ? "none" : "";
+    document.getElementById("availMonthGrid").style.display = isMonth ? "" : "none";
+    const hint = document.getElementById("availHint");
+    if(hint) hint.textContent = isMonth
+        ? "Green = havens still bookable that day. Tap a day for the exact times."
+        : "Earliest a new guest can check in each haven, and their next booking.";
+    if(isMonth) renderAvailMonth(); else renderAvailability();
+}
+function availMonthShift(dir){
+    if(!availDateSel) availDateSel = iso(today());
+    const d = new Date(availDateSel + "T00:00:00");
+    availDateSel = iso(new Date(d.getFullYear(), d.getMonth() + dir, 1));
+    renderAvailMonth();
+}
+function availMonthToday(){ availDateSel = iso(today()); renderAvailMonth(); }
+function availOpenDay(di){ availDateSel = di; setAvailView("day"); }
+function renderAvailMonth(){
+    if(!availDateSel) availDateSel = iso(today());
+    const base = new Date(availDateSel + "T00:00:00");
+    const y = base.getFullYear(), m = base.getMonth();
+    const lbl = document.getElementById("availMonthLabel"); if(lbl) lbl.textContent = MONTHS[m] + " " + y;
+    const OFFERED = offeredStaysList();
+    const scoped = (window.__PARTNER__ && !window.__PARTNER__.superAdmin && window.__PARTNER__.haven);
+    const havenList = scoped ? [window.__PARTNER__.haven] : (calHaven ? HAVENS.filter(h => h === calHaven) : HAVENS.slice());
+    const total = havenList.length;
+    const todayIso = iso(today());
+    const firstDow = new Date(y, m, 1).getDay();
+    const dim = new Date(y, m + 1, 0).getDate();
+    const dows = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => `<div class="mc-dow">${d}</div>`).join("");
+    let cells = "";
+    for(let i = 0; i < firstDow; i++) cells += '<div class="mc-cell empty"></div>';
+    for(let d = 1; d <= dim; d++){
+        const di = iso(new Date(y, m, d));
+        const isPast = di < todayIso;
+        const isToday = di === todayIso;
+        let inner, fullCls = "";
+        if(isPast){
+            inner = `<div class="av-mc-none">—</div>`;
+        } else {
+            const avail = havenList.filter(h => havenAvailableOn(h, di, OFFERED));
+            if(!avail.length){ inner = `<div class="av-mc-full">Fully booked</div>`; fullCls = " avail-full"; }
+            else {
+                const dots = avail.map(h => `<span class="av-mc-dot" style="background:${(HAVEN_COLORS[h] || { am:"#ccc" }).am}" title="${escAttr(h)} — available"></span>`).join("");
+                inner = `<div class="av-mc-count${avail.length < total ? " some" : ""}">${avail.length}/${total} free</div><div class="av-mc-dots">${dots}</div>`;
+            }
+        }
+        cells += `<div class="mc-cell${isPast ? " past" : ""}${isToday ? " today" : ""}${fullCls}" onclick="availOpenDay('${di}')" style="cursor:pointer;"><div class="mc-num">${d}</div>${inner}</div>`;
+    }
+    document.getElementById("availMonthGrid").innerHTML = `<div class="mc-dows">${dows}</div><div class="mc-grid">${cells}</div>`;
 }
 
 // (starts at the earliest check-in, ends at the latest check-out; empty hours are hidden)
