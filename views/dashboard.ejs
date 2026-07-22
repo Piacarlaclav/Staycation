@@ -11745,7 +11745,10 @@ function cutoffLabel(payIso){
     const d = new Date(payIso + "T00:00:00"), r = cutoffRangeOf(payIso);
     return d.toLocaleDateString("en-PH", { month:"short", day:"numeric", year:"numeric" }) + " · " + fmt(r.start) + "–" + fmt(r.end);
 }
-function cutoffDays(s, payIso){ return (s.days || []).filter(d => d.date && cutoffOf(d.date).payIso === payIso); }
+// Days in a cut-off — from the FULL day list (manual + cleaning "done" days + auto-Assist booking
+// days), so the SSS/PhilHealth base matches actual gross. Using s.days alone made housekeepers and
+// auto-Assist staff get a ₱0 deduction base (PhilHealth ₱0, SSS at the floor) — wrong net pay.
+function cutoffDays(s, payIso){ return staffAllDays(s).filter(d => d.date && cutoffOf(d.date).payIso === payIso); }
 function cutoffGross(s, payIso){ return cutoffDays(s, payIso).reduce((sum, d) => sum + dayPay(s, d), 0); }
 // whole-month salary (both cut-offs paid that month) — base for SSS / PhilHealth
 function monthlyBaseFor(s, payIso){
@@ -11833,6 +11836,9 @@ function rangeDeductions(s, start, end){
     return { sss, philhealth:ph, pagibig:pag, loan, total: sss + ph + pag + loan };
 }
 
+// A real, editable manual day (in s.days) — NOT a synthetic auto-Assist ("book-…") or cleaning
+// ("clean-…") row. Only these get Edit/Delete; the synthetic ones are derived, not stored.
+function _isManualDay(d){ return !!(d && d.id != null && String(d.id).indexOf("book-") !== 0 && String(d.id).indexOf("clean-") !== 0); }
 // reusable day-entry table; recordId = null for the staff's main days, or a record id
 function dayTableHtml(s, days, recordId){
     days = days.slice().sort((a, b) => (a.date || "").localeCompare(b.date || ""));
@@ -11852,7 +11858,7 @@ function dayTableHtml(s, days, recordId){
                 <td>${d.dayOff ? '—' : reg.toFixed(2)}</td>
                 <td>${ot ? ot.toFixed(2) + (nd ? ' <span class="muted">+0.5 ND</span>' : '') : '—'}</td>
                 <td><strong>${peso2(dayPay(s, d))}</strong></td>
-                <td class="col-actions">${payrollIsAdmin() ? `
+                <td class="col-actions">${(payrollIsAdmin() && _isManualDay(d)) ? `
                     <span class="edit" onclick="openDayModal(${s.id}, ${d.id}, ${rid})">Edit</span>
                     <span class="del" onclick="deleteDay(${s.id}, ${d.id}, ${rid})">Delete</span>` : ""}
                 </td>
@@ -11872,7 +11878,7 @@ function dayTableHtml(s, days, recordId){
                 <td>${fmt(d.date)}${d.notes ? '<br><span class="muted">' + escHtml(d.notes) + '</span>' : ''}</td>
                 <td>${bits.join(' · ')} <span class="muted">(auto)</span></td>
                 <td><strong>${peso2(dayPay(s, d))}</strong></td>
-                <td class="col-actions">${(payrollIsAdmin() && s.role !== "HOUSEKEEPING") ? `
+                <td class="col-actions">${(payrollIsAdmin() && s.role !== "HOUSEKEEPING" && _isManualDay(d)) ? `
                     <span class="edit" onclick="openDayModal(${s.id}, ${d.id}, ${rid})">Edit</span>
                     <span class="del" onclick="deleteDay(${s.id}, ${d.id}, ${rid})">Delete</span>` : ""}
                 </td>
@@ -12163,7 +12169,7 @@ function renderPayroll(){
     const list = staff.filter(s => {
         if(!admin && !payrollOwns(s)) return false;   // own record only
         if(fStaff && String(s.id) !== fStaff) return false;
-        if(fRole && s.role !== fRole) return false;
+        if(fRole && s.role !== fRole && s.role2 !== fRole) return false;   // match either role of a dual-role staff
         return true;
     });
 
@@ -12714,7 +12720,7 @@ function downloadPayrollPdf(){
     const scope = resolveScope(document.getElementById("payFilterCutoff").value);
     const fStaff = document.getElementById("payFilterStaff").value;
     const fRole  = document.getElementById("payFilterRole").value;
-    const list = staff.filter(s => (!fStaff || String(s.id) === fStaff) && (!fRole || s.role === fRole));
+    const list = staff.filter(s => (!fStaff || String(s.id) === fStaff) && (!fRole || s.role === fRole || s.role2 === fRole));
     openPrint(buildPayslipHtml(list, scope));
 }
 function downloadStaffPdf(id){
