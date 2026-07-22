@@ -2809,47 +2809,106 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
 
 <!-- ===== Payroll ===== -->
 <div class="page" id="page-payroll">
+<style>
+  #page-payroll .pr-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-bottom:20px; }
+  #page-payroll .pr-title{ font-family:'Playfair Display',Georgia,serif; font-size:30px; font-weight:800; margin:0; color:var(--hv-ink); }
+  #page-payroll .pr-sub{ color:var(--hv-muted); font-size:13.5px; margin-top:5px; }
+  #page-payroll .pr-head-actions{ display:flex; gap:10px; flex-wrap:wrap; }
+  #page-payroll .pr-layout{ display:grid; grid-template-columns:330px 1fr; gap:20px; align-items:start; }
+  #page-payroll .pr-side{ background:#fff; border:1px solid var(--hv-line); border-radius:18px; padding:18px; position:sticky; top:12px; }
+  #page-payroll .pr-payout-lbl{ font-size:11px; font-weight:800; letter-spacing:.8px; text-transform:uppercase; color:var(--hv-muted); }
+  #page-payroll .pr-payout-val{ font-family:'Playfair Display',serif; font-size:34px; font-weight:800; color:var(--hv-ink); margin:5px 0 5px; }
+  #page-payroll .pr-payout-sub{ font-size:12.5px; color:var(--hv-muted); }
+  #page-payroll .pr-toggle{ display:flex; gap:6px; background:#f4efe7; border-radius:12px; padding:4px; margin:16px 0 12px; }
+  #page-payroll .pr-seg{ flex:1; border:none; background:none; padding:8px 10px; border-radius:9px; font:inherit; font-size:13px; font-weight:700; color:var(--hv-muted); cursor:pointer; }
+  #page-payroll .pr-seg.active{ background:var(--hv-ink); color:#fff; }
+  #page-payroll .pr-list{ display:flex; flex-direction:column; gap:7px; max-height:54vh; overflow-y:auto; }
+  #page-payroll .pr-item{ display:flex; align-items:center; gap:11px; padding:11px; border:1px solid transparent; border-radius:13px; cursor:pointer; }
+  #page-payroll .pr-item:hover{ background:#faf6ee; }
+  #page-payroll .pr-item.active{ background:#faf3e8; border-color:var(--hv-terra); }
+  #page-payroll .pr-av{ width:40px; height:40px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; color:#fff; }
+  #page-payroll .pr-it-main{ flex:1; min-width:0; }
+  #page-payroll .pr-it-name{ font-weight:800; font-size:14px; color:var(--hv-ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #page-payroll .pr-it-role{ font-size:12px; color:var(--hv-muted); }
+  #page-payroll .pr-it-net{ text-align:right; font-weight:800; font-size:14px; color:#2e7d4f; white-space:nowrap; }
+  #page-payroll .pr-it-net small{ display:block; font-weight:600; font-size:10.5px; color:var(--hv-muted); }
+  #page-payroll .pr-grouphd{ font-size:11px; font-weight:800; letter-spacing:.6px; text-transform:uppercase; color:var(--hv-terra); margin:12px 2px 3px; }
+  #page-payroll .pr-period{ margin-top:14px; padding-top:14px; border-top:1px solid var(--hv-line); }
+  #page-payroll .pr-period select{ width:100%; padding:9px 12px; border:1px solid var(--hv-line); border-radius:10px; background:#fff; font:inherit; font-size:13px; font-weight:600; color:var(--hv-ink); cursor:pointer; }
+  #page-payroll .pr-detail{ background:#fff; border:1px solid var(--hv-line); border-radius:18px; padding:24px 26px; min-height:420px; }
+  #page-payroll .pr-d-head{ display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap; }
+  #page-payroll .pr-d-name{ font-family:'Playfair Display',serif; font-size:24px; font-weight:800; color:var(--hv-ink); }
+  #page-payroll .pr-d-rate{ font-size:13px; color:var(--hv-muted); margin-top:3px; }
+  #page-payroll .pr-d-actions{ margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; }
+  #page-payroll .pr-gdn{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:22px 0; }
+  #page-payroll .pr-gdn .b{ border:1px solid var(--hv-line); border-radius:14px; padding:16px 18px; }
+  #page-payroll .pr-gdn .b .l{ font-size:10.5px; font-weight:800; letter-spacing:.6px; text-transform:uppercase; color:var(--hv-muted); }
+  #page-payroll .pr-gdn .b .v{ font-family:'Playfair Display',serif; font-size:25px; font-weight:800; margin-top:6px; color:var(--hv-ink); }
+  #page-payroll .pr-gdn .b.net{ background:var(--hv-ink); border-color:var(--hv-ink); }
+  #page-payroll .pr-gdn .b.net .l{ color:#b6ab9b; }
+  #page-payroll .pr-gdn .b.net .v{ color:#fff; }
+  #page-payroll .pr-gdn .b.ded .v{ color:#c0283d; }
+  #page-payroll .pr-cap{ font-size:12px; font-weight:800; letter-spacing:.6px; text-transform:uppercase; color:var(--hv-terra); margin:22px 0 11px; display:flex; justify-content:space-between; align-items:baseline; }
+  #page-payroll .pr-cap small{ font-weight:600; text-transform:none; letter-spacing:0; color:var(--hv-muted); }
+  #page-payroll .pr-tbl{ border:1px solid var(--hv-line); border-radius:14px; overflow:hidden; }
+  #page-payroll .pr-tbl table{ width:100%; border-collapse:collapse; }
+  #page-payroll .pr-tbl th{ text-align:left; font-size:10.5px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:var(--hv-muted); padding:12px 18px; background:#faf6ee; }
+  #page-payroll .pr-tbl td{ padding:14px 18px; border-top:1px solid var(--hv-line); font-size:14px; color:var(--hv-ink); }
+  #page-payroll .pr-tbl td.num, #page-payroll .pr-tbl th.num{ text-align:right; }
+  #page-payroll .pr-tbl tr.more td{ color:var(--hv-muted); background:#fcfaf6; font-style:italic; }
+  #page-payroll .pr-ded-cards{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  #page-payroll .pr-ded-cards .c{ border:1px solid var(--hv-line); border-radius:12px; padding:12px 15px; }
+  #page-payroll .pr-ded-cards .c .l{ font-size:11px; color:var(--hv-muted); }
+  #page-payroll .pr-ded-cards .c .v{ font-size:17px; font-weight:800; color:var(--hv-ink); margin-top:4px; }
+  #page-payroll .pr-log{ margin-top:20px; font-size:12.5px; color:var(--hv-muted); display:flex; align-items:center; gap:8px; }
+  #page-payroll .pr-log .dot{ width:7px; height:7px; border-radius:50%; background:var(--hv-terra); flex:none; }
+  #page-payroll .pr-empty{ color:var(--hv-muted); text-align:center; padding:70px 20px; }
+  @media(max-width:900px){ #page-payroll .pr-layout{ grid-template-columns:1fr; } #page-payroll .pr-side{ position:static; } #page-payroll .pr-gdn, #page-payroll .pr-ded-cards{ grid-template-columns:1fr 1fr; } }
+</style>
 
-    <!-- payroll summary -->
-    <div class="topbar" style="margin-bottom:18px;">
-        <h2 style="font-size:20px;">Payroll Summary <span class="muted" id="payrollScopeLabel"></span></h2>
+    <div class="pr-head">
+        <div>
+            <h1 class="pr-title">Payroll Summary</h1>
+            <div class="pr-sub" id="prSub"></div>
+        </div>
+        <div class="pr-head-actions" id="payrollAdminBtns">
+            <button class="btn secondary" onclick="openRecordModal()">+ Add record</button>
+            <button class="btn secondary" onclick="downloadPayrollPdf()">Download PDF</button>
+            <button class="btn" onclick="openStaffModal()">+ Add staff</button>
+        </div>
     </div>
-    <div class="cards" id="payrollCards" style="grid-template-columns:repeat(3,1fr);"></div>
 
-    <!-- staff payroll -->
-    <div class="panel">
-        <div class="panel-head">
-            <h2>Staff Payroll</h2>
-            <div id="payrollAdminBtns">
-                <button class="btn secondary" onclick="openRecordModal()">+ Add Record</button>
-                <button class="btn secondary" onclick="downloadPayrollPdf()">🧾 Download PDF</button>
-                <button class="btn" onclick="openStaffModal()">+ Add Staff</button>
+    <div class="pr-layout">
+        <aside class="pr-side">
+            <div class="pr-payout-lbl" id="prPayoutLbl">Net payout</div>
+            <div class="pr-payout-val" id="prPayoutVal">₱0.00</div>
+            <div class="pr-payout-sub" id="prPayoutSub"></div>
+            <div class="pr-toggle">
+                <button class="pr-seg active" id="prSegStaff" onclick="prSetGroup('staff')">All staff</button>
+                <button class="pr-seg" id="prSegRoles" onclick="prSetGroup('roles')">Roles</button>
             </div>
-        </div>
-        <div class="filters" style="margin-bottom:16px;">
-            <select id="payFilterStaff" onchange="renderPayroll()"></select>
-            <select id="payFilterRole" onchange="renderPayroll()">
-                <option value="">All roles</option>
-                <option value="CSR">CSR</option>
-                <option value="ASSIST">Assist</option>
-                <option value="HOUSEKEEPING">Housekeeping</option>
-                <option value="COMMISSION">Commission</option>
-            </select>
-            <select id="payFilterCutoff" onchange="renderPayroll()">
-                <option value="">All cut-offs</option>
-                <option value="15">15th cut-off</option>
-                <option value="30">30th cut-off</option>
-                <option value="today">Today</option>
-                <option value="month">This month</option>
-                <option value="custom">Custom range</option>
-            </select>
-            <span id="payCustomDates" style="display:none;">
-                <label class="fin-date">From <input type="date" id="payFrom" onchange="renderPayroll()" onclick="this.showPicker && this.showPicker()"></label>
-                <label class="fin-date">To <input type="date" id="payTo" onchange="renderPayroll()" onclick="this.showPicker && this.showPicker()"></label>
-            </span>
-        </div>
-        <div id="payrollContainer"></div>
+            <div class="pr-list" id="prList"></div>
+            <div class="pr-period">
+                <select id="payFilterCutoff" onchange="renderPayroll()">
+                    <option value="month">This month</option>
+                    <option value="15">15th cut-off</option>
+                    <option value="30">30th cut-off</option>
+                    <option value="today">Today</option>
+                    <option value="">All cut-offs</option>
+                    <option value="custom">Custom range</option>
+                </select>
+                <span id="payCustomDates" style="display:none; margin-top:8px;">
+                    <label class="fin-date">From <input type="date" id="payFrom" onchange="renderPayroll()" onclick="this.showPicker && this.showPicker()"></label>
+                    <label class="fin-date">To <input type="date" id="payTo" onchange="renderPayroll()" onclick="this.showPicker && this.showPicker()"></label>
+                </span>
+            </div>
+        </aside>
+        <main class="pr-detail" id="prDetail"></main>
     </div>
+
+    <!-- kept hidden for compatibility with existing filter/PDF helpers -->
+    <select id="payFilterStaff" style="display:none;" onchange="renderPayroll()"></select>
+    <select id="payFilterRole" style="display:none;"><option value=""></option></select>
 </div>
 
 <!-- ===== Bills ===== -->
@@ -12148,47 +12207,130 @@ function ensurePayrollDataFresh(){
         })
         .catch(() => { _payFetching = false; });
 }
+/* ---------- Payroll: master-detail layout (staff list + selected staff detail) ---------- */
+let _prSelId = null, _prGroup = "staff";
+const _PR_AV_COLORS = ["#b8926e","#7d9b76","#c08457","#6b8fa3","#a97ba1","#9a8452","#7e8a99","#4a6b48"];
+function prAvatar(s){
+    const w = String(s && s.name || "").trim().split(/\s+/).filter(Boolean);
+    const initials = ((w[0] ? w[0][0] : "") + (w[1] ? w[1][0] : "")).toUpperCase() || "?";
+    let h = 0; const nm = String(s && s.name || ""); for(let i = 0; i < nm.length; i++) h = (h * 31 + nm.charCodeAt(i)) >>> 0;
+    return { initials, color: _PR_AV_COLORS[h % _PR_AV_COLORS.length] };
+}
+function prSetGroup(g){ _prGroup = (g === "roles") ? "roles" : "staff"; renderPayroll(); }
+function prSelect(id){ _prSelId = id; renderPayroll(); }
+function prFinalizeNote(scope){
+    try{ if(!scope.end) return ""; const e = new Date(scope.end + "T00:00:00"); const f = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1);
+        return " · cut-off finalizes " + f.toLocaleDateString("en-PH", { month:"short", day:"numeric" }); }catch(e){ return ""; }
+}
+function prLogLine(s){
+    const log = (s && s.log) || [];
+    if(!log.length) return "";
+    const last = log[log.length - 1];
+    let when = ""; try{ when = new Date(last.at).toLocaleString("en-PH", { month:"short", day:"numeric", year:"numeric", hour:"numeric", minute:"2-digit" }); }catch(e){}
+    return `<div class="pr-log"><span class="dot"></span>${escHtml(last.user || "")} — ${escHtml(last.action || "")}${when ? " · " + when : ""}</div>`;
+}
+function prListItem(s, scope){
+    const net = rangeGross(s, scope.start, scope.end) - rangeDeductions(s, scope.start, scope.end).total;
+    const av = prAvatar(s);
+    return `<div class="pr-item ${s.id === _prSelId ? "active" : ""}" onclick="prSelect(${s.id})">
+        <div class="pr-av" style="background:${av.color};">${av.initials}</div>
+        <div class="pr-it-main"><div class="pr-it-name">${escHtml(s.name)}</div><div class="pr-it-role">${escHtml(roleLabelOf(s))}</div></div>
+        <div class="pr-it-net">${peso2(net)}<small>net</small></div>
+    </div>`;
+}
+function prRenderList(list, scope){
+    const el = document.getElementById("prList"); if(!el) return;
+    if(_prGroup === "roles"){
+        const order = ["CSR", "ASSIST", "HOUSEKEEPING", "COMMISSION"];
+        let html = "";
+        order.forEach(r => {
+            const g = list.filter(s => s.role === r || s.role2 === r);
+            if(g.length) html += `<div class="pr-grouphd">${ROLE_LABEL[r] || r}</div>` + g.map(s => prListItem(s, scope)).join("");
+        });
+        el.innerHTML = html || `<div class="muted" style="padding:12px;">No staff.</div>`;
+    } else {
+        el.innerHTML = list.length ? list.map(s => prListItem(s, scope)).join("") : `<div class="muted" style="padding:12px;">No staff yet. Click “+ Add staff”.</div>`;
+    }
+}
+function prRenderDetail(s, scope){
+    const el = document.getElementById("prDetail"); if(!el) return;
+    if(!s){ el.innerHTML = `<div class="pr-empty">No staff to show. Click “+ Add staff” to begin.</div>`; return; }
+    const admin = payrollIsAdmin();
+    const days = staffDaysInRange(s, scope.start, scope.end).slice().sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    const gross = rangeGross(s, scope.start, scope.end);
+    const dd = rangeDeductions(s, scope.start, scope.end);
+    const net = gross - dd.total;
+    const isCsr = s.role === "CSR";
+    const midLbl = isCsr ? "Hours" : "Rooms";
+    const rowMid = d => isCsr ? (regHoursOf(d).toFixed(2) + (otHoursOf(d) ? " +" + otHoursOf(d).toFixed(2) + " OT" : "")) : String(roomsForDay(s, d));
+    const first = days.slice(0, 3), rest = days.slice(3);
+    let trows = first.map(d => `<tr><td>${fmt(d.date)}</td><td class="num">${rowMid(d)}</td><td class="num"><strong>${peso2(dayPay(s, d))}</strong></td></tr>`).join("");
+    if(rest.length){
+        const rRooms = isCsr ? 0 : rest.reduce((x, d) => x + roomsForDay(s, d), 0);
+        const rPay = rest.reduce((x, d) => x + dayPay(s, d), 0);
+        trows += `<tr class="more"><td>+ ${rest.length} more day${rest.length > 1 ? "s" : ""}</td><td class="num">${isCsr ? "—" : rRooms}</td><td class="num">${peso2(rPay)}</td></tr>`;
+    }
+    if(!days.length) trows = `<tr><td colspan="3" style="text-align:center; color:var(--hv-muted); padding:28px;">No entries for this period.</td></tr>`;
+    const av = prAvatar(s);
+    const combo = (s.role2 && s.role2 !== s.role) ? `<small>combined ${escHtml(roleLabelOf(s).toLowerCase())}</small>` : "";
+    el.innerHTML = `
+      <div class="pr-d-head">
+        <div class="pr-av" style="width:52px; height:52px; font-size:16px; background:${av.color};">${av.initials}</div>
+        <div><div class="pr-d-name">${escHtml(s.name)}</div><div class="pr-d-rate">${escHtml(roleRateInfoOf(s))}</div></div>
+        <div class="pr-d-actions">
+          ${(admin && s.role !== "HOUSEKEEPING") ? `<button class="btn" onclick="openDayModal(${s.id})">+ Add day</button>` : ""}
+          <button class="btn secondary" onclick="downloadStaffPdf(${s.id})">PDF</button>
+          ${admin ? `<button class="btn secondary" onclick="openStaffModal(${s.id})">Edit</button>` : ""}
+        </div>
+      </div>
+      <div class="pr-gdn">
+        <div class="b"><div class="l">Gross</div><div class="v">${peso2(gross)}</div></div>
+        <div class="b ded"><div class="l">Deductions</div><div class="v">−${peso2(dd.total)}</div></div>
+        <div class="b net"><div class="l">Net</div><div class="v">${peso2(net)}</div></div>
+      </div>
+      <div class="pr-cap"><span>${isCsr ? "Hours worked" : "Rooms booked &amp; cleaned"}</span>${combo}</div>
+      <div class="pr-tbl"><table><thead><tr><th>Date</th><th class="num">${midLbl}</th><th class="num">Pay</th></tr></thead><tbody>${trows}</tbody></table></div>
+      <div class="pr-cap"><span>Statutory deductions</span></div>
+      <div class="pr-ded-cards">
+        <div class="c"><div class="l">SSS (${sssRateOf(s)}%)</div><div class="v">${peso2(dd.sss)}</div></div>
+        <div class="c"><div class="l">PhilHealth (${philRateOf(s)}%)</div><div class="v">${peso2(dd.philhealth)}</div></div>
+        <div class="c"><div class="l">Pag-IBIG</div><div class="v">${peso2(dd.pagibig)}</div></div>
+        <div class="c"><div class="l">Salary loan</div><div class="v">${peso2(dd.loan)}</div></div>
+      </div>
+      ${prLogLine(s)}
+    `;
+}
 function renderPayroll(){
     ensurePayrollDataFresh();   // make sure housekeeping pay reflects the latest cleanings
-    fillPayrollStaffFilter();
+    fillPayrollStaffFilter();   // keeps the hidden staff filter populated for the PDF export
     const admin = payrollIsAdmin();
-    const me = currentUser().toLowerCase();
-    // non-admins only manage/view their OWN payroll, and can't add/edit/delete
     const adminBtns = document.getElementById("payrollAdminBtns");
     if(adminBtns) adminBtns.style.display = admin ? "" : "none";
 
-    const fStaff = document.getElementById("payFilterStaff").value;
-    const fRole  = document.getElementById("payFilterRole").value;
     const periodVal = document.getElementById("payFilterCutoff").value;
     const customEl = document.getElementById("payCustomDates");
     if(customEl) customEl.style.display = periodVal === "custom" ? "" : "none";
     const scope = resolveScope(periodVal);
 
-    const list = staff.filter(s => {
-        if(!admin && !payrollOwns(s)) return false;   // own record only
-        if(fStaff && String(s.id) !== fStaff) return false;
-        if(fRole && s.role !== fRole && s.role2 !== fRole) return false;   // match either role of a dual-role staff
-        return true;
-    });
+    // everyone the viewer may see (admin: all; otherwise only their own record)
+    const list = staff.filter(s => admin || payrollOwns(s));
+    if(!list.some(s => s.id === _prSelId)) _prSelId = list.length ? list[0].id : null;
+    const sel = list.find(s => s.id === _prSelId) || null;
 
-    const container = document.getElementById("payrollContainer");
-    container.innerHTML = list.length
-        ? list.map(s => staffBoxHtml(s, scope)).join("")
-        : `<p class="empty">No staff match. Click “+ Add Staff” to begin.</p>`;
-
-    // summary cards (scoped to the current period)
     const gross = list.reduce((sum, s) => sum + rangeGross(s, scope.start, scope.end), 0);
     const ded   = list.reduce((sum, s) => sum + rangeDeductions(s, scope.start, scope.end).total, 0);
     const net   = gross - ded;
-    document.getElementById("payrollScopeLabel").textContent =
-        "— " + scope.label + " · " + list.length + " staff";
-    const cards = [
-        ["Total Gross Pay", peso2(gross), "#2e7d4f"],
-        ["Total Benefits / Deductions", peso2(ded), "#c0283d"],
-        ["Total Net Pay", peso2(net), "#bd6e3f"]
-    ];
-    document.getElementById("payrollCards").innerHTML = cards.map(c => `
-        <div class="card"><h3>${c[0]}</h3><div class="number money" style="color:${c[2]};">${c[1]}</div></div>`).join("");
+
+    const gp = id => document.getElementById(id);
+    gp("prPayoutLbl").textContent = "Net payout · " + scope.label;
+    gp("prPayoutVal").textContent = peso2(net);
+    gp("prPayoutSub").innerHTML = `Gross ${peso2(gross)} · Deductions −${peso2(ded)}`;
+    gp("prSub").textContent = scope.label + " · " + list.length + " staff" + prFinalizeNote(scope);
+    gp("prSegStaff").classList.toggle("active", _prGroup !== "roles");
+    gp("prSegRoles").classList.toggle("active", _prGroup === "roles");
+
+    prRenderList(list, scope);
+    prRenderDetail(sel, scope);
 
     savePayrollFilters();
 }
