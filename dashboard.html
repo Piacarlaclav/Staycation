@@ -2891,11 +2891,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <div class="pr-period">
                 <select id="payFilterCutoff" onchange="renderPayroll()">
                     <option value="month">This month</option>
-                    <option value="15">15th cut-off</option>
-                    <option value="30">30th cut-off</option>
                     <option value="today">Today</option>
                     <option value="">All cut-offs</option>
                     <option value="custom">Custom range</option>
+                    <optgroup label="Jump to a cut-off" id="payCutoffGroup"></optgroup>
                 </select>
                 <span id="payCustomDates" style="display:none; margin-top:8px;">
                     <label class="fin-date">From <input type="date" id="payFrom" onchange="renderPayroll()" onclick="this.showPicker && this.showPicker()"></label>
@@ -11845,6 +11844,23 @@ function fillPayrollStaffFilter(){
         opts.map(s => `<option value="${s.id}">${s.name}</option>`).join("");
     sel.value = opts.some(s => String(s.id) === prev) ? prev : "";
 }
+// Fill the "Jump to a cut-off" list in the payroll period dropdown — one option per 15th/30th cut-off
+// across a range of months (value "cut:<payIso>", resolved by resolveScope), sorted by date.
+function fillPayrollCutoffs(){
+    const grp = document.getElementById("payCutoffGroup"); if(!grp) return;
+    const cutSel = document.getElementById("payFilterCutoff");
+    const cur = cutSel ? cutSel.value : "";
+    const t = today();
+    const opts = [];
+    for(let off = -6; off <= 2; off++){
+        const d = new Date(t.getFullYear(), t.getMonth() + off, 1), y = d.getFullYear(), m = d.getMonth();
+        opts.push(pIso(new Date(y, m, 15)));
+        opts.push(pIso(new Date(y, m, Math.min(30, pLastDay(y, m)))));
+    }
+    opts.sort();   // chronological by cut-off finalize date
+    grp.innerHTML = opts.map(p => `<option value="cut:${p}">${cutoffOptionLabel(p)}</option>`).join("");
+    if(cutSel && cur) cutSel.value = cur;   // keep the current selection
+}
 // 15th/30th filter resolves to a cut-off in the latest period that has data
 function payrollAnchor(){
     const cuts = [...new Set(staff.flatMap(s => staffCutoffs(s)))].sort();
@@ -11878,6 +11894,11 @@ function resolveScope(val){
     }
     if(val === "15" || val === "30"){
         const payIso = resolveCutoff(val);
+        const r = cutoffRangeOf(payIso);
+        return { start:r.start, end:r.end, label:cutoffLabel(payIso) };
+    }
+    if(val && val.indexOf("cut:") === 0){          // a specific cut-off picked from the list (cut:YYYY-MM-DD)
+        const payIso = val.slice(4);
         const r = cutoffRangeOf(payIso);
         return { start:r.start, end:r.end, label:cutoffLabel(payIso) };
     }
@@ -12316,6 +12337,7 @@ function prRenderDetail(s, scope){
 function renderPayroll(){
     ensurePayrollDataFresh();   // make sure housekeeping pay reflects the latest cleanings
     fillPayrollStaffFilter();   // keeps the hidden staff filter populated for the PDF export
+    fillPayrollCutoffs();       // populate the "jump to a cut-off" list
     const admin = payrollIsAdmin();
     const adminBtns = document.getElementById("payrollAdminBtns");
     if(adminBtns) adminBtns.style.display = admin ? "" : "none";
@@ -12362,6 +12384,7 @@ function restorePayrollFilters(){
     let f; try { f = JSON.parse(localStorage.getItem("shph_payroll_filters")); } catch(e){}
     if(!f) return;
     fillPayrollStaffFilter();   // populate staff options so the saved one can be selected
+    fillPayrollCutoffs();       // populate cut-off options so a saved "cut:…" selection can be restored
     const set = (id, val) => { const el = document.getElementById(id); if(el && val != null) el.value = val; };
     set("payFilterRole", f.role);
     set("payFilterCutoff", f.cutoff);
