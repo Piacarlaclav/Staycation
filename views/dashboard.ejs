@@ -12198,14 +12198,24 @@ function ensurePayrollDataFresh(){
     if(_payFetching) return;
     if(Date.now() - _payFetchedAt < 12000) return;   // throttle
     _payFetching = true;
-    fetch("/api/kv/shph_cleaning_v1", { cache: "no-store" })
-        .then(r => r.ok ? r.json() : null)
-        .then(j => {
+    // Payroll math needs the LIVE cleaning log (housekeeping pay), staff list (roles + custom rates)
+    // and bookings (Assist/Commission). A stale local copy makes everyone show ₱0 on a cold load —
+    // so pull all three fresh, then re-render if anything changed. Never replace with an empty list.
+    const getJson = key => fetch("/api/kv/" + key, { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null);
+    Promise.all([getJson("shph_cleaning_v1"), getJson("shph_staff_v1"), getJson("shph_bookings_v3")])
+        .then(([cl, st, bk]) => {
             _payFetching = false; _payFetchedAt = Date.now();
-            if(j && typeof j === "object" && !Array.isArray(j) && JSON.stringify(j) !== JSON.stringify(cleaning)){
-                cleaning = j;                       // refresh the in-memory copy the payroll reads
-                if(typeof renderPayroll === "function") renderPayroll();
+            let changed = false;
+            if(cl && typeof cl === "object" && !Array.isArray(cl) && JSON.stringify(cl) !== JSON.stringify(cleaning)){ cleaning = cl; changed = true; }
+            if(Array.isArray(st) && st.length){
+                const fresh = st.filter(x => x && !x.deleted);
+                if(JSON.stringify(fresh) !== JSON.stringify(staff)){ staff = fresh; changed = true; }
             }
+            if(Array.isArray(bk) && bk.length){
+                const fresh = bk.filter(x => x && !x.deleted);
+                if(fresh.length !== bookings.length){ bookings = fresh; changed = true; }
+            }
+            if(changed && typeof renderPayroll === "function") renderPayroll();
         })
         .catch(() => { _payFetching = false; });
 }
@@ -12219,7 +12229,7 @@ function prAvatar(s){
     return { initials, color: _PR_AV_COLORS[h % _PR_AV_COLORS.length] };
 }
 function prSetGroup(g){ _prGroup = (g === "roles") ? "roles" : "staff"; renderPayroll(); }
-function prSelect(id){ _prSelId = id; renderPayroll(); }
+function prSelect(id){ _prSelId = id; try{ localStorage.setItem("shph_payroll_sel", String(id)); }catch(e){} renderPayroll(); }
 function prFinalizeNote(scope){
     try{ if(!scope.end) return ""; const e = new Date(scope.end + "T00:00:00"); const f = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1);
         return " · cut-off finalizes " + f.toLocaleDateString("en-PH", { month:"short", day:"numeric" }); }catch(e){ return ""; }
@@ -12316,6 +12326,9 @@ function renderPayroll(){
 
     // everyone the viewer may see (admin: all; otherwise only their own record)
     const list = staff.filter(s => admin || payrollOwns(s));
+    // remember the last-selected staff across refreshes (JS state resets on reload, so it used to
+    // jump back to the first person)
+    if(_prSelId == null){ try{ const sv = localStorage.getItem("shph_payroll_sel"); if(sv != null && sv !== "") _prSelId = isNaN(Number(sv)) ? sv : Number(sv); }catch(e){} }
     if(!list.some(s => s.id === _prSelId)) _prSelId = list.length ? list[0].id : null;
     const sel = list.find(s => s.id === _prSelId) || null;
 
