@@ -11737,10 +11737,13 @@ function staffAllDays(s){
     // purely housekeeping (housekeeping days come from completed cleanings instead)
     const usesManualDays = [s.role, s.role2].some(r => r && r !== "HOUSEKEEPING");
     if(usesManualDays) (s.days || []).forEach(d => { if(d.date) map[d.date] = { ...d }; });
-    // "Auto-earn Assist on every booking day": add a day for each date a non-cancelled booking checks
-    // in, so this staff earns their per-booking Assist rate without any manual "+ Add day".
+    // "Auto-earn Assist on every booking day": add a day for each date a booking has ALREADY CHECKED
+    // IN (check-in date on/before today), so this staff earns their per-booking Assist rate without a
+    // manual "+ Add day". Only successful (non-cancelled) check-ins count, once per booking on its
+    // check-in day — FUTURE bookings don't earn until they actually check in.
     if(s.assistAuto && typeof bookings !== "undefined" && Array.isArray(bookings)){
-        bookings.forEach(b => { if(b && !b.cancelled && !b.deleted && b.checkin && !map[b.checkin]) map[b.checkin] = { id: "book-" + b.checkin, date: b.checkin }; });
+        const _todayIso = iso(today());
+        bookings.forEach(b => { if(b && !b.cancelled && !b.deleted && b.checkin && b.checkin <= _todayIso && !map[b.checkin]) map[b.checkin] = { id: "book-" + b.checkin, date: b.checkin }; });
     }
     // dates this person finished cleanings (DONE) — counts for any role
     const dc = cleaningDatesFor(s.name);
