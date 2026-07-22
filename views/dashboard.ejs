@@ -12325,6 +12325,10 @@ function canAddBooking(){
 // log when the page renders, then re-render if it changed. Throttled so it fires at most occasionally.
 let _payFetching = false, _payFetchedAt = 0;
 function ensurePayrollDataFresh(){
+    // CRITICAL: never for a scoped partner. Payroll is admin-only, and this fetch reassigns the
+    // GLOBAL bookings/staff to the business-wide lists — which would UNDO the partner's haven filter
+    // (set at load) and leak every haven's data into their Today's Booking / Deposit / Analytics.
+    if(window.__PARTNER__ && !window.__PARTNER__.superAdmin) return;
     if(_payFetching) return;
     if(Date.now() - _payFetchedAt < 12000) return;   // throttle
     _payFetching = true;
