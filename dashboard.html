@@ -12218,7 +12218,9 @@ function canAddBooking(){
 let _payFetching = false, _payFetchedAt = 0;
 function ensurePayrollDataFresh(){
     if(_payFetching) return;
-    if(Date.now() - _payFetchedAt < 12000) return;   // throttle
+    // throttle only when we ALREADY have data; if cleaning/staff is empty, always fetch (cold load)
+    const haveData = cleaning && Object.keys(cleaning).length && Array.isArray(staff) && staff.length;
+    if(haveData && Date.now() - _payFetchedAt < 12000) return;
     _payFetching = true;
     // Payroll math needs the LIVE cleaning log (housekeeping pay), staff list (roles + custom rates)
     // and bookings (Assist/Commission). A stale local copy makes everyone show ₱0 on a cold load —
@@ -12228,7 +12230,8 @@ function ensurePayrollDataFresh(){
         .then(([cl, st, bk]) => {
             _payFetching = false; _payFetchedAt = Date.now();
             let changed = false;
-            if(cl && typeof cl === "object" && !Array.isArray(cl) && JSON.stringify(cl) !== JSON.stringify(cleaning)){ cleaning = cl; changed = true; }
+            // never overwrite a good local copy with an EMPTY fetch (that was wiping housekeeping pay)
+            if(cl && typeof cl === "object" && !Array.isArray(cl) && Object.keys(cl).length && JSON.stringify(cl) !== JSON.stringify(cleaning)){ cleaning = cl; changed = true; }
             if(Array.isArray(st) && st.length){
                 const fresh = st.filter(x => x && !x.deleted);
                 if(JSON.stringify(fresh) !== JSON.stringify(staff)){ staff = fresh; changed = true; }
