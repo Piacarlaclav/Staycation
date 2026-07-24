@@ -2840,7 +2840,6 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <h2>Activity Log <span class="muted" style="font-weight:400;">— who did what, and when</span></h2>
             <div style="display:flex; gap:8px;">
                 <button class="btn secondary" onclick="exportAllData()">⬇ Export backup</button>
-                <button class="btn secondary" onclick="clearActivityLog()">Clear log</button>
             </div>
         </div>
         <div id="logList"></div>
@@ -12228,8 +12227,12 @@ function logActivity(action, user){
     try {
         let log = [];
         try { log = JSON.parse(localStorage.getItem(ACTIVITY_KEY)) || []; } catch(e){}
-        log.push({ user: user || currentUser(), action, at: new Date().toISOString() });
-        localStorage.setItem(ACTIVITY_KEY, JSON.stringify(log.slice(-500))); // keep last 500
+        // Each entry carries a stable unique id so the server can MERGE logs from every device
+        // (Nicole, Jedd, Piaganda…) instead of the last device's whole-array write clobbering the
+        // others — which was silently dropping other people's entries.
+        const id = (typeof uid === "function" ? uid() : Date.now()) + "-" + Math.random().toString(36).slice(2, 8);
+        log.push({ id, user: user || currentUser(), action, at: new Date().toISOString() });
+        localStorage.setItem(ACTIVITY_KEY, JSON.stringify(log.slice(-500))); // keep last 500 locally
     } catch(e){ /* never let logging break an action (e.g. storage full) */ }
 }
 function renderLog(){

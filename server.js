@@ -275,7 +275,12 @@ const MERGE_LIST_KEYS = new Set([
   "shph_violations_v1",
   "shph_applications_v1",  // partner/affiliate applications (id-keyed; written via /api/apply + /api/list)
   "shph_affiliates_v1",    // approved affiliates: personal code + credit ledger (session-gated writes)
-  "shph_notes_v1"          // owner's private notes (admin-only; see ADMIN_ONLY_KEYS)
+  "shph_notes_v1",         // owner's private notes (admin-only; see ADMIN_ONLY_KEYS)
+  // Activity log = employee audit trail. Every device's entries must survive, so it MERGES here
+  // (store.js gives it a special content-key merge so even legacy id-less entries are never dropped
+  // and it's trimmed to a safe size). Was a plain whole-array write → concurrent devices (Nicole,
+  // Jedd, Piaganda…) silently overwrote each other's entries. seed-bridge merges it on load too.
+  "shph_activity_log"
 ]);
 
 // Keys only an ADMIN session may read/write. The owner's private notes must never reach a

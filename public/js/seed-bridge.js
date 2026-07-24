@@ -263,6 +263,28 @@
         if (!isEmptyVal(lv)) { push(k, lr); return; }   // migrate up, keep local copy
       }
     }
+    // Activity log = employee audit trail: UNION local + server so entries this browser logged
+    // (but hasn't finished syncing) survive a refresh, AND entries other devices logged appear.
+    // Key by per-entry `id` when present, else a content key (time|user|action) so legacy id-less
+    // entries and cross-device duplicates are handled correctly — nothing is ever dropped. The
+    // server (store.js) holds the full trimmed history; the browser keeps a recent window.
+    if (k === "shph_activity_log") {
+      var srvLog = Array.isArray(sv) ? sv : [];
+      var locLog = []; try { locLog = JSON.parse(localStorage.getItem(k) || "[]") || []; } catch (e) { locLog = []; }
+      var akey = function (e) {
+        return (e && e.id != null)
+          ? ("id:" + String(e.id))
+          : ("c:" + String((e && e.at) || "") + "|" + String((e && e.user) || "") + "|" + String((e && e.action) || ""));
+      };
+      var aseen = {}, aMerged = [], aAddedLocal = false;
+      srvLog.forEach(function (e) { if (!e) return; var kk = akey(e); if (!(kk in aseen)) { aseen[kk] = 1; aMerged.push(e); } });
+      locLog.forEach(function (e) { if (!e) return; var kk = akey(e); if (!(kk in aseen)) { aseen[kk] = 1; aMerged.push(e); aAddedLocal = true; } });
+      aMerged.sort(function (a, b) { return String((a && a.at) || "").localeCompare(String((b && b.at) || "")); });
+      if (aMerged.length > 800) aMerged = aMerged.slice(-800);   // recent window for this device; server keeps the full log
+      safeSet(k, JSON.stringify(aMerged));
+      if (aAddedLocal) push(k, JSON.stringify(aMerged));         // re-send local-only entries so the server absorbs them
+      return;
+    }
     // Merged list stores: NEVER let the server copy silently drop a record this browser saved
     // but hasn't finished syncing yet (e.g. you clicked Save then refreshed). Merge local +
     // server by id and re-push anything the server is still missing — the durable queue keeps
