@@ -4429,6 +4429,23 @@ const DASH_HAVEN_TIMES = {
     "Haven 4":{in:"3:00 PM"}, "Haven 5":{in:"3:00 PM"}, "Haven 7":{in:"3:00 PM"},
     "Haven 8":{in:"6:00 PM"}, "CasaBienca":{in:"6:00 PM"}, "CasaSiesta":{in:"6:00 PM"}
 };
+// Tolerant lookup: bookings saved before the spelling fix carry "Casa Bienca" (with a
+// space), so retry ignoring spaces. Old records must still resolve to the right times.
+function dashHavenTimes(name){
+    const t = DASH_HAVEN_TIMES[name];
+    if(t) return t;
+    const k = String(name || "").replace(/\s+/g, "");
+    const hit = Object.keys(DASH_HAVEN_TIMES).find(h => h.replace(/\s+/g, "") === k);
+    return hit ? DASH_HAVEN_TIMES[hit] : null;
+}
+// Same tolerant name match havens.html uses, for CONFLICT / AVAILABILITY checks only:
+// a booking saved before the spelling fix reads "Casa Bienca" (with a space) and must
+// still block the dates of today's "CasaBienca", or we'd double-book the room.
+// Deliberately NOT used for partner scoping — a scoping filter must stay exact.
+function sameHavenName(a, b){
+    const norm = s => String(s || "").replace(/\s+/g, "").toLowerCase();
+    return norm(a) === norm(b);
+}
 function parseTimeMin(str){
     const m = String(str).match(/^(\d{1,2}):(\d{2})\s*(AM|PM|NN|MN)$/i);
     if(!m) return null;
@@ -4446,8 +4463,11 @@ function minToTime(min){
 function bookingCheckinMin(b){
     if(b.checkinTime){ const m = parseTimeMin(b.checkinTime); if(m != null) return m === 0 ? 1440 : m; }
     const h = Number(b.stayHours) || 21;
-    if(h === 6) return parseTimeMin(b.slot === "evening" ? "7:00 PM" : "9:00 AM");
-    if(h === 21){ const t = DASH_HAVEN_TIMES[b.haven]; return t ? parseTimeMin(t.in) : parseTimeMin("12:00 NN"); }
+    // 6-hour morning slot starts 8:00 AM. Guest and admin MUST show the same time for the
+    // same booking — keep this in step with havens.html, payment.html, todaysbooking.html,
+    // nicole-dashboard.html and lib/assist.js. This copy said 9:00 AM and split the two.
+    if(h === 6) return parseTimeMin(b.slot === "evening" ? "7:00 PM" : "8:00 AM");
+    if(h === 21){ const t = dashHavenTimes(b.haven); return t ? parseTimeMin(t.in) : parseTimeMin("12:00 NN"); }
     return parseTimeMin("8:00 AM");
 }
 function checkinTimeStr(b){ return minToTime(bookingCheckinMin(b)); }
@@ -5395,7 +5415,7 @@ function renderAvailability(){
     const scoped = (window.__PARTNER__ && !window.__PARTNER__.superAdmin && window.__PARTNER__.haven);
     const havenList = scoped ? [window.__PARTNER__.haven] : HAVENS;
     const rows = havenList.map(function(h){
-        const intervals = bookings.filter(function(b){ return !b.cancelled && b.haven === h && b.checkin; })
+        const intervals = bookings.filter(function(b){ return !b.cancelled && sameHavenName(b.haven, h) && b.checkin; })
             .map(function(b){ const iv = bookingInterval(b); return { ci: iv.start, freeAt: iv.end + CLEANING_GAP_MIN }; })
             .sort(function(a, b){ return a.ci - b.ci; });
         // Earliest free check-in at/after the floor. IMPORTANT: if the first free gap is too
@@ -5455,7 +5475,7 @@ function havenAvailableOn(haven, dateIso, OFFERED){
     const dayEnd = dayAbs + 1440;
     let floor = dayAbs + earliestCheckinMin();
     if(dateIso === iso(today())) floor = Math.max(floor, Math.round(Date.now() / 60000));
-    const intervals = bookings.filter(b => b && !b.cancelled && b.haven === haven && b.checkin)
+    const intervals = bookings.filter(b => b && !b.cancelled && sameHavenName(b.haven, haven) && b.checkin)
         .map(b => { const iv = bookingInterval(b); return { ci: iv.start, freeAt: iv.end + CLEANING_GAP_MIN }; })
         .sort((a, b) => a.ci - b.ci);
     let availFrom = floor, next = null, fits = [], hop = 0;

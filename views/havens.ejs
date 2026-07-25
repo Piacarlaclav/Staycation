@@ -428,7 +428,10 @@ const MAX_ADULTS = 4;
 const MAX_CHILDREN = 2;
 const MAX_KIDS = 4;        // under-3s, not counted toward occupancy
 
-// standard Sat/Sun 21-hour check-in / check-out times, by haven
+// standard Sat/Sun 21-hour check-in / check-out times, by haven.
+// Keys MUST match the haven name exactly as stored on havens/bookings: "CasaBienca"
+// and "CasaSiesta", no space. "Casa Bienca" (with a space) never matched, so those
+// havens fell back to 12:00 NN / "Standard time".
 const HAVEN_TIMES = {
     "Haven 1":     { in: "12:00 NN", out: "9:00 AM" },
     "Haven 2":     { in: "12:00 NN", out: "9:00 AM" },
@@ -437,8 +440,18 @@ const HAVEN_TIMES = {
     "Haven 5":     { in: "3:00 PM",  out: "12:00 NN" },
     "Haven 7":     { in: "3:00 PM",  out: "12:00 NN" },
     "Haven 8":     { in: "6:00 PM",  out: "3:00 PM" },
-    "Casa Bienca": { in: "6:00 PM",  out: "3:00 PM" }
+    "CasaBienca":  { in: "6:00 PM",  out: "3:00 PM" },
+    "CasaSiesta":  { in: "6:00 PM",  out: "3:00 PM" }
 };
+// Tolerant lookup: bookings/havens saved before the spelling fix carry "Casa Bienca"
+// (with a space), so retry ignoring spaces. Old records must still show the right times.
+function havenTimes(name) {
+    const t = HAVEN_TIMES[name];
+    if (t) return t;
+    const k = String(name || "").replace(/\s+/g, "");
+    const hit = Object.keys(HAVEN_TIMES).find(h => h.replace(/\s+/g, "") === k);
+    return hit ? HAVEN_TIMES[hit] : null;
+}
 
 // flexible check-in times (10-hour stays, etc.): 8 AM – 10 PM
 const FLEX_TIMES = [
@@ -653,7 +666,7 @@ function updateCheckinTimeOptions() {
 
     if (manualRange && selEnd) {
         // multi-night → fixed standard check-in time for this haven
-        const t = HAVEN_TIMES[currentHavenName];
+        const t = havenTimes(currentHavenName);
         const inTime = t ? t.in : "Standard time";
         sel.innerHTML = `<option value="${inTime}">${inTime} (standard)</option>`;
         sel.disabled = true;
@@ -732,7 +745,7 @@ function bookingStartMin(b){
     if(b.checkinTime){ const m = checkinMinOf(b.checkinTime); if(m != null) return m; }
     const h = Number(b.stayHours) || 21;
     if(h === 6) return parseTimeToMinutes(b.slot === "evening" ? "7:00 PM" : "8:00 AM");
-    if(h === 21){ const t = HAVEN_TIMES[b.haven] || HAVEN_TIMES[currentHavenName]; return t ? parseTimeToMinutes(t.in) : parseTimeToMinutes("12:00 NN"); }
+    if(h === 21){ const t = havenTimes(b.haven) || havenTimes(currentHavenName); return t ? parseTimeToMinutes(t.in) : parseTimeToMinutes("12:00 NN"); }
     return parseTimeToMinutes("8:00 AM");   // 10h fallback
 }
 function bookingDurationMin(b){
@@ -763,7 +776,7 @@ function rawTimesForHours(hours, checkinIso){
         const day = isoToDate(checkinIso).getDay();
         // Saturday → fixed standard check-in; other days flexible (Sunday depends on
         // the previous guest's checkout, which the cleaning-gap check already enforces)
-        if(day === 6){ const t = HAVEN_TIMES[currentHavenName]; return t ? [t.in] : ["3:00 PM"]; }
+        if(day === 6){ const t = havenTimes(currentHavenName); return t ? [t.in] : ["3:00 PM"]; }
         return FLEX_TIMES;
     }
     return FLEX_TIMES;   // 10h
@@ -810,7 +823,7 @@ function dayHasAnyFreeTime(iso){
 function recomputeCheckout() {
     if (manualRange && selEnd) {
         // multi-night: checkout date is the one the guest picked; show standard time
-        const t = HAVEN_TIMES[currentHavenName];
+        const t = havenTimes(currentHavenName);
         renderCheckoutTime(t ? t.out : "Standard time", selEnd);
         return;
     }
@@ -883,7 +896,7 @@ function renderCheckinInfo() {
 
     if (overnight && (day === 0 || day === 6)) {
         // standard fixed schedule for weekend overnight stays
-        const t = HAVEN_TIMES[currentHavenName];
+        const t = havenTimes(currentHavenName);
         const out = t ? t.out : "standard time";
         el.innerHTML = `<span class="ci-time">Standard weekend schedule — check-out <strong>${out}</strong>.</span>`;
     } else {
@@ -914,9 +927,12 @@ function todayIso() { return dateToIso(new Date()); }
 // both 6-hour slots (morning + evening) are already taken. A day with only
 // one 6-hour slot booked stays selectable for the other slot.
 // tolerant haven-name match (ignores stray whitespace / casing differences
-// between the website listing name and the dashboard booking's haven name)
+// between the website listing name and the dashboard booking's haven name).
+// ALL whitespace is stripped, not just the ends: bookings saved before the spelling
+// fix carry "Casa Bienca" and must still block the dates of today's "CasaBienca".
 function sameHaven(a, b) {
-    return String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
+    const norm = s => String(s || "").replace(/\s+/g, "").toLowerCase();
+    return norm(a) === norm(b);
 }
 
 // days touched by ANY booking — used to block multi-night ranges (which need whole days)

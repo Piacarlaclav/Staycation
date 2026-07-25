@@ -141,11 +141,23 @@ function pSameHaven(a, b){ return String(a || "").trim().toLowerCase() === Strin
 
 // time-aware conflict guard, mirroring the haven page (2-hour cleaning gap)
 const PAY_CLEAN_BUFFER = 120;
+// Haven names here MUST match the strings stored on bookings exactly: "CasaBienca"
+// and "CasaSiesta", no space. "Casa Bienca" (with a space) never matched, so a
+// 21-hour booking there with no explicit checkinTime fell back to 12:00 NN.
 const PAY_HAVEN_TIMES = {
     "Haven 1":{in:"12:00 NN"}, "Haven 2":{in:"12:00 NN"}, "Haven 3":{in:"12:00 NN"},
     "Haven 4":{in:"3:00 PM"}, "Haven 5":{in:"3:00 PM"}, "Haven 7":{in:"3:00 PM"},
-    "Haven 8":{in:"6:00 PM"}, "Casa Bienca":{in:"6:00 PM"}
+    "Haven 8":{in:"6:00 PM"}, "CasaBienca":{in:"6:00 PM"}, "CasaSiesta":{in:"6:00 PM"}
 };
+// Tolerant lookup: bookings saved before the spelling fix carry "Casa Bienca" (with a
+// space), so retry ignoring spaces. Old records must still resolve to the right times.
+function pHavenTimes(name){
+    const t = PAY_HAVEN_TIMES[name];
+    if(t) return t;
+    const k = String(name || "").replace(/\s+/g, "");
+    const hit = Object.keys(PAY_HAVEN_TIMES).find(h => h.replace(/\s+/g, "") === k);
+    return hit ? PAY_HAVEN_TIMES[hit] : null;
+}
 function pParseTime(str){
     const m = String(str).match(/^(\d{1,2}):(\d{2})\s*(AM|PM|NN|MN)$/i);
     if(!m) return null;
@@ -159,7 +171,7 @@ function pStartMin(x){
     if(x.checkinTime){ const m = pCheckinMin(x.checkinTime); if(m != null) return m; }
     const h = Number(x.stayHours) || 21;
     if(h === 6) return pParseTime(x.slot === "evening" ? "7:00 PM" : "8:00 AM");
-    if(h === 21){ const t = PAY_HAVEN_TIMES[x.haven]; return t ? pParseTime(t.in) : pParseTime("12:00 NN"); }
+    if(h === 21){ const t = pHavenTimes(x.haven); return t ? pParseTime(t.in) : pParseTime("12:00 NN"); }
     return pParseTime("8:00 AM");
 }
 function pAbsInterval(x){

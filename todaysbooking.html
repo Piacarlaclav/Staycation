@@ -882,11 +882,23 @@
     }catch(e){}
     localStorage.setItem(KEY, JSON.stringify(data));
   }
+  // Haven names here MUST match the strings stored on bookings exactly: "CasaBienca"
+  // and "CasaSiesta", no space. "Casa Bienca" (with a space) never matched, so a
+  // 21-hour booking there with no explicit checkinTime fell back to 12:00 NN.
   const HAVEN_TIMES = {
     "Haven 1":{in:"12:00 NN"}, "Haven 2":{in:"12:00 NN"}, "Haven 3":{in:"12:00 NN"},
     "Haven 4":{in:"3:00 PM"}, "Haven 5":{in:"3:00 PM"}, "Haven 7":{in:"3:00 PM"},
-    "Haven 8":{in:"6:00 PM"}, "Casa Bienca":{in:"6:00 PM"}
+    "Haven 8":{in:"6:00 PM"}, "CasaBienca":{in:"6:00 PM"}, "CasaSiesta":{in:"6:00 PM"}
   };
+  // Tolerant lookup: bookings saved before the spelling fix carry "Casa Bienca" (with a
+  // space), so retry ignoring spaces. Old records must still resolve to the right times.
+  function havenTimes(name){
+    const t = HAVEN_TIMES[name];
+    if(t) return t;
+    const k = String(name || "").replace(/\s+/g, "");
+    const hit = Object.keys(HAVEN_TIMES).find(h => h.replace(/\s+/g, "") === k);
+    return hit ? HAVEN_TIMES[hit] : null;
+  }
 
   /* ---------- date helpers ---------- */
   function today(){ const d = new Date(); d.setHours(0,0,0,0); return d; }
@@ -946,7 +958,7 @@
     if(b.checkinTime){ const m = parseTimeMin(b.checkinTime); if(m != null) return m === 0 ? 1440 : m; }
     const h = Number(b.stayHours) || 21;
     if(h === 6) return parseTimeMin(b.slot === "evening" ? "7:00 PM" : "8:00 AM");
-    if(h === 21){ const t = HAVEN_TIMES[b.haven]; return t ? parseTimeMin(t.in) : parseTimeMin("12:00 NN"); }
+    if(h === 21){ const t = havenTimes(b.haven); return t ? parseTimeMin(t.in) : parseTimeMin("12:00 NN"); }
     return parseTimeMin("8:00 AM");
   }
   function checkinTimeStr(b){ return minToTime(bookingCheckinMin(b)); }
@@ -2190,7 +2202,8 @@
   function escTxt(s){ return String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c])); }
 
   /* ---------- add booking (saves to the shared Calendar/Bookings data) ---------- */
-  const HAVENS = ["Haven 1","Haven 2","Haven 3","Haven 4","Haven 5","Haven 7","Haven 8","Casa Bienca"];
+  // Names must match the stored booking spelling: "CasaBienca"/"CasaSiesta", no space.
+  const HAVENS = ["Haven 1","Haven 2","Haven 3","Haven 4","Haven 5","Haven 7","Haven 8","CasaBienca","CasaSiesta"];
   // Stay lengths the owner actually OFFERS (Rates & Add-ons -> "Offer on website" toggles,
   // stored in shph_settings.pricing). Turning 6 hours off there must drop it from Availability
   // too, or we advertise a duration nobody can book. Falls back to 21h so the table is never empty.
