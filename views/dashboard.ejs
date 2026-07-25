@@ -5392,8 +5392,57 @@ document.addEventListener("click", function(e){
     const p = document.getElementById("availDpPopup");
     if(p && p.classList.contains("show") && e.target && e.target.closest && !e.target.closest(".dp-wrap")) p.classList.remove("show");
 });
+/* Availability is the one screen the owner reads out loud to a paying guest, so it must never
+   answer from a stale list. `bookings` is loaded ONCE at page load, so a booking made on another
+   device was invisible until a full reload — a wrong "not available" loses a sale and a wrong
+   "available" creates a double booking. So pull the LIVE bookings whenever this view is opened or
+   its date changes, then re-render if anything actually changed. */
+let _avFetching = false, _avFetchedAt = 0;   // declared before renderAvailability runs at init (no TDZ)
+function ensureAvailabilityFresh(){
+    /* CRITICAL — this reassigns the GLOBAL `bookings`, which carries the partner haven filter
+       applied at load. ensurePayrollDataFresh once did exactly this and leaked EVERY haven's data
+       to a scoped partner. Both guards, deliberately (belt and braces):
+         (a) a scoped partner never runs this at all, and
+         (b) even if it somehow did, the haven filter is re-applied on the fresh list below —
+             same strict === match as the loader/storage handler. Never loosen it. */
+    if(window.__PARTNER__ && !window.__PARTNER__.superAdmin) return;                     // (a)
+    if(_avFetching) return;
+    if(Date.now() - _avFetchedAt < 12000) return;   // throttle (same budget as payroll's)
+    _avFetching = true;
+    fetch("/api/kv/shph_bookings_v3", { cache:"no-store" })
+        .then(r => r.ok ? r.json() : null)
+        .then(bk => {
+            _avFetching = false; _avFetchedAt = Date.now();
+            if(!Array.isArray(bk) || !bk.length) return;            // never replace the list with nothing
+            let fresh = bk.filter(x => x && !x.deleted);
+            if(window.__PARTNER__ && !window.__PARTNER__.superAdmin && window.__PARTNER__.haven){
+                fresh = fresh.filter(b => b.haven === window.__PARTNER__.haven);         // (b)
+            }
+            // Keep any booking this device holds that the server hasn't got yet (offline / queued),
+            // so a refresh can never make a just-added booking disappear. The seen-set is built from
+            // the FULL server response — including soft-DELETED records — because a booking deleted
+            // on another device is absent from `fresh`, and matching on `fresh` would push this
+            // tab's stale copy back in, resurrecting a ghost that makes a free haven read
+            // "not available" (and the signature would then match forever, so the deletion could
+            // never reach this tab again).
+            const seen = new Set(bk.map(b => b && String(b.id)));
+            bookings.forEach(b => { if(b && !seen.has(String(b.id))) fresh.push(b); });
+            // every field that moves a booking's occupancy window (see bookingInterval /
+            // bookingCheckinMin) — if none of these changed, the availability answer is identical
+            const sig = list => list.map(b => [b.id, b.haven, b.checkin, b.checkout, b.checkinTime || "",
+                                                b.slot || "", b.stayHours || "", b.extend || "",
+                                                b.actualCheckoutMin || "", b.cancelled ? 1 : 0].join("|")).sort().join(",");
+            if(sig(fresh) === sig(bookings)) return;                 // nothing that affects availability changed
+            bookings = fresh;
+            if(typeof _seedBkSig === "function") _seedBkSig(bookings);   // adopt as baseline → don't re-stamp others' edits
+            if(calView === "availability"){ if(availViewMode === "month") renderAvailMonth(); else renderAvailability(); }
+        })
+        // stamp the time on failure too, or a persistent network error re-fires on EVERY render
+        .catch(() => { _avFetching = false; _avFetchedAt = Date.now(); });
+}
 // For the selected date, show each haven's earliest available check-in + its next booking.
 function renderAvailability(){
+    ensureAvailabilityFresh();   // throttled; re-renders itself if the live list turns out to differ
     if(!availDateSel) availDateSel = iso(today());
     const D = availDateSel;
     const lbl = document.getElementById("availDateLabel"); if(lbl) lbl.textContent = fmtDow(D);
@@ -5517,6 +5566,7 @@ function availMonthShift(dir){
 function availMonthToday(){ availDateSel = iso(today()); renderAvailMonth(); }
 function availOpenDay(di){ availDateSel = di; setAvailView("day"); }
 function renderAvailMonth(){
+    ensureAvailabilityFresh();   // same live-data guard as the day view (throttled)
     if(!availDateSel) availDateSel = iso(today());
     const base = new Date(availDateSel + "T00:00:00");
     const y = base.getFullYear(), m = base.getMonth();
@@ -13489,18 +13539,57 @@ function persistCleaning(){
     try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(CLEAN_KEY, JSON.stringify(cleaning)); return true; }
     catch(e){ alert("Could not save — browser storage is full. Try removing some photos."); return false; }
 }
-// Save ONE booking's cleaning entry to the server (transactional per-entry merge — two cleaners
-// on different havens can never overwrite each other). Local copy updates instantly; a failed
-// server write is announced loudly instead of pretending it saved.
-async function saveCleanEntry(id){
+// Save ONE cleaning ACTION to the server as a delta ({op:"start"|"done"|"addPhoto"|…} + the history
+// row it produced). The server applies it to the LIVE entry inside a transaction.
+// NEVER send the whole entry from here: `cleaning` is built once at page load and is stale within
+// minutes, so posting it wholesale was a raw replace that deleted photos and history logged on other
+// phones (it wiped most cleaning sessions). The local copy updates instantly for a snappy UI, then
+// we ADOPT the server's merged entry so a long-open tab self-heals instead of fighting the server.
+// A failed write is announced loudly instead of pretending it saved.
+// Union two history/report lists the way the server does (id when present, else content key).
+function _cleanRowKey(r){
+    if(r && r.id != null) return "id:" + r.id;
+    return "c:" + ((r && r.at) || "") + "|" + ((r && r.user) || "") + "|" + ((r && (r.action != null ? r.action : r.note)) || "");
+}
+function _cleanUnionRows(a, b){
+    const m = new Map();
+    (Array.isArray(a) ? a : []).forEach(r => { if(r) m.set(_cleanRowKey(r), r); });
+    (Array.isArray(b) ? b : []).forEach(r => { if(r) m.set(_cleanRowKey(r), r); });
+    return Array.from(m.values()).sort((x, y) => String((x && x.at) || "").localeCompare(String((y && y.at) || "")));
+}
+// Adopt the server's merged entry WITHOUT discarding what this device holds. A plain replace would:
+// (a) visually drop a photo when two uploads answer out of order (the earlier reply doesn't know
+// about the later one), and (b) erase a photo whose POST failed, before the rescue loop can push it.
+// So union the photos (server wins a slot both have), union history/reports, and never move a
+// finish stamp BACKWARDS — doneAt/doneBy pay a cleaner.
+function cleanAdoptEntry(id, srv){
+    if(!srv || typeof srv !== "object" || Array.isArray(srv)) return cleanLog(id);
+    const loc = cleaning[id] || {};
+    const out = Object.assign({}, loc, srv);
+    out.photos  = Object.assign({}, loc.photos || {}, srv.photos || {});
+    out.history = _cleanUnionRows(loc.history, srv.history);
+    out.reports = _cleanUnionRows(loc.reports, srv.reports);
+    const s = v => String(v == null ? "" : v);
+    if(s(loc.doneAt) > s(srv.doneAt)){ out.doneAt = loc.doneAt; out.doneBy = loc.doneBy || srv.doneBy || null; }
+    if(s(loc.startedAt) && (!s(srv.startedAt) || s(loc.startedAt) < s(srv.startedAt))) out.startedAt = loc.startedAt;
+    cleaning[id] = out;
+    return out;
+}
+async function saveCleanEntry(id, delta){
     persistCleaning();
     if(typeof renderCleaners === "function") renderCleaners();
     try{
         const r = await fetch("/api/cleaning/" + encodeURIComponent(id), {
             method:"POST", headers:{ "Content-Type":"application/json" },
-            body: JSON.stringify({ entry: cleaning[id] || null })
+            body: JSON.stringify(delta ? { delta } : { entry: cleaning[id] || null })
         });
         if(!r.ok) throw new Error("HTTP " + r.status);
+        const out = await r.json().catch(() => null);
+        if(out && out.entry && typeof out.entry === "object"){
+            cleanAdoptEntry(id, out.entry);           // union: server's work from every device + ours
+            persistCleaning();
+            if(typeof renderCleaners === "function") renderCleaners();
+        }
     }catch(e){
         alert("⚠️ This cleaning update was NOT saved to the server (slow / offline). It is kept on this device — please redo the action once you're back online.");
     }
@@ -13513,11 +13602,17 @@ function cleanCurrentUser(){
     const sel = document.getElementById("cleanUser");
     return (sel && sel.value) ? sel.value : "Housekeeper";
 }
+// Adds the history row locally AND returns it, so the caller can ship it inside the delta.
+// Each row carries a stable unique id so the server APPENDS + dedupes history from every device
+// instead of one device's array replacing the others (same trick as the activity log's entry ids).
 function cleanAddHistory(log, action, id){
     log.history = log.history || [];
-    log.history.push({ user:cleanCurrentUser(), action, at:new Date().toISOString() });
+    const h = { id: (typeof uid === "function" ? uid() : Date.now()) + "-" + Math.random().toString(36).slice(2, 8),
+                user: cleanCurrentUser(), action, at: new Date().toISOString() };
+    log.history.push(h);
     const b = (id != null) ? bookings.find(x => x.id === id) : null;
-    logActivity(`${action}${b ? " — " + b.haven : ""} (cleaning)`, cleanCurrentUser());
+    logActivity(`${action}${b ? " — " + b.haven : ""} (cleaning)`, h.user);
+    return h;
 }
 // "HH:MM" (24h) -> "h:mm AM/PM"
 function time12(t){
@@ -13792,9 +13887,14 @@ function saveCleanReport(){
 
     const log = cleanLog(cleanReportId);
     log.reports = log.reports || [];
-    log.reports.push({ note: reportText, user: cleanCurrentUser(), at: new Date().toISOString() });
-    cleanAddHistory(log, "Reported an issue: " + reportText, cleanReportId);
-    saveCleanEntry(cleanReportId);
+    // stable id so the server APPENDS this report instead of the whole-entry save replacing the
+    // reports array — that was destroying a damage report filed from another phone, and reports
+    // are what detectViolationType charges to the guest's security deposit
+    const report = { id: (typeof uid === "function" ? uid() : Date.now()) + "-" + Math.random().toString(36).slice(2, 8),
+                     note: reportText, user: cleanCurrentUser(), at: new Date().toISOString() };
+    log.reports.push(report);
+    const h = cleanAddHistory(log, "Reported an issue: " + reportText, cleanReportId);
+    saveCleanEntry(cleanReportId, { op:"report", report, history: h });
 
     // A recognised issue creates a Violations & Damages record, so its fine auto-deducts from the
     // guest's security deposit (shows on the Security Deposit list immediately). A general note with
@@ -13818,11 +13918,13 @@ function cleanCardHtml(b){
         : `<div class="clean-towels none">No towels to retrieve</div>`;
 
     const photoSlots = PHOTO_ROOMS.map(([key, label]) => {
-        const src = photos[key];
+        // only render a value that really is a stored-image reference — this string goes into an
+        // href/src in the admin's browser, so a planted "javascript:…" must never survive to render
+        const src = /^(\/img\/|shphimg::|data:image\/)/.test(String(photos[key] || "")) ? photos[key] : "";
         return `<div class="photo-slot">
             <div class="photo-label">${label}</div>
             ${src
-                ? `<a href="${src}" target="_blank"><img src="${src}" class="photo-thumb" alt="${label}"></a>`
+                ? `<a href="${escAttr(src)}" target="_blank"><img src="${escAttr(src)}" class="photo-thumb" alt="${label}"></a>`
                 : `<div class="photo-empty">No photo</div>`}
             <label class="photo-btn">${src ? "Replace" : "Add photo"}
                 <input type="file" accept="image/*" capture="environment" onchange="cleanPhoto(${b.id}, '${key}', this)">
@@ -13832,9 +13934,11 @@ function cleanCardHtml(b){
     }).join("");
 
     const hist = (log.history || []).slice().reverse();
+    // ESCAPE both fields: history rows arrive from the shared server log, so anything a partner /
+    // staff session can POST would otherwise execute as HTML inside the ADMIN's browser
     const histHtml = hist.length
         ? `<details class="clean-log"><summary>Activity log (${hist.length})</summary><ul>` +
-            hist.map(h => `<li><b>${h.user}</b> — ${h.action} — <span class="muted">${nowFmt(h.at)}</span></li>`).join("") +
+            hist.map(h => `<li><b>${escHtml(h.user || "")}</b> — ${escHtml(h.action || "")} — <span class="muted">${nowFmt(h.at)}</span></li>`).join("") +
           `</ul></details>`
         : `<div class="muted" style="font-size:12px;">No activity yet.</div>`;
 
@@ -13847,7 +13951,7 @@ function cleanCardHtml(b){
         const charged = detType && (_hasViolationType(b.id, detType) || _bookingHasFine(b.id));
         const fine = detType ? Math.max(0, Number(violationFines()[detType]) || 0) : 0;
         reportsHtml = `<div class="clean-reports"><b>⚠ Damage / issue reports</b>` +
-            reports.map(r => `<div class="clean-report-item">${escHtml(r.note)} <span class="muted">— ${r.user} · ${nowFmt(r.at)}</span></div>`).join("") +
+            reports.map(r => `<div class="clean-report-item">${escHtml(r.note || "")} <span class="muted">— ${escHtml(r.user || "")} · ${nowFmt(r.at)}</span></div>`).join("") +
             (detType && !charged
                 ? `<div style="margin-top:10px;"><button class="btn-report" onclick="chargeReportViolation(${b.id}, '${detType}')">⚠ I-charge ang ${escHtml(CLEAN_LABELS[detType] || detType)}${fine ? " · " + peso(fine) : ""} sa deposit</button></div>`
                 : "") +
@@ -14003,22 +14107,43 @@ function cleanBegin(id){
     const log = cleanLog(id);
     log.startedAt = new Date().toISOString();
     if(log.doneAt && log.doneAt < log.startedAt) log.doneAt = null;
-    cleanAddHistory(log, "Started cleaning", id);
-    saveCleanEntry(id);
+    const h = cleanAddHistory(log, "Started cleaning", id);
+    saveCleanEntry(id, { op:"start", at: log.startedAt, history: h });
 }
-function cleanDone(id){
-    const log = cleanLog(id);
+// Pull the LIVE entry for one booking before a photo-gated decision. This tab's copy is from page
+// load, so photos another phone attached are invisible here — without this the DONE gate blocks a
+// cleaner (and their pay) over photos that ARE saved. Returns the adopted entry (or the local one).
+async function cleanRefreshEntry(id){
+    try{
+        const r = await fetch("/api/cleaning/" + encodeURIComponent(id), { cache:"no-store" });
+        if(r.ok){
+            const out = await r.json();
+            if(out && out.entry && typeof out.entry === "object"){
+                cleanAdoptEntry(id, out.entry);
+                persistCleaning();
+                if(typeof renderCleaners === "function") renderCleaners();
+            }
+        }
+    }catch(e){ /* offline → fall back to the local copy, same as before */ }
+    return cleanLog(id);
+}
+async function cleanDone(id){
+    let log = cleanLog(id);
+    if(!log.startedAt) log = await cleanRefreshEntry(id);        // START may have been tapped on another phone
     if(!log.startedAt){ alert("Please tap START first."); return; }
-    const photos = log.photos || {};
-    const missing = PHOTO_ROOMS.filter(([k]) => !photos[k]);
+    let missing = PHOTO_ROOMS.filter(([k]) => !(log.photos || {})[k]);
+    if(missing.length){
+        log = await cleanRefreshEntry(id);                        // judge the gate on the server's truth
+        missing = PHOTO_ROOMS.filter(([k]) => !(log.photos || {})[k]);
+    }
     if(missing.length){
         alert("Please attach all room photos before marking DONE:\n• " + missing.map(([, label]) => label).join("\n• "));
         return;
     }
     log.doneAt = new Date().toISOString();
     log.doneBy = cleanCurrentUser();   // who finished it → drives housekeeping payroll
-    cleanAddHistory(log, "Marked done", id);
-    saveCleanEntry(id);
+    const h = cleanAddHistory(log, "Marked done", id);
+    saveCleanEntry(id, { op:"done", at: log.doneAt, by: log.doneBy, history: h });
 }
 // admin can revert an accidental START / DONE
 function cleanUndoStart(id){
@@ -14027,16 +14152,16 @@ function cleanUndoStart(id){
     log.startedAt = null;
     log.doneAt = null;
     log.doneBy = null;
-    cleanAddHistory(log, "Undid start", id);
-    saveCleanEntry(id);
+    const h = cleanAddHistory(log, "Undid start", id);
+    saveCleanEntry(id, { op:"undoStart", history: h });
 }
 function cleanUndoDone(id){
     if(!confirm("Undo DONE? This marks the task back to in progress.")) return;
     const log = cleanLog(id);
     log.doneAt = null;
     log.doneBy = null;   // no longer counts toward payroll
-    cleanAddHistory(log, "Undid done", id);
-    saveCleanEntry(id);
+    const h = cleanAddHistory(log, "Undid done", id);
+    saveCleanEntry(id, { op:"undoDone", history: h });
 }
 const _cleanBusy = new Set();   // per-slot in-flight guard so a re-triggered same-photo upload can't double-write
 function cleanPhoto(id, key, input){
@@ -14054,8 +14179,10 @@ function cleanPhoto(id, key, input){
             log.photos = log.photos || {};
             const existed = !!log.photos[key];
             log.photos[key] = ref;
-            cleanAddHistory(log, (existed ? "Replaced" : "Added") + " " + key + " photo", id);
-            saveCleanEntry(id);
+            const h = cleanAddHistory(log, (existed ? "Replaced" : "Added") + " " + key + " photo", id);
+            // one room slot only — the server merges it into the live photos map, so this can
+            // never disturb a photo another device attached to a different room
+            saveCleanEntry(id, { op:"addPhoto", room:key, ref, history: h });
         } finally { _cleanBusy.delete(slot); }
     });
 }
@@ -14064,8 +14191,8 @@ function cleanRemovePhoto(id, key){
     if(!log.photos || !log.photos[key]) return;
     if(!confirm("Remove this photo?")) return;
     delete log.photos[key];
-    cleanAddHistory(log, "Removed " + key + " photo", id);
-    saveCleanEntry(id);
+    const h = cleanAddHistory(log, "Removed " + key + " photo", id);
+    saveCleanEntry(id, { op:"removePhoto", room:key, history: h });
 }
 
 renderCleaners();
@@ -14089,13 +14216,24 @@ renderCleaners();
             if(!locStamp && !hasPhotos) continue;                              // nothing worth saving
             const srv = sv[id];
             const srvStamp = srv ? String(srv.doneAt || srv.startedAt || "") : "";
-            if(srv && srvStamp >= locStamp) continue;                          // server already has this (or newer)
+            // Also push when this device holds a photo the server's copy is missing — those are
+            // exactly the photos the old whole-entry replace used to destroy. Safe to re-push now:
+            // the server MERGES a whole-entry payload (photos unioned, history deduped by id).
+            const srvPh = (srv && srv.photos) || {}, locPh = loc.photos || {};
+            const extraPhoto = Object.keys(locPh).some(k => locPh[k] && !srvPh[k]);
+            if(srv && srvStamp >= locStamp && !extraPhoto) continue;           // server already has this (or newer)
             if(loc.photos) for(const k in loc.photos) loc.photos[k] = await _offloadImg(loc.photos[k]);
             const r = await fetch("/api/cleaning/" + encodeURIComponent(id), {
                 method:"POST", headers:{ "Content-Type":"application/json" },
                 body: JSON.stringify({ entry: loc })
             });
-            if(r.ok) pushed++;
+            if(r.ok){
+                pushed++;
+                // adopt the merged result so this device now holds the union (its rescued work +
+                // whatever the other phones logged), instead of staying on its own partial copy
+                const out = await r.json().catch(() => null);
+                if(out && out.entry && typeof out.entry === "object") cleanAdoptEntry(id, out.entry);
+            }
         }
         if(window.shphDropPending) window.shphDropPending(CLEAN_KEY);          // stop the old too-large retry loop
         if(pushed){

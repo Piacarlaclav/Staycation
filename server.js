@@ -303,6 +303,14 @@ apiRouter.put("/kv/:key", async (req, res) => {
     req.body.forEach(p => { if (p && p.pw != null && p.pw !== "" && !isHashed(p.pw)) p.pw = hashPw(p.pw); });
   }
   try {
+    // The housekeeping log is an OBJECT map (bookingId → entry) and is the record cleaners are PAID
+    // from. A whole-map PUT — e.g. a legacy queued write replayed by an old tab — would REPLACE it
+    // and erase every booking's photos and history, so merge it entry by entry instead (same rule
+    // as POST /api/cleaning/:bookingId). It must never reach the plain setStrict below.
+    if (req.params.key === "shph_cleaning_v1" && req.body && typeof req.body === "object" && !Array.isArray(req.body)) {
+      await store.mergeCleaningMap(req.body);
+      return res.json({ ok: true });
+    }
     if (MERGE_LIST_KEYS.has(req.params.key) && Array.isArray(req.body)) {
       // ATOMIC per-item merge against the LIVE doc (transaction): two users saving at once
       // never overwrite each other, and a stale cache can't drop another instance's records.
@@ -703,15 +711,41 @@ apiRouter.post("/booking/:id/patch", async (req, res) => {
 // base64 photos so it overflowed the request-size limit and the cleaning work silently never
 // saved, and (b) let two cleaners overwrite each other. Photos arrive as tiny /img refs
 // (the browser offloads them via POST /api/img first).
+// Two shapes, both MERGE-ONLY (the old raw replace is gone — it let any tab holding an older copy
+// of an entry delete photos and history it had never seen, wiping most cleaning sessions):
+//   { delta: {op:"start"|"done"|"undoStart"|"undoDone"|"addPhoto"|"removePhoto", …, history:{…}} }
+//     → current clients: ONE action applied to the LIVE entry inside a transaction.
+//   { entry: {…} }
+//     → an old browser tab still open after this deploy: merged field-by-field, photos unioned,
+//       history appended + deduped. Kept for backward compatibility on purpose.
+// Responds with the merged entry so the client can adopt it and self-heal.
 apiRouter.post("/cleaning/:bookingId", async (req, res) => {
-  const entry = req.body && req.body.entry;
-  if (!entry || typeof entry !== "object" || Array.isArray(entry)) return res.status(400).json({ error: "no entry" });
+  const body = req.body || {};
+  const delta = body.delta, entry = body.entry;
+  const hasDelta = delta && typeof delta === "object" && !Array.isArray(delta);
+  const hasEntry = entry && typeof entry === "object" && !Array.isArray(entry);
+  if (!hasDelta && !hasEntry) return res.status(400).json({ error: "no delta or entry" });
   try {
-    await store.setObjectProp("shph_cleaning_v1", String(req.params.bookingId), entry);
-    res.json({ ok: true });
+    const merged = await store.updateCleaningEntry(String(req.params.bookingId), live =>
+      hasDelta ? store.applyCleaningDelta(live, delta) : store.mergeCleaningEntry(live, entry));
+    res.json({ ok: true, entry: merged });
   } catch (e) {
+    // a malformed/rejected delta is the client's fault (400) — not a persistence failure (502)
+    if (hasDelta && /^(unknown cleaning op|.*\bneeds\b)/.test(e.message || "")) {
+      return res.status(400).json({ ok: false, error: e.message });
+    }
     console.error("[api] cleaning save failed:", e.message);
     res.status(502).json({ ok: false, error: "persist failed" });
+  }
+});
+
+// LIVE read of one booking's cleaning entry — used before marking DONE, so the "all room photos
+// attached?" gate judges the server's truth instead of this browser's page-load-old copy.
+apiRouter.get("/cleaning/:bookingId", async (req, res) => {
+  try {
+    res.json({ ok: true, entry: await store.readCleaningEntry(String(req.params.bookingId)) });
+  } catch (e) {
+    res.status(502).json({ ok: false, error: "read failed" });
   }
 });
 
