@@ -1,7 +1,7 @@
 ---
 name: tester
 description: The Testing tactical agent. Verifies a change actually works before it ships — syntax checks, the build, data-flow sanity, and edge cases (free/discounted bookings, scoped partners, multi-device sync, mobile). Use it after the coder makes an edit. Reports pass/fail plainly with the real output; never hides a failure.
-tools: ["Read", "Grep", "Glob", "Bash"]
+tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 

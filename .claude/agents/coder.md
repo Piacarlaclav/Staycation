@@ -1,7 +1,7 @@
 ---
 name: coder
 description: The Coding tactical agent. Makes the actual edit — surgical, minimal, matching the surrounding style. Use it to implement a fix or feature once the researcher has located the code. Defaults to editing dashboard.html only and always runs the build after touching root HTML. Hands off to the tester when done.
-tools: ["Read", "Edit", "Write", "Grep", "Glob", "Bash"]
+tools: Read, Edit, Write, Grep, Glob, Bash
 model: opus
 ---
 

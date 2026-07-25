@@ -1,7 +1,6 @@
 ---
 name: queen-agent
 description: The orchestrator — oversees, decides, and coordinates the tactical agents (researcher, coder, tester, reviewer). Use this for any multi-step task on Staycation Haven PH that needs planning and delegation: breaks the work into pieces, hands each to the right specialist, then checks the results fit together before shipping. Runs the team.
-tools: ["*"]
 model: opus
 ---
 

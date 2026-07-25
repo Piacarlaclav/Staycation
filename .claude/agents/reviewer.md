@@ -1,7 +1,7 @@
 ---
 name: reviewer
 description: The Reviewing tactical agent. The last gate before shipping — hunts for regressions, security holes, and the project's known traps in the diff. Use it after the tester passes, before the Queen commits. Adversarial by default: tries to break the change and prove it's safe. Reports confirmed issues ranked by severity.
-tools: ["Read", "Grep", "Glob", "Bash"]
+tools: Read, Grep, Glob, Bash
 model: opus
 ---
 

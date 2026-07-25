@@ -1,7 +1,7 @@
 ---
 name: researcher
 description: The Researching tactical agent. Read-only investigator — finds where code lives, how a feature works today, and what would break before anyone edits. Use it to answer "saan ito sa code?", "paano gumagana ang X?", or "ano ang maaapektuhan kung babaguhin ko ito?" Returns a tight map with file:line references. Never edits.
-tools: ["Read", "Grep", "Glob", "Bash"]
+tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 
