@@ -2733,7 +2733,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     </div>
 </div>
 
-<!-- ===== Guest Guide QR (admin only) — print one permanent QR per haven ===== -->
+<!-- ===== Guest Guide QR (admin only) — ONE permanent QR, sent/printed for every guest ===== -->
 <div class="page" id="page-qrcodes">
     <style>
       #page-qrcodes .qrp-head{ display:flex; align-items:flex-end; gap:18px; flex-wrap:wrap; margin-bottom:16px; }
@@ -2748,10 +2748,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
       #page-qrcodes .qrp-note{ background:#fdf8ef; border:1px solid #eddfc4; border-radius:13px; padding:14px 17px;
         font-size:13px; line-height:1.65; color:#6b5c40; margin-bottom:20px; }
       #page-qrcodes .qrp-note b{ color:var(--hv-terra-d); }
-      #page-qrcodes .qrp-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(255px,1fr)); gap:18px; }
-      #page-qrcodes .qrp-card{ background:#fff; border:1px solid var(--hv-line); border-radius:16px; padding:18px; text-align:center; }
+      #page-qrcodes .qrp-card{ background:#fff; border:1px solid var(--hv-line); border-radius:16px; padding:26px 18px;
+        text-align:center; max-width:420px; }
       #page-qrcodes .qrp-card h3{ font-family:var(--hv-serif),Georgia,serif; font-size:17px; font-weight:600; margin:0 0 12px; }
-      #page-qrcodes .qrp-img{ width:176px; height:176px; margin:0 auto; }
+      #page-qrcodes .qrp-img{ width:260px; height:260px; margin:0 auto; }
       #page-qrcodes .qrp-img svg{ width:100%; height:100%; display:block; }
       #page-qrcodes .qrp-url{ margin-top:12px; font-size:11px; font-family:ui-monospace,Menlo,Consolas,monospace;
         color:var(--hv-muted); word-break:break-all; line-height:1.5; user-select:all; }
@@ -2764,27 +2764,28 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     <div class="qrp-head">
         <div>
             <h2>Guest Guide QR</h2>
-            <p>One permanent QR per haven. I-print, tapos i-post sa loob ng unit — i-scan ito ng guest para
-               makita ang check-in / check-out guide. Walang link nito sa website.</p>
+            <p><b>Isang QR lang para sa lahat ng guests.</b> I-send o i-print ito — makikita ng guest
+               ang buong check-in / check-out guide, at pipiliin niya mismo ang unit niya para sa WiFi.
+               Walang link nito sa website.</p>
         </div>
         <div class="qrp-tools">
             <button class="qrp-btn" onclick="renderStayQR()">Reload</button>
-            <button class="qrp-btn primary" onclick="stayQrPrint()">🖨 Print sheet</button>
+            <button class="qrp-btn primary" onclick="stayQrPrint()">🖨 Print</button>
         </div>
     </div>
     <div class="qrp-note">
-        Bukas lang ang guide habang <b>may naka-check in</b> sa haven na iyon — mula check-in hanggang
-        check-out, o <b>24 oras</b> pagkatapos mag-check in, kung alin ang mas huli. Pagkatapos noon,
-        ang makikita ng nag-scan ay isang magalang na paalala at ang Messenger link. Hindi nagbabago ang
-        QR: i-print mo isang beses lang.
+        Bukas ang guide habang <b>may naka-check in</b> — mula check-in hanggang check-out, o
+        <b>24 oras</b> pagkatapos mag-check in, kung alin ang mas huli. Kapag walang naka-check in,
+        ang makikita ng nag-scan ay isang magalang na paalala at ang Messenger link.
         <br><br>
-        <!-- Rename hazard: tokens are keyed by the haven's ID (server.js stayTokensById), so renaming
-             a haven keeps its printed QR alive. Only Regenerate below kills a sticker. -->
-        <b>Safe ang pag-rename ng haven</b> — nakatali ang QR sa haven mismo, hindi sa pangalan nito,
-        kaya patuloy pa rin itong gagana kahit palitan mo ang pangalan. Ang <b>Regenerate</b> lang ang
-        pumapatay sa naka-print nang QR.
+        <!-- The single shared QR can't tell the server WHICH haven is scanning, so the gate is
+             "any haven occupied" (server.js activeStayIn with haven=null). Stated here in plain
+             Taglish so nobody assumes it is still per-haven. -->
+        <b>Hindi nagbabago ang QR</b> — isang beses mo lang i-print o i-send. Dahil iisa lang ito para
+        sa lahat, bukas ang guide habang <b>may kahit sinong guest</b> na naka-check in sa alinmang
+        haven. Ang <b>Regenerate</b> lang ang pumapatay sa QR na naipadala/naipaskil na.
     </div>
-    <div class="qrp-grid" id="stayQrGrid"><div class="qrp-empty">Loading…</div></div>
+    <div id="stayQrGrid"><div class="qrp-empty">Loading…</div></div>
 </div>
 
 <!-- ===== Notes (owner-only private notebook) ===== -->
@@ -8914,12 +8915,13 @@ async function renderWebsiteVisits(){
 }
 
 /* ================= Guest Guide QR (admin only) =================================
-   One PERMANENT QR per haven, printed and posted inside the unit. The URL is
-   /stay/<random token>; the server (server.js) only serves the guide while that
-   haven actually has a guest checked in. Regenerating a token kills the QR that
-   is already stuck to that unit's wall, so it's behind its own confirm.
+   ONE permanent QR for every guest (Pia's call, 2026-07-26): the guide lists all
+   the units and the guest taps their own for the WiFi. The URL is
+   /stay/<random token>; the server (server.js) only serves the guide while a stay
+   is actually running. Regenerating kills every copy already printed or sent, so
+   it sits behind its own confirm.
    ============================================================================ */
-let stayQrData = null;   // { havens:[name], tokens:{name:token} } — declared before renderStayQR reads it
+let stayQrData = null;   // { token, havens:[{id,name}], tokens:{id:token} } — declared before renderStayQR reads it
 
 /* Tiny QR encoder — byte mode, EC level M, versions 1-6 (up to 106 characters).
    Written out in full ON PURPOSE: no CDN script, so the QR sheet still prints on
@@ -9071,10 +9073,8 @@ function stayQrSvg(text, px){
 }
 // the live URL to encode. Taken from THIS page's origin so it is the real domain in
 // production and localhost while testing — never a hardcoded address that prints wrong.
-// Tokens are keyed by the haven's ID, not its name: renaming a haven must never kill the
-// QR already printed and stuck to that unit's wall.
-function stayQrUrl(id){
-    return location.origin + "/stay/" + encodeURIComponent((stayQrData && stayQrData.tokens[id]) || "");
+function stayQrUrl(){
+    return location.origin + "/stay/" + encodeURIComponent((stayQrData && stayQrData.token) || "");
 }
 async function renderStayQR(){
     const el = document.getElementById("stayQrGrid");
@@ -9085,65 +9085,60 @@ async function renderStayQR(){
         if(!r.ok) throw new Error("HTTP " + r.status);
         stayQrData = await r.json();
     }catch(e){
-        el.innerHTML = '<div class="qrp-empty">Could not load the QR codes — try Reload.</div>';
+        el.innerHTML = '<div class="qrp-empty">Could not load the QR code — try Reload.</div>';
         return;
     }
-    const havens = (stayQrData.havens || []).filter(h => h && stayQrData.tokens[h.id]);
-    if(!havens.length){ el.innerHTML = '<div class="qrp-empty">No havens yet — add one on the Havens page first.</div>'; return; }
-    el.innerHTML = havens.map(h => {
-        const url = stayQrUrl(h.id);
-        const svg = stayQrSvg(url, 176);
-        return `<div class="qrp-card">
-            <h3>${escHtml(h.name)}</h3>
-            <div class="qrp-img">${svg || '<div class="qrp-empty">QR unavailable — use the link below.</div>'}</div>
-            <div class="qrp-url">${escHtml(url)}</div>
-            <div class="qrp-acts">
-                <button class="qrp-btn" onclick="stayQrCopy('${escAttr(h.id).replace(/'/g, "\\'")}')">Copy link</button>
-                <button class="qrp-btn" onclick="window.open('${escAttr(url)}','_blank')">Test</button>
-                <button class="qrp-btn qrp-danger" onclick="stayQrRegen('${escAttr(h.id).replace(/'/g, "\\'")}','${escAttr(h.name).replace(/'/g, "\\'")}')">Regenerate</button>
-            </div>
-        </div>`;
-    }).join("");
+    if(!stayQrData.token){ el.innerHTML = '<div class="qrp-empty">No QR yet — try Reload.</div>'; return; }
+    const url = stayQrUrl();
+    const svg = stayQrSvg(url, 260);
+    el.innerHTML = `<div class="qrp-card">
+        <h3>Guest Guide — lahat ng guests</h3>
+        <div class="qrp-img">${svg || '<div class="qrp-empty">QR unavailable — use the link below.</div>'}</div>
+        <div class="qrp-url">${escHtml(url)}</div>
+        <div class="qrp-acts">
+            <button class="qrp-btn" onclick="stayQrCopy()">Copy link</button>
+            <button class="qrp-btn" onclick="window.open('${escAttr(url)}','_blank')">Test</button>
+            <button class="qrp-btn qrp-danger" onclick="stayQrRegen()">Regenerate</button>
+        </div>
+    </div>`;
 }
-function stayQrCopy(id){
-    const url = stayQrUrl(id);
+function stayQrCopy(){
+    const url = stayQrUrl();
     try{ navigator.clipboard.writeText(url); alert("Link copied:\n" + url); }
     catch(e){ prompt("Copy this link:", url); }
 }
-async function stayQrRegen(id, haven){
-    if(!confirm("Regenerate the QR for " + haven + "?\n\nAng QR na naka-post na sa loob ng unit ay HINDI NA GAGANA. "
-        + "Kailangan mong mag-print at magpalit ng bago. Tuloy?")) return;
+async function stayQrRegen(){
+    if(!confirm("Regenerate the guest guide QR?\n\nHINDI NA GAGANA ang lahat ng QR na naipadala o "
+        + "naipaskil na — kailangan mong mag-print/mag-send ng bago. Tuloy?")) return;
     try{
-        const r = await fetch("/api/stay-tokens", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ id:id }) });
+        const r = await fetch("/api/stay-tokens", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({}) });
         if(!r.ok) throw new Error("HTTP " + r.status);
-        if(typeof logActivity === "function") logActivity("regenerated the guest-guide QR for " + haven);
-        alert("Done — bagong QR na. Print the new one and replace the old sticker in " + haven + ".");
+        if(typeof logActivity === "function") logActivity("regenerated the guest-guide QR");
+        alert("Done — bagong QR na. I-print at i-send ang bago; patay na ang luma.");
         renderStayQR();
     }catch(e){
         alert("Could not regenerate — try again.");
     }
 }
-// A4 print sheet: one big QR per haven with the name underneath, ready to cut and post.
+// Print the one QR big, ready to post by the door or send to a guest.
 function stayQrPrint(){
-    if(!stayQrData){ alert("Still loading — try again in a second."); return; }
-    const havens = (stayQrData.havens || []).filter(h => h && stayQrData.tokens[h.id]);
-    if(!havens.length){ alert("No havens to print yet."); return; }
-    const cards = havens.map(h => `\x3Cdiv class="pc">${stayQrSvg(stayQrUrl(h.id), 250)}`
-        + `\x3Cdiv class="pn">${escHtml(h.name)}\x3C/div>`
-        + `\x3Cdiv class="ps">Scan for your check-in &amp; check-out guide\x3C/div>\x3C/div>`).join("");
-    const css = "*{box-sizing:border-box}body{font-family:Georgia,'Times New Roman',serif;color:#201f1d;margin:0;padding:16px;background:#fff}"
-        + "h1{font-size:17px;margin:0 0 4px}.meta{font-size:11px;color:#8b857c;margin-bottom:16px}"
-        + ".grid{display:flex;flex-wrap:wrap;gap:16px}"
-        + ".pc{width:300px;border:1px dashed #cfc7ba;border-radius:12px;padding:18px 12px;text-align:center;page-break-inside:avoid}"
+    if(!stayQrData || !stayQrData.token){ alert("Still loading — try again in a second."); return; }
+    const url = stayQrUrl();
+    const css = "*{box-sizing:border-box}body{font-family:Georgia,'Times New Roman',serif;color:#201f1d;margin:0;padding:26px;background:#fff;text-align:center}"
+        + "h1{font-size:22px;margin:0 0 6px}.meta{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#8b857c;margin-bottom:22px}"
+        + ".pc{display:inline-block;border:1px dashed #cfc7ba;border-radius:14px;padding:26px 30px;page-break-inside:avoid}"
         + ".pc svg{display:block;margin:0 auto}"
-        + ".pn{font-size:21px;font-weight:700;margin-top:12px}"
-        + ".ps{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#8b857c;margin-top:5px}"
+        + ".pn{font-size:22px;font-weight:700;margin-top:16px}"
+        + ".ps{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#8b857c;margin-top:6px}"
         + "@media print{body{padding:0}.noprint{display:none}}";
     openPrint(`\x3C!DOCTYPE html>\x3Chtml>\x3Chead>\x3Cmeta charset="utf-8">\x3Ctitle>Guest Guide QR — Staycation Haven PH\x3C/title>`
         + `\x3Cstyle>${css}\x3C/style>\x3C/head>\x3Cbody>`
-        + `\x3Ch1>Staycation Haven PH — Guest Guide QR\x3C/h1>`
-        + `\x3Cdiv class="meta">${havens.length} haven(s) · printed ${new Date().toLocaleDateString("en-PH")} · post one inside each unit\x3C/div>`
-        + `\x3Cdiv class="grid">${cards}\x3C/div>\x3C/body>\x3C/html>`);
+        + `\x3Ch1>Staycation Haven PH — Guest Guide\x3C/h1>`
+        + `\x3Cdiv class="meta">printed ${new Date().toLocaleDateString("en-PH")} · isang QR para sa lahat ng guests\x3C/div>`
+        + `\x3Cdiv class="pc">${stayQrSvg(url, 320)}`
+        + `\x3Cdiv class="pn">Scan me\x3C/div>`
+        + `\x3Cdiv class="ps">Your check-in &amp; check-out guide, house rules and WiFi\x3C/div>\x3C/div>`
+        + `\x3C/body>\x3C/html>`);
 }
 
 // ---- deep-link routing: each sidebar page has its own /admin/<slug> URL (back/forward works) ----

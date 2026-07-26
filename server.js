@@ -1206,26 +1206,41 @@ apiRouter.post("/send-confirmation", async (req, res) => {
 });
 
 /* ============================================================================
-   GUEST GUIDE — the in-unit check-in/check-out walkthrough behind /stay/<token>
+   GUEST GUIDE — the check-in/check-out walkthrough behind /stay/<token>
    ----------------------------------------------------------------------------
-   ONE permanent QR per haven, printed and stuck up inside the unit. Because the
-   QR is permanent the URL can't be the haven's name — /stay/Haven3 would be
-   guessable by anyone — so it carries a per-haven RANDOM token instead. The
-   token alone still isn't enough: the guide only opens while that haven really
-   has a guest in it right now.
+   ONE QR FOR EVERY GUEST (Pia's call, 2026-07-26). One permanent link that is
+   sent to everyone and printed once; the guide lists every unit and the guest
+   taps their own for the WiFi. The URL still carries a RANDOM token so it can't
+   be guessed, and the guide still only opens while a stay is actually running.
+
+   ⚠️ THE TRADE-OFF, STATED PLAINLY: with a single shared QR the server cannot
+   tell WHICH haven is scanning, so the gate is now "is ANY haven occupied right
+   now" instead of "is THIS haven occupied". Any guest of any haven — and anyone
+   they forward the link to — can open the guide whenever the business has at
+   least one guest in house, which is most of the time. In exchange the guide
+   shows every unit's WiFi, so a guest can read another unit's password. That is
+   accepted: this is house information, not money or PII, and NO guest data of
+   any kind is on the page. Do not "fix" this by narrowing the gate without
+   asking Pia — she chose one QR deliberately.
+
+   The per-haven tokens minted before this change still work and still gate on
+   their own haven (they cost nothing to keep, and one may be stuck to a wall).
 
    Nothing on the public site links here. The response is noindex + private, and
-   the guide carries no guest name, number, booking id or any other PII. The ONLY
-   per-haven thing in it is that haven's WiFi (injected below). An unknown token
-   and an expired stay return the identical friendly page, so scanning can't
-   reveal whether a token is real.
+   the guide carries no guest name, number, booking id or any other PII. An
+   unknown token and a closed window return the identical friendly page, so
+   scanning can't reveal whether a token is real.
 
-   TOKENS ARE KEYED BY THE HAVEN'S ID, NOT ITS NAME. Renaming a haven used to kill
-   the QR already stuck to its wall, silently and forever (this project renamed one
-   in commit 6c93d81). Old name-keyed entries are carried across to the id on read.
+   TOKENS ARE KEYED BY THE HAVEN'S ID, NOT ITS NAME (the shared one lives under
+   STAY_ALL_KEY). Renaming a haven used to kill the QR already stuck to its wall,
+   silently and forever (this project renamed one in commit 6c93d81). Old
+   name-keyed entries are carried across to the id on read.
    ========================================================================== */
 const fs = require("fs");
 const STAY_TOKENS_KEY = "shph_stay_tokens_v1";
+// The one shared QR's token. Lives in the same map as the per-haven ones under a key that can
+// never collide with a haven id (ids are numbers; this starts with an underscore).
+const STAY_ALL_KEY = "_all";
 const GUIDE_FILE = path.join(__dirname, "guest-guide", "guide.html");
 
 /* ACCESS WINDOW — PIA'S RULE. Tune it HERE and nowhere else:
@@ -1259,16 +1274,20 @@ function scriptJson(value) {
     .replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
 }
 
-/* Build THIS haven's copy of the guide: the same bundle plus one tiny <script> at the top of
-   <head> carrying only { label, ssid, pass } for the haven that scanned. The bundle swaps the
-   whole document at DOMContentLoaded but keeps the same window, so a global set here survives
-   into the React app (guest-guide/guide.html reads window.__STAY_WIFI__).
+/* Build the served copy of the guide: the same bundle plus one tiny <script> at the top of
+   <head> carrying the WiFi list — [{ label, ssid, pass }, …], one per haven — which is what
+   fills the unit picker. The bundle swaps the whole document at DOMContentLoaded but keeps the
+   same window, so a global set here survives into the React app (guest-guide/guide.html reads
+   window.__STAY_WIFI__). This is why no password is stored in the file itself.
    Returns a NEW string — the cached template is left untouched. */
 function stayGuideHtml(wifi) {
   const tpl = guideHtml();
-  const m = tpl.match(/<head[^>]*>/i);
   const tag = `<script>window.__STAY_WIFI__=${scriptJson(wifi)};</script>`;
-  if (!m) return tag + tpl;                       // no <head> (shouldn't happen) — still works
+  // Insert AFTER <meta charset> when there is one, not straight after <head>. The tag grows with
+  // the number of havens, and pushing the charset declaration past the first 1024 bytes would
+  // make the browser guess the encoding — the guide is full of ₱, — and ✓.
+  const m = tpl.match(/<meta[^>]+charset[^>]*>/i) || tpl.match(/<head[^>]*>/i);
+  if (!m) return tag + tpl;                       // no <head> at all (shouldn't happen) — still works
   const at = m.index + m[0].length;
   return tpl.slice(0, at) + tag + tpl.slice(at);
 }
@@ -1304,30 +1323,40 @@ function stayTokensById(raw, havens) {
   return { byId, migrate };
 }
 
-/* This haven's WiFi, from the settings store (Rates & Add-ons → WiFi). Keyed by haven id, with
-   a name-keyed fallback for anything typed in by hand. Missing/blank => null, and the guide
-   falls back to "Ask the host" — it must never fail to load over WiFi. */
-async function stayWifiFor(haven) {
+/* EVERY haven's WiFi, in haven order, for the guide's unit picker — one QR means the guest
+   picks their own unit, so the page needs the whole list. Read from the settings store
+   (Rates & Add-ons → WiFi), keyed by haven id, with a name-keyed fallback for anything typed
+   in by hand. A haven with nothing configured is still listed, with blanks: the guide shows
+   "Ask the host" for it rather than hiding the unit.
+   This is the ONLY place the credentials enter a page — they are never in the bundle on disk. */
+async function stayWifiAll(havens) {
   let s = null;
   try { s = await store.readFreshKey("shph_settings"); } catch (e) { s = store.get("shph_settings"); }
   const map = (s && s.wifi && typeof s.wifi === "object") ? s.wifi : {};
-  let w = map[haven.id];
-  if (!w) { const k = Object.keys(map).find(x => havenKey(x) === havenKey(haven.name)); if (k) w = map[k]; }
-  const ssid = String((w && w.ssid) || "").trim(), pass = String((w && w.pass) || "").trim();
-  return { label: haven.name, ssid, pass };
+  return havens.map(h => {
+    let w = map[h.id];
+    if (!w) { const k = Object.keys(map).find(x => havenKey(x) === havenKey(h.name)); if (k) w = map[k]; }
+    return {
+      label: h.name,
+      ssid: String((w && w.ssid) || "").trim(),
+      pass: String((w && w.pass) || "").trim()
+    };
+  });
 }
 
-/* Is a stay happening in this haven RIGHT NOW?
+/* Is a stay running RIGHT NOW? Pass a haven name to ask about that one haven (the old per-haven
+   QRs), or null/undefined to ask about ANY haven — which is what the single shared QR uses,
+   because one link can't tell us who is scanning. See the trade-off note at the top.
    Uses the app's OWN booking time maths (lib/assist.js bookingInterval) rather than a seventh
    private copy — including the midnight rule, where a 12:00 MN check-in counts as the start of
    the NEXT day. bookingInterval returns absolute minutes anchored to Manila (+08:00), which is
    exactly why comparing it with Date.now()/60000 is correct on a UTC (Vercel) server. */
 function activeStayIn(bookings, haven) {
   const now = Math.round(Date.now() / 60000);
-  const want = havenKey(haven);
+  const want = (haven == null || haven === "") ? null : havenKey(haven);
   return (Array.isArray(bookings) ? bookings : []).some(b => {
     if (!b || b.cancelled || b.deleted) return false;
-    if (havenKey(b.haven) !== want) return false;
+    if (want !== null && havenKey(b.haven) !== want) return false;
     if (!b.checkin) return false;
     const iv = assist.bookingInterval(b);
     if (!iv || !isFinite(iv.start) || !isFinite(iv.end)) return false;
@@ -1380,24 +1409,27 @@ app.get("/stay/:token", async (req, res) => {
   res.set("X-Robots-Tag", "noindex, nofollow");
   const token = String(req.params.token || "");
   try {
+    const raw = await stayTokensLive();
     const havens = await havensLive();
-    const { byId } = stayTokensById(await stayTokensLive(), havens);
-    const id = Object.keys(byId).find(k => byId[k] === token);
+    const { byId } = stayTokensById(raw, havens);
+    // The ONE shared QR: it can't say who is scanning, so it gates on ANY haven being occupied.
+    // A legacy per-haven token still gates on its own haven.
+    const shared = raw[STAY_ALL_KEY] && raw[STAY_ALL_KEY] === token;
+    const id = shared ? null : Object.keys(byId).find(k => byId[k] === token);
     const haven = id ? havens.find(h => h.id === id) : null;   // id → the haven's CURRENT name
-    if (haven) {
+    if (shared || haven) {
       // LIVE read — a guest who checked in a minute ago must never be told "no stay right now",
       // and a warm instance's cached list can easily be missing that booking.
       let bookings = [];
       try { bookings = await store.readFreshList("shph_bookings_v3"); }
       catch (e) { bookings = store.get("shph_bookings_v3") || []; }
-      if (activeStayIn(bookings, haven.name)) {
+      if (activeStayIn(bookings, haven ? haven.name : null)) {
         // 3 MB of guide on every scan. The handler (and therefore the gate above) still runs on
         // every request, but an unchanged guide can answer 304 with no body — hence no-cache
         // rather than no-store. `private` keeps any shared proxy out of it. The body is set
-        // BEFORE Express computes the ETag, so the injected per-haven WiFi is part of the ETag
-        // and one haven's cached copy can never be revalidated as another's.
+        // BEFORE Express computes the ETag, so the injected WiFi list is part of the ETag.
         res.set("Cache-Control", "private, no-cache, must-revalidate");
-        return res.send(stayGuideHtml(await stayWifiFor(haven)));
+        return res.send(stayGuideHtml(await stayWifiAll(havens)));
       }
     }
   } catch (e) {
@@ -1406,45 +1438,48 @@ app.get("/stay/:token", async (req, res) => {
   res.status(200).send(stayClosedHtml());              // 200, not 404, so it renders nicely on a phone
 });
 
-// ---- admin: the token map behind the printable QR page (dashboard → Guest Guide QR) ----
-// Mints a token for any haven that doesn't have one YET, then leaves it alone forever. Also the
-// place where a legacy name-keyed token is written across to the haven's id.
+// ---- admin: the token behind the printable QR page (dashboard → Guest Guide QR) ----
+// Mints the ONE shared token the first time the page is opened, then leaves it alone forever.
+// Legacy per-haven tokens are still migrated/returned so an already-printed sticker keeps
+// working, but the page only shows the single QR.
 apiRouter.get("/stay-tokens", async (req, res) => {
   if (!isAdminSession(req)) return res.status(403).json({ error: "admin only" });
   try {
     const havens = await havensLive();
-    const { byId, migrate } = stayTokensById(await stayTokensLive(), havens);
-    // one PROPERTY per haven, transactionally — never a whole-map replace, so two admins opening
-    // this page at once can't wipe each other's tokens. (The old name key is left in place: it is
+    const raw = await stayTokensLive();
+    const { byId, migrate } = stayTokensById(raw, havens);
+    // one PROPERTY at a time, transactionally — never a whole-map replace, so two admins opening
+    // this page at once can't wipe each other's tokens. (An old name key is left in place: it is
     // harmless dead weight, and deleting it would need exactly the whole-map write we avoid.)
     for (const id of Object.keys(migrate)) await store.setObjectProp(STAY_TOKENS_KEY, id, migrate[id]);
-    for (const h of havens) {
-      if (byId[h.id]) continue;
-      byId[h.id] = newStayToken();
-      await store.setObjectProp(STAY_TOKENS_KEY, h.id, byId[h.id]);
-    }
+    let all = raw[STAY_ALL_KEY];
+    if (!all) { all = newStayToken(); await store.setObjectProp(STAY_TOKENS_KEY, STAY_ALL_KEY, all); }
     res.set("Cache-Control", "no-store");
-    res.json({ ok: true, havens, tokens: byId });   // tokens are keyed by haven ID
+    res.json({ ok: true, token: all, havens, tokens: byId });   // `tokens` = legacy per-haven, by ID
   } catch (e) {
     console.error("[stay] token read failed:", e.message);
-    res.status(502).json({ ok: false, error: "could not load the QR codes — try again" });
+    res.status(502).json({ ok: false, error: "could not load the QR code — try again" });
   }
 });
 
-// Explicit per-haven REGENERATE. Deliberately a separate call the dashboard confirms first:
-// a new token kills the QR already printed and stuck to that unit's wall.
+// Explicit REGENERATE. Deliberately a separate call the dashboard confirms first: a new token
+// kills every QR already printed, posted or sent to a guest.
+// Body: {} / { id:"_all" } for the shared QR, or { id:"<haven id>" } for a legacy per-haven one.
 apiRouter.post("/stay-tokens", async (req, res) => {
   if (!isAdminSession(req)) return res.status(403).json({ error: "admin only" });
-  const id = String((req.body || {}).id || "").trim();
-  if (!id) return res.status(400).json({ ok: false, error: "missing haven id" });
+  const id = String((req.body || {}).id || STAY_ALL_KEY).trim() || STAY_ALL_KEY;
   try {
-    const haven = (await havensLive()).find(h => h.id === id);
-    if (!haven) return res.status(404).json({ ok: false, error: "unknown haven" });
+    let label = "the shared guest-guide QR";
+    if (id !== STAY_ALL_KEY) {
+      const haven = (await havensLive()).find(h => h.id === id);
+      if (!haven) return res.status(404).json({ ok: false, error: "unknown haven" });
+      label = `"${haven.name}" (id ${id})`;
+    }
     const token = newStayToken();
     await store.setObjectProp(STAY_TOKENS_KEY, id, token);
-    console.log(`[stay] QR token regenerated for "${haven.name}" (id ${id}) by ${(readSession(req) || {}).u || "admin"} — the printed QR for that unit is now dead`);
+    console.log(`[stay] QR token regenerated for ${label} by ${(readSession(req) || {}).u || "admin"} — every QR already printed or sent for it is now dead`);
     res.set("Cache-Control", "no-store");
-    res.json({ ok: true, id, haven: haven.name, token });
+    res.json({ ok: true, id, token });
   } catch (e) {
     console.error("[stay] token regenerate failed:", e.message);
     res.status(502).json({ ok: false, error: "could not save — try again" });
