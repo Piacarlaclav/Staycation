@@ -3,7 +3,7 @@
   "buildCommand": "node tools/build-views.js",
   "functions": {
     "api/index.js": {
-      "includeFiles": "{views,images}/**"
+      "includeFiles": "{views,images,guest-guide}/**"
     }
   },
   "rewrites": [

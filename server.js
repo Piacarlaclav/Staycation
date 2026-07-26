@@ -236,10 +236,18 @@ apiRouter.use((req, res, next) => {
 // (Full API gating is a later stage; the public booking flow still needs the other keys.)
 const SESSION_ONLY_KEYS = new Set(["shph_users", "shph_partners"]);
 
-// read every shared key at once — the whole database, so session-only
+// Read every shared key at once — the whole database, so session-only.
+// It also has to honour ADMIN_ONLY_KEYS: a session alone is NOT enough. Any logged-in staff or
+// partner could fetch("/api/kv") and read the owner's private notes and the guest-guide QR
+// tokens, even though GET /kv/:key refuses them one by one.
 apiRouter.get("/kv", (req, res) => {
   if (!readSession(req)) return res.status(401).json({ error: "login required" });
-  res.json(store.all());
+  const out = store.all();   // a fresh wrapper object (values are live refs) — deleting a key here
+  if (!isAdminSession(req)) {                                                  // never touches the cache
+    ADMIN_ONLY_KEYS.forEach(k => { delete out[k]; });
+    if (out.shph_settings) out.shph_settings = stripWifi(out.shph_settings);   // guest-guide WiFi: admin only
+  }
+  res.json(out);
 });
 
 // read one key
@@ -261,6 +269,8 @@ apiRouter.get("/kv/:key", async (req, res) => {
     try { return res.json(await store.readFreshKey(key)); }
     catch (e) { console.warn("[api] fresh read failed for", key, "—", e.message); }
   }
+  // the guest-guide WiFi rides inside shph_settings — admin browsers only (see stripWifi)
+  if (key === "shph_settings" && !isAdminSession(req)) return res.json(stripWifi(store.get(key)));
   res.json(store.get(key));
 });
 
@@ -285,7 +295,10 @@ const MERGE_LIST_KEYS = new Set([
 
 // Keys only an ADMIN session may read/write. The owner's private notes must never reach a
 // staff or partner browser — not through the API, and not inside a page's data seed.
-const ADMIN_ONLY_KEYS = new Set(["shph_notes_v1"]);
+// shph_stay_tokens_v1 holds the guest-guide QR SECRETS: anyone holding a token can open
+// /stay/<token> during a stay, so it is admin-only for the same reason (and it is deliberately
+// NOT in PUBLIC_SEED_KEYS, so no guest page ever ships it).
+const ADMIN_ONLY_KEYS = new Set(["shph_notes_v1", "shph_stay_tokens_v1"]);
 const isAdminSession = (req) => { const s = readSession(req); return !!(s && s.t === "staff" && s.adm); };
 
 // write one key (body is the raw JSON value the browser stored)
@@ -301,6 +314,19 @@ apiRouter.put("/kv/:key", async (req, res) => {
   }
   if (req.params.key === "shph_partners" && Array.isArray(req.body)) {
     req.body.forEach(p => { if (p && p.pw != null && p.pw !== "" && !isHashed(p.pw)) p.pw = hashPw(p.pw); });
+  }
+  // settings.wifi holds the per-haven guest-guide WiFi and is stripped from every NON-ADMIN
+  // browser's seed. That browser would otherwise save the whole settings object back without it
+  // and silently wipe it — so keep the stored copy whenever the incoming one carries none.
+  // Only an ADMIN may write it. A non-admin's copy never contains wifi, so we always restore the
+  // stored value over whatever they sent — dropping it protects an honest staff save from wiping the
+  // passwords, and IGNORING it stops a crafted PUT that carries a wifi object of its own. Guarding
+  // only the "absent" case would leave that second door wide open.
+  if (req.params.key === "shph_settings" && req.body && typeof req.body === "object" && !Array.isArray(req.body)
+      && (!isAdminSession(req) || !req.body.wifi)) {
+    let cur = null;
+    try { cur = await store.readFreshKey("shph_settings"); } catch (e) { cur = store.get("shph_settings"); }
+    if (cur && cur.wifi) req.body.wifi = cur.wifi; else delete req.body.wifi;
   }
   try {
     // The housekeeping log is an OBJECT map (bookingId → entry) and is the record cleaners are PAID
@@ -1179,6 +1205,252 @@ apiRouter.post("/send-confirmation", async (req, res) => {
   }
 });
 
+/* ============================================================================
+   GUEST GUIDE — the in-unit check-in/check-out walkthrough behind /stay/<token>
+   ----------------------------------------------------------------------------
+   ONE permanent QR per haven, printed and stuck up inside the unit. Because the
+   QR is permanent the URL can't be the haven's name — /stay/Haven3 would be
+   guessable by anyone — so it carries a per-haven RANDOM token instead. The
+   token alone still isn't enough: the guide only opens while that haven really
+   has a guest in it right now.
+
+   Nothing on the public site links here. The response is noindex + private, and
+   the guide carries no guest name, number, booking id or any other PII. The ONLY
+   per-haven thing in it is that haven's WiFi (injected below). An unknown token
+   and an expired stay return the identical friendly page, so scanning can't
+   reveal whether a token is real.
+
+   TOKENS ARE KEYED BY THE HAVEN'S ID, NOT ITS NAME. Renaming a haven used to kill
+   the QR already stuck to its wall, silently and forever (this project renamed one
+   in commit 6c93d81). Old name-keyed entries are carried across to the id on read.
+   ========================================================================== */
+const fs = require("fs");
+const STAY_TOKENS_KEY = "shph_stay_tokens_v1";
+const GUIDE_FILE = path.join(__dirname, "guest-guide", "guide.html");
+
+/* ACCESS WINDOW — PIA'S RULE. Tune it HERE and nowhere else:
+   from check-in until check-out, OR 24 hours after check-in, WHICHEVER IS LATER.
+   The usual booking is 21 hours, so 24h comfortably covers a guest who is still
+   packing up; "whichever is later" is what stops a multi-night stay from losing
+   the guide on day 2. */
+const STAY_ACCESS_MIN = 24 * 60;
+
+// Haven names are compared spelling-tolerantly: current bookings hold "CasaBienca" while
+// older ones hold "Casa Bienca" (the same trap lib/assist.js havenTimeIn() guards against).
+const havenKey = (n) => String(n == null ? "" : n).toLowerCase().replace(/\s+/g, "");
+const newStayToken = () => crypto.randomBytes(12).toString("base64url");   // 16 URL-safe chars (96 bits)
+
+// The guide is 3.1 MB and self-contained, so read it from disk ONCE per warm instance.
+// _guideHtml is the PRISTINE TEMPLATE and must never be mutated — the per-haven WiFi copy is
+// built fresh for each request (see stayGuideHtml), or every later scan would inherit the
+// previous guest's network.
+let _guideHtml = null;
+function guideHtml() {
+  if (_guideHtml == null) _guideHtml = fs.readFileSync(GUIDE_FILE, "utf8");
+  return _guideHtml;
+}
+
+/* JSON for a value that goes INSIDE a <script> tag. Escaping "<" and "/" makes "</script>"
+   unwritable, so no WiFi name could ever break out of the tag; U+2028/2029 are escaped
+   because they are raw line terminators in JS source. */
+function scriptJson(value) {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003C").replace(/>/g, "\\u003E").replace(/\//g, "\\u002F")
+    .replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+}
+
+/* Build THIS haven's copy of the guide: the same bundle plus one tiny <script> at the top of
+   <head> carrying only { label, ssid, pass } for the haven that scanned. The bundle swaps the
+   whole document at DOMContentLoaded but keeps the same window, so a global set here survives
+   into the React app (guest-guide/guide.html reads window.__STAY_WIFI__).
+   Returns a NEW string — the cached template is left untouched. */
+function stayGuideHtml(wifi) {
+  const tpl = guideHtml();
+  const m = tpl.match(/<head[^>]*>/i);
+  const tag = `<script>window.__STAY_WIFI__=${scriptJson(wifi)};</script>`;
+  if (!m) return tag + tpl;                       // no <head> (shouldn't happen) — still works
+  const at = m.index + m[0].length;
+  return tpl.slice(0, at) + tag + tpl.slice(at);
+}
+
+async function stayTokensLive() {
+  let map = null;
+  try { map = await store.readFreshKey(STAY_TOKENS_KEY); } catch (e) { map = store.get(STAY_TOKENS_KEY); }
+  return (map && typeof map === "object" && !Array.isArray(map)) ? map : {};
+}
+// live haven records ({ id, name }), newest truth — a haven added a minute ago must appear
+async function havensLive() {
+  let list = [];
+  try { list = await store.readFreshList("staycation_havens"); } catch (e) { list = store.get("staycation_havens") || []; }
+  return (Array.isArray(list) ? list : [])
+    .filter(h => h && !h.deleted && h.name && h.id != null)
+    .map(h => ({ id: String(h.id), name: String(h.name) }));
+}
+
+/* Normalise the stored token map to ID → token.
+   Entries minted before the id switch are keyed by the haven's NAME; they are carried across to
+   that haven's id (while the name still matches) so no already-printed QR is lost. An id entry
+   always wins over a name entry for the same haven. `migrate` lists the ones that still need
+   writing — only the admin QR page persists them, so a guest scan never writes. */
+function stayTokensById(raw, havens) {
+  const byId = {}, migrate = {};
+  for (const k of Object.keys(raw || {})) {
+    const token = raw[k];
+    if (!token) continue;
+    if (havens.some(h => h.id === k)) { byId[k] = token; continue; }        // already id-keyed
+    const h = havens.find(x => havenKey(x.name) === havenKey(k));           // legacy name key
+    if (h && !raw[h.id]) { byId[h.id] = token; migrate[h.id] = token; }
+  }
+  return { byId, migrate };
+}
+
+/* This haven's WiFi, from the settings store (Rates & Add-ons → WiFi). Keyed by haven id, with
+   a name-keyed fallback for anything typed in by hand. Missing/blank => null, and the guide
+   falls back to "Ask the host" — it must never fail to load over WiFi. */
+async function stayWifiFor(haven) {
+  let s = null;
+  try { s = await store.readFreshKey("shph_settings"); } catch (e) { s = store.get("shph_settings"); }
+  const map = (s && s.wifi && typeof s.wifi === "object") ? s.wifi : {};
+  let w = map[haven.id];
+  if (!w) { const k = Object.keys(map).find(x => havenKey(x) === havenKey(haven.name)); if (k) w = map[k]; }
+  const ssid = String((w && w.ssid) || "").trim(), pass = String((w && w.pass) || "").trim();
+  return { label: haven.name, ssid, pass };
+}
+
+/* Is a stay happening in this haven RIGHT NOW?
+   Uses the app's OWN booking time maths (lib/assist.js bookingInterval) rather than a seventh
+   private copy — including the midnight rule, where a 12:00 MN check-in counts as the start of
+   the NEXT day. bookingInterval returns absolute minutes anchored to Manila (+08:00), which is
+   exactly why comparing it with Date.now()/60000 is correct on a UTC (Vercel) server. */
+function activeStayIn(bookings, haven) {
+  const now = Math.round(Date.now() / 60000);
+  const want = havenKey(haven);
+  return (Array.isArray(bookings) ? bookings : []).some(b => {
+    if (!b || b.cancelled || b.deleted) return false;
+    if (havenKey(b.haven) !== want) return false;
+    if (!b.checkin) return false;
+    const iv = assist.bookingInterval(b);
+    if (!iv || !isFinite(iv.start) || !isFinite(iv.end)) return false;
+    const until = Math.max(iv.end, iv.start + STAY_ACCESS_MIN);   // check-out, or +24h — whichever is LATER
+    return now >= iv.start && now < until;
+  });
+}
+
+// The friendly "not right now" page. Same reply for an unknown token and a finished stay.
+function stayClosedHtml() {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Staycation Haven PH — Guest Guide</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f3f2f2;
+    color:#201f1d;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,Arial,sans-serif;padding:26px;text-align:center}
+  .card{max-width:430px}
+  .logo{width:74px;height:74px;border-radius:18px;background:#fff;overflow:hidden;display:flex;
+    align-items:center;justify-content:center;margin:0 auto 24px;box-shadow:0 10px 30px rgba(120,90,30,.13)}
+  .logo img{width:100%;height:100%;object-fit:contain}
+  h1{font-family:Georgia,'Times New Roman',serif;font-size:25px;font-weight:700;line-height:1.3}
+  .rule{width:46px;height:2px;background:#b68235;margin:18px auto}
+  p{font-size:15px;line-height:1.75;color:#5d5952}
+  a.btn{display:inline-block;margin-top:24px;background:#b68235;color:#fff;text-decoration:none;
+    padding:13px 26px;border-radius:999px;font-size:14.5px;font-weight:700}
+  .tag{margin-top:26px;font-size:11px;color:#b68235;font-weight:700;letter-spacing:1.5px;text-transform:uppercase}
+</style></head><body>
+  <div class="card">
+    <div class="logo"><img src="/images/logo.png" alt="Staycation Haven PH"></div>
+    <h1>Para po ito sa mga naka&#8209;check&nbsp;in</h1>
+    <div class="rule"></div>
+    <p>Nakikita lang ang guest guide habang nasa haven pa kayo. Kung naka-check in na kayo pero
+       hindi pa rin ito bumubukas — o kung may kailangan kayo — message niyo lang po kami,
+       tutulungan namin kayo agad. 💛</p>
+    <a class="btn" href="https://m.me/staycationhavenph">Message us on Messenger</a>
+    <div class="tag">Staycation Haven PH</div>
+  </div>
+</body></html>`;
+}
+
+// ---- the gated route itself. PUBLIC on purpose: guests are never logged in. It sits outside
+// /api (so the API session gate doesn't apply) and outside PROTECTED_PAGES (so it isn't treated
+// as an admin page). Registered BEFORE the /:user/<slug> deep links so a token can never be
+// swallowed by one of those. ----
+app.get("/stay/:token", async (req, res) => {
+  res.set("Content-Type", "text/html; charset=utf-8");
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.set("X-Robots-Tag", "noindex, nofollow");
+  const token = String(req.params.token || "");
+  try {
+    const havens = await havensLive();
+    const { byId } = stayTokensById(await stayTokensLive(), havens);
+    const id = Object.keys(byId).find(k => byId[k] === token);
+    const haven = id ? havens.find(h => h.id === id) : null;   // id → the haven's CURRENT name
+    if (haven) {
+      // LIVE read — a guest who checked in a minute ago must never be told "no stay right now",
+      // and a warm instance's cached list can easily be missing that booking.
+      let bookings = [];
+      try { bookings = await store.readFreshList("shph_bookings_v3"); }
+      catch (e) { bookings = store.get("shph_bookings_v3") || []; }
+      if (activeStayIn(bookings, haven.name)) {
+        // 3 MB of guide on every scan. The handler (and therefore the gate above) still runs on
+        // every request, but an unchanged guide can answer 304 with no body — hence no-cache
+        // rather than no-store. `private` keeps any shared proxy out of it. The body is set
+        // BEFORE Express computes the ETag, so the injected per-haven WiFi is part of the ETag
+        // and one haven's cached copy can never be revalidated as another's.
+        res.set("Cache-Control", "private, no-cache, must-revalidate");
+        return res.send(stayGuideHtml(await stayWifiFor(haven)));
+      }
+    }
+  } catch (e) {
+    console.error("[stay] gate failed:", e.message);   // fail CLOSED — fall through to the notice
+  }
+  res.status(200).send(stayClosedHtml());              // 200, not 404, so it renders nicely on a phone
+});
+
+// ---- admin: the token map behind the printable QR page (dashboard → Guest Guide QR) ----
+// Mints a token for any haven that doesn't have one YET, then leaves it alone forever. Also the
+// place where a legacy name-keyed token is written across to the haven's id.
+apiRouter.get("/stay-tokens", async (req, res) => {
+  if (!isAdminSession(req)) return res.status(403).json({ error: "admin only" });
+  try {
+    const havens = await havensLive();
+    const { byId, migrate } = stayTokensById(await stayTokensLive(), havens);
+    // one PROPERTY per haven, transactionally — never a whole-map replace, so two admins opening
+    // this page at once can't wipe each other's tokens. (The old name key is left in place: it is
+    // harmless dead weight, and deleting it would need exactly the whole-map write we avoid.)
+    for (const id of Object.keys(migrate)) await store.setObjectProp(STAY_TOKENS_KEY, id, migrate[id]);
+    for (const h of havens) {
+      if (byId[h.id]) continue;
+      byId[h.id] = newStayToken();
+      await store.setObjectProp(STAY_TOKENS_KEY, h.id, byId[h.id]);
+    }
+    res.set("Cache-Control", "no-store");
+    res.json({ ok: true, havens, tokens: byId });   // tokens are keyed by haven ID
+  } catch (e) {
+    console.error("[stay] token read failed:", e.message);
+    res.status(502).json({ ok: false, error: "could not load the QR codes — try again" });
+  }
+});
+
+// Explicit per-haven REGENERATE. Deliberately a separate call the dashboard confirms first:
+// a new token kills the QR already printed and stuck to that unit's wall.
+apiRouter.post("/stay-tokens", async (req, res) => {
+  if (!isAdminSession(req)) return res.status(403).json({ error: "admin only" });
+  const id = String((req.body || {}).id || "").trim();
+  if (!id) return res.status(400).json({ ok: false, error: "missing haven id" });
+  try {
+    const haven = (await havensLive()).find(h => h.id === id);
+    if (!haven) return res.status(404).json({ ok: false, error: "unknown haven" });
+    const token = newStayToken();
+    await store.setObjectProp(STAY_TOKENS_KEY, id, token);
+    console.log(`[stay] QR token regenerated for "${haven.name}" (id ${id}) by ${(readSession(req) || {}).u || "admin"} — the printed QR for that unit is now dead`);
+    res.set("Cache-Control", "no-store");
+    res.json({ ok: true, id, haven: haven.name, token });
+  } catch (e) {
+    console.error("[stay] token regenerate failed:", e.message);
+    res.status(502).json({ ok: false, error: "could not save — try again" });
+  }
+});
+
 app.use("/api", apiRouter);
 
 /* ---------------- Pages (server-rendered EJS) ---------------- */
@@ -1212,9 +1484,21 @@ const PUBLIC_BOOKING_FIELDS = [
   "slot", "extend", "cancelled", "deleted",                          // …and what frees it
   "source", "bookingNo"                                              // SH-000x sequence (contact REMOVED — it leaked every guest's phone in page source; the website dup-check still catches same-session re-clicks and slot conflicts are refused separately)
 ];
+/* settings.wifi = the per-haven guest-guide WiFi (SSID + password). shph_settings is public-seeded,
+   so without this it would be printed into the page source of every guest page. It is stripped here
+   AND for any non-admin dashboard session (renderPage below); the only browser that ever receives
+   it is an admin's, and the only other consumer is the server itself in /stay/:token. */
+function stripWifi(settings) {
+  if (!settings || typeof settings !== "object" || !settings.wifi) return settings;
+  const copy = { ...settings };   // COPY: seed values are live references to the store cache
+  delete copy.wifi;
+  return copy;
+}
+
 function publicSeed(seed) {
   const out = {};
   for (const k of PUBLIC_SEED_KEYS) if (k in seed) out[k] = seed[k];
+  if (out.shph_settings) out.shph_settings = stripWifi(out.shph_settings);
   const list = Array.isArray(seed.shph_bookings_v3) ? seed.shph_bookings_v3 : [];
   out.shph_bookings_v3 = list.map(b => {
     const o = {};
@@ -1273,7 +1557,9 @@ function renderPage(name) {
     // now checks credentials, so the browser no longer needs — and must not receive — the
     // user/partner lists it used to compare passwords against.
     if (name === "admin" || name === "partner-login") {
-      const s = { shph_settings: store.get("shph_settings") };
+      // stripWifi: the login pages are reachable by ANYONE, so the guest-guide WiFi passwords
+      // must not ride along in their seed either.
+      const s = { shph_settings: stripWifi(store.get("shph_settings")) };
       return res.render(name, { seed: s, page: name }, (err, html) => {
         if (err) return res.status(500).send("Page render error: " + err.message);
         res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -1330,7 +1616,12 @@ function renderPage(name) {
     const pageSeed = PUBLIC_PAGES.has(name) ? publicSeed(seed) : seed;
     // The owner's private notes are stripped from the seed unless an ADMIN is signed in — a
     // staff or partner browser must never receive them, even though they load the same view.
-    if (!PUBLIC_PAGES.has(name) && !isAdminSession(req)) ADMIN_ONLY_KEYS.forEach(k => { delete pageSeed[k]; });
+    if (!PUBLIC_PAGES.has(name) && !isAdminSession(req)) {
+      ADMIN_ONLY_KEYS.forEach(k => { delete pageSeed[k]; });
+      // …and the guest-guide WiFi passwords, which only the admin WiFi tab ever edits. PUT /kv
+      // re-attaches them, so a staff/partner Save can't wipe what their browser never saw.
+      if (pageSeed.shph_settings) pageSeed.shph_settings = stripWifi(pageSeed.shph_settings);
+    }
     res.render(name, { seed: pageSeed, page: name }, (err, html) => {
       if (err) {
         console.error("Render error for", name, "—", err.message);
@@ -1359,7 +1650,10 @@ app.get("/become-an-affiliate", renderPage("be-a-partner"));
 // no back-office data — it fetches the signed-in affiliate's own dashboard from /api/affiliate/me,
 // and shows a login card first if there's no valid affiliate session.
 app.get("/affiliate", (req, res) => {
-  const s = { shph_settings: store.get("shph_settings") };
+  // /affiliate has NO auth gate (the login card is drawn client-side), so its seed is public: strip
+  // the per-haven WiFi passwords, exactly like publicSeed/renderPage do. Without this the whole set
+  // is readable from View Source on a linked, indexable URL.
+  const s = { shph_settings: stripWifi(store.get("shph_settings")) };
   res.render("affiliate", { seed: s, page: "affiliate" }, (err, html) => {
     if (err) { console.error("Render error for affiliate —", err.message); return res.status(500).send("Page render error: " + err.message); }
     res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -1386,6 +1680,7 @@ const ADMIN_PAGE_ROUTES = {
   "booking-approval":"dashboard", "security-deposit":"dashboard", "violations-damages":"dashboard",
   "partner-list":"dashboard", "commissions":"dashboard", "bookings-by-partner":"dashboard",
   "pr-rooms":"dashboard", "add-partner":"dashboard", "applications":"dashboard", "affiliates":"dashboard", "havens":"dashboard", "rates-addons":"dashboard",
+  "guest-guide-qr":"dashboard",
   "housekeeping":"dashboard", "inventory":"dashboard", "finance":"dashboard", "payments":"dashboard",
   "payroll":"dashboard", "bills":"dashboard", "expenses":"dashboard", "analytics":"dashboard",
   "users":"dashboard", "employees":"dashboard", "assist":"dashboard", "log":"dashboard", "notes":"dashboard"

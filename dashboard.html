@@ -2436,6 +2436,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <button class="rtab" data-rt="dp" onclick="rateTab('dp')">Downpayment</button>
         <button class="rtab" data-rt="promos" onclick="rateTab('promos')">Promos</button>
         <button class="rtab" data-rt="fines" onclick="rateTab('fines')">Fines</button>
+        <button class="rtab" data-rt="wifi" onclick="rateTab('wifi')">WiFi</button>
     </div>
 
     <div class="rcard">
@@ -2520,6 +2521,45 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <label>Excess mess / extra cleaning<span class="peso"><input type="number" id="s_fineMess" min="0"></span></label>
             <label>Unwashed dishes<span class="peso"><input type="number" id="s_fineDishes" min="0"></span></label>
         </div>
+    </div>
+
+    <!-- WiFi per haven (ADMIN ONLY — hidden by applyPermissions). These credentials are the ONLY
+         copy: they used to be hard-coded in guest-guide/guide.html, which publishes them to a
+         public repo and let a Haven 1 guest read every other unit's password. The guide now gets
+         only the scanning haven's WiFi, injected by /stay/:token. Never paste one back into a file. -->
+    <div class="rcard">
+        <style>
+          #page-booking .wifi-note{ background:#fdf8ef; border:1px solid #eddfc4; border-radius:12px; padding:13px 16px;
+            font-size:13px; line-height:1.65; color:#6b5c40; margin:-4px 0 18px; }
+          #page-booking .wifi-note b{ color:var(--hv-terra-d); }
+          #page-booking .wifi-row{ display:grid; grid-template-columns:150px 1fr 1fr; gap:12px; align-items:center;
+            padding:12px 0; border-bottom:1px solid var(--hv-line); }
+          #page-booking .wifi-row:last-child{ border-bottom:none; }
+          #page-booking .wifi-row .wifi-name{ font-weight:700; font-size:14px; color:var(--hv-ink); }
+          #page-booking .wifi-row input{ width:100%; padding:10px 13px; border:1px solid var(--hv-line);
+            border-radius:10px; background:#faf7f2; font-size:14px; font-family:inherit; }
+          #page-booking .wifi-row input:focus{ outline:none; border-color:var(--hv-terra); }
+          #page-booking .wifi-pw{ position:relative; }
+          #page-booking .wifi-pw input{ padding-right:52px; }
+          #page-booking .wifi-eye{ position:absolute; right:6px; top:50%; transform:translateY(-50%);
+            border:none; background:none; cursor:pointer; font-size:11px; font-weight:700; color:var(--hv-muted);
+            font-family:inherit; padding:6px 8px; letter-spacing:.5px; }
+          #page-booking .wifi-eye:hover{ color:var(--hv-terra); }
+          #page-booking .wifi-head{ display:grid; grid-template-columns:150px 1fr 1fr; gap:12px;
+            font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; }
+          @media (max-width:700px){
+            #page-booking .wifi-head{ display:none; }
+            #page-booking .wifi-row{ grid-template-columns:1fr; gap:8px; }
+          }
+        </style>
+        <h3><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M2.5 8.5a15 15 0 0 1 19 0"/><path d="M5.5 12a10.5 10.5 0 0 1 13 0"/><path d="M8.5 15.4a6 6 0 0 1 7 0"/><path d="M12 19h.01"/></svg></span>WiFi per haven</h3>
+        <div class="wifi-note">
+            Ito ang ipapakita sa <b>Guest Guide</b> ng guest na naka-check in sa haven na iyon — siya lang,
+            hindi niya makikita ang ibang unit. Kapag walang nakalagay dito, ang makikita niya ay
+            <b>“Ask the host”</b>. <b>Admin lang</b> ang nakakakita ng page na ito.
+        </div>
+        <div class="wifi-head"><div>Haven</div><div>Network (SSID)</div><div>Password</div></div>
+        <div id="wifiRows"></div>
     </div>
 </div><!-- /page-booking -->
 
@@ -2691,6 +2731,60 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         </div>
         <div id="employeesList"></div>
     </div>
+</div>
+
+<!-- ===== Guest Guide QR (admin only) — print one permanent QR per haven ===== -->
+<div class="page" id="page-qrcodes">
+    <style>
+      #page-qrcodes .qrp-head{ display:flex; align-items:flex-end; gap:18px; flex-wrap:wrap; margin-bottom:16px; }
+      #page-qrcodes .qrp-head h2{ font-family:var(--hv-serif),Georgia,serif; font-size:27px; font-weight:700; margin:0; }
+      #page-qrcodes .qrp-head p{ color:var(--hv-muted); font-size:13.5px; margin:5px 0 0; max-width:640px; line-height:1.6; }
+      #page-qrcodes .qrp-tools{ margin-left:auto; display:flex; gap:9px; flex-wrap:wrap; }
+      #page-qrcodes .qrp-btn{ border:1px solid var(--hv-line); background:#fff; color:var(--hv-ink); border-radius:10px;
+        padding:9px 15px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; }
+      #page-qrcodes .qrp-btn:hover{ border-color:var(--hv-terra); color:var(--hv-terra); }
+      #page-qrcodes .qrp-btn.primary{ background:var(--hv-terra); border-color:var(--hv-terra); color:#fff; }
+      #page-qrcodes .qrp-btn.primary:hover{ background:var(--hv-terra-d); color:#fff; }
+      #page-qrcodes .qrp-note{ background:#fdf8ef; border:1px solid #eddfc4; border-radius:13px; padding:14px 17px;
+        font-size:13px; line-height:1.65; color:#6b5c40; margin-bottom:20px; }
+      #page-qrcodes .qrp-note b{ color:var(--hv-terra-d); }
+      #page-qrcodes .qrp-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(255px,1fr)); gap:18px; }
+      #page-qrcodes .qrp-card{ background:#fff; border:1px solid var(--hv-line); border-radius:16px; padding:18px; text-align:center; }
+      #page-qrcodes .qrp-card h3{ font-family:var(--hv-serif),Georgia,serif; font-size:17px; font-weight:600; margin:0 0 12px; }
+      #page-qrcodes .qrp-img{ width:176px; height:176px; margin:0 auto; }
+      #page-qrcodes .qrp-img svg{ width:100%; height:100%; display:block; }
+      #page-qrcodes .qrp-url{ margin-top:12px; font-size:11px; font-family:ui-monospace,Menlo,Consolas,monospace;
+        color:var(--hv-muted); word-break:break-all; line-height:1.5; user-select:all; }
+      #page-qrcodes .qrp-acts{ display:flex; gap:7px; justify-content:center; margin-top:12px; flex-wrap:wrap; }
+      #page-qrcodes .qrp-acts .qrp-btn{ padding:6px 12px; font-size:12px; }
+      #page-qrcodes .qrp-danger{ color:#a33; border-color:#e8cfcf; }
+      #page-qrcodes .qrp-danger:hover{ border-color:#a33; color:#a33; }
+      #page-qrcodes .qrp-empty{ color:var(--hv-muted); font-size:13.5px; padding:10px 2px; }
+    </style>
+    <div class="qrp-head">
+        <div>
+            <h2>Guest Guide QR</h2>
+            <p>One permanent QR per haven. I-print, tapos i-post sa loob ng unit — i-scan ito ng guest para
+               makita ang check-in / check-out guide. Walang link nito sa website.</p>
+        </div>
+        <div class="qrp-tools">
+            <button class="qrp-btn" onclick="renderStayQR()">Reload</button>
+            <button class="qrp-btn primary" onclick="stayQrPrint()">🖨 Print sheet</button>
+        </div>
+    </div>
+    <div class="qrp-note">
+        Bukas lang ang guide habang <b>may naka-check in</b> sa haven na iyon — mula check-in hanggang
+        check-out, o <b>24 oras</b> pagkatapos mag-check in, kung alin ang mas huli. Pagkatapos noon,
+        ang makikita ng nag-scan ay isang magalang na paalala at ang Messenger link. Hindi nagbabago ang
+        QR: i-print mo isang beses lang.
+        <br><br>
+        <!-- Rename hazard: tokens are keyed by the haven's ID (server.js stayTokensById), so renaming
+             a haven keeps its printed QR alive. Only Regenerate below kills a sticker. -->
+        <b>Safe ang pag-rename ng haven</b> — nakatali ang QR sa haven mismo, hindi sa pangalan nito,
+        kaya patuloy pa rin itong gagana kahit palitan mo ang pangalan. Ang <b>Regenerate</b> lang ang
+        pumapatay sa naka-print nang QR.
+    </div>
+    <div class="qrp-grid" id="stayQrGrid"><div class="qrp-empty">Loading…</div></div>
 </div>
 
 <!-- ===== Notes (owner-only private notebook) ===== -->
@@ -8818,6 +8912,240 @@ async function renderWebsiteVisits(){
         el.innerHTML = '<div class="muted" style="padding:6px 2px;">Could not load visits — try again.</div>';
     }
 }
+
+/* ================= Guest Guide QR (admin only) =================================
+   One PERMANENT QR per haven, printed and posted inside the unit. The URL is
+   /stay/<random token>; the server (server.js) only serves the guide while that
+   haven actually has a guest checked in. Regenerating a token kills the QR that
+   is already stuck to that unit's wall, so it's behind its own confirm.
+   ============================================================================ */
+let stayQrData = null;   // { havens:[name], tokens:{name:token} } — declared before renderStayQR reads it
+
+/* Tiny QR encoder — byte mode, EC level M, versions 1-6 (up to 106 characters).
+   Written out in full ON PURPOSE: no CDN script, so the QR sheet still prints on
+   a weak connection or a locked-down network. Verified matrix-for-matrix against
+   the `qrcode` reference encoder and decoded back with jsQR.
+   Returns { size, rows:[[0|1,…],…] }, or null if the text is too long. */
+function stayQrMatrix(text){
+    const BLK = { 1:[10,1,16], 2:[16,1,28], 3:[26,1,44], 4:[18,2,32], 5:[24,2,43], 6:[16,4,27] };   // [EC cw/block, blocks, data cw/block]
+    const ALIGN = { 1:[], 2:[6,18], 3:[6,22], 4:[6,26], 5:[6,30], 6:[6,34] };
+    const EXP = new Array(512), LOG = new Array(256);                                   // GF(256), poly 0x11d
+    for(let i = 0, x = 1; i < 255; i++){ EXP[i] = x; LOG[x] = i; x <<= 1; if(x & 0x100) x ^= 0x11d; }
+    for(let i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
+    const gmul = (a, b) => (a === 0 || b === 0) ? 0 : EXP[LOG[a] + LOG[b]];
+    function rsEc(data, n){
+        let g = [1];
+        for(let i = 0; i < n; i++){
+            const q = new Array(g.length + 1).fill(0);
+            for(let j = 0; j < g.length; j++){ q[j] ^= g[j]; q[j + 1] ^= gmul(g[j], EXP[i]); }
+            g = q;
+        }
+        const res = data.concat(new Array(n).fill(0));
+        for(let i = 0; i < data.length; i++){
+            const f = res[i];
+            if(!f) continue;
+            for(let j = 0; j < g.length; j++) res[i + j] ^= gmul(g[j], f);
+        }
+        return res.slice(data.length);
+    }
+    // UTF-8 bytes → smallest version that fits (2 codewords go to the mode + length header)
+    const bytes = [];
+    encodeURIComponent(String(text)).replace(/%([0-9A-F]{2})|(.)/g, (m, hex, ch) => { bytes.push(hex ? parseInt(hex, 16) : ch.charCodeAt(0)); return ""; });
+    let ver = 0;
+    for(let v = 1; v <= 6; v++){ if(BLK[v][1] * BLK[v][2] - 2 >= bytes.length){ ver = v; break; } }
+    if(!ver) return null;
+    const ecLen = BLK[ver][0], blocks = BLK[ver][1], perBlock = BLK[ver][2];
+    const totalData = blocks * perBlock, size = ver * 4 + 17;
+    // bit stream: mode 0100 + 8-bit length + data + terminator + 0xEC/0x11 padding
+    const bits = [], put = (v, n) => { for(let i = n - 1; i >= 0; i--) bits.push((v >>> i) & 1); };
+    put(4, 4); put(bytes.length, 8); bytes.forEach(b => put(b, 8));
+    for(let i = 0; i < 4 && bits.length < totalData * 8; i++) bits.push(0);
+    while(bits.length % 8) bits.push(0);
+    const cw = [];
+    for(let i = 0; i < bits.length; i += 8){ let b = 0; for(let j = 0; j < 8; j++) b = (b << 1) | bits[i + j]; cw.push(b); }
+    for(let i = 0; cw.length < totalData; i++) cw.push(i % 2 ? 0x11 : 0xec);
+    // split into blocks, add error correction, interleave
+    const dB = [], eB = [];
+    for(let i = 0; i < blocks; i++){ const d = cw.slice(i * perBlock, (i + 1) * perBlock); dB.push(d); eB.push(rsEc(d, ecLen)); }
+    const finalCw = [];
+    for(let i = 0; i < perBlock; i++) for(const d of dB) finalCw.push(d[i]);
+    for(let i = 0; i < ecLen; i++) for(const e of eB) finalCw.push(e[i]);
+    // function patterns (null = still free for data)
+    const m = [];
+    for(let r = 0; r < size; r++) m.push(new Array(size).fill(null));
+    const setF = (r, c, v) => { if(r >= 0 && r < size && c >= 0 && c < size) m[r][c] = v; };
+    [[0,0],[0,size-7],[size-7,0]].forEach(p => {
+        for(let r = -1; r <= 7; r++) for(let c = -1; c <= 7; c++){
+            const box = r >= 0 && r <= 6 && c >= 0 && c <= 6;
+            const dark = box && ((r === 0 || r === 6 || c === 0 || c === 6) || (r >= 2 && r <= 4 && c >= 2 && c <= 4));
+            setF(p[0] + r, p[1] + c, dark ? 1 : 0);
+        }
+    });
+    for(let i = 8; i < size - 8; i++){ const v = i % 2 === 0 ? 1 : 0; m[6][i] = v; m[i][6] = v; }
+    for(const R of ALIGN[ver]) for(const C of ALIGN[ver]){
+        if((R === 6 && C === 6) || (R === 6 && C === size - 7) || (R === size - 7 && C === 6)) continue;   // never on a finder
+        for(let r = -2; r <= 2; r++) for(let c = -2; c <= 2; c++)
+            setF(R + r, C + c, Math.max(Math.abs(r), Math.abs(c)) !== 1 ? 1 : 0);
+    }
+    m[size - 8][8] = 1;                                                                  // the always-dark module
+    for(let i = 0; i < 9; i++){ if(m[8][i] === null) m[8][i] = 0; if(m[i][8] === null) m[i][8] = 0; }
+    for(let i = 0; i < 8; i++){ if(m[8][size-1-i] === null) m[8][size-1-i] = 0; if(m[size-1-i][8] === null) m[size-1-i][8] = 0; }
+    const reserved = m.map(row => row.map(v => v !== null));
+    const MASKS = [
+        (r, c) => (r + c) % 2 === 0,                             (r, c) => r % 2 === 0,
+        (r, c) => c % 3 === 0,                                   (r, c) => (r + c) % 3 === 0,
+        (r, c) => (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0,
+        (r, c) => ((r * c) % 2 + (r * c) % 3) === 0,
+        (r, c) => (((r * c) % 2 + (r * c) % 3) % 2) === 0,
+        (r, c) => (((r + c) % 2 + (r * c) % 3) % 2) === 0
+    ];
+    function build(mask){
+        const g = m.map(row => row.slice());
+        let inc = -1, row = size - 1, bi = 7, byi = 0;
+        for(let col = size - 1; col > 0; col -= 2){
+            if(col === 6) col--;                                  // the vertical timing pattern is skipped
+            for(;;){
+                for(let k = 0; k < 2; k++){
+                    const c = col - k;
+                    if(!reserved[row][c]){
+                        let dark = byi < finalCw.length ? ((finalCw[byi] >>> bi) & 1) === 1 : false;
+                        if(MASKS[mask](row, c)) dark = !dark;
+                        g[row][c] = dark ? 1 : 0;
+                        if(--bi === -1){ byi++; bi = 7; }
+                    }
+                }
+                row += inc;
+                if(row < 0 || row >= size){ row -= inc; inc = -inc; break; }
+            }
+        }
+        let f = mask, d = f << 10;                                // format info: EC level M = 00, + BCH(15,5)
+        for(let i = 4; i >= 0; i--) if(d & (1 << (i + 10))) d ^= 0x537 << i;
+        const fmt = ((f << 10) | d) ^ 0x5412;
+        for(let i = 0; i < 15; i++){
+            const b = (fmt >> i) & 1;
+            if(i < 6) g[i][8] = b; else if(i < 8) g[i + 1][8] = b; else g[size - 15 + i][8] = b;
+            if(i < 8) g[8][size - 1 - i] = b; else g[8][15 - i - 1 + (i === 8 ? 1 : 0)] = b;
+        }
+        g[size - 8][8] = 1;
+        return g;
+    }
+    function penalty(g){                                          // the four standard scoring rules
+        let p = 0, dark = 0;
+        const scan = (get) => {
+            for(let a = 0; a < size; a++){
+                let run = 1;
+                for(let b = 1; b < size; b++){
+                    if(get(a, b) === get(a, b - 1)) run++;
+                    else { if(run >= 5) p += run - 2; run = 1; }
+                }
+                if(run >= 5) p += run - 2;
+                for(let b = 0; b <= size - 11; b++){
+                    let s = "";
+                    for(let k = 0; k < 11; k++) s += get(a, b + k);
+                    if(s === "10111010000" || s === "00001011101") p += 40;
+                }
+            }
+        };
+        scan((a, b) => g[a][b]); scan((a, b) => g[b][a]);
+        for(let r = 0; r < size - 1; r++) for(let c = 0; c < size - 1; c++){
+            const v = g[r][c];
+            if(v === g[r][c + 1] && v === g[r + 1][c] && v === g[r + 1][c + 1]) p += 3;
+        }
+        for(let r = 0; r < size; r++) for(let c = 0; c < size; c++) if(g[r][c]) dark++;
+        return p + 10 * Math.floor(Math.abs(dark * 100 / (size * size) - 50) / 5);
+    }
+    let best = null, bestP = Infinity;
+    for(let k = 0; k < 8; k++){ const g = build(k), s = penalty(g); if(s < bestP){ bestP = s; best = g; } }
+    return { size:size, rows:best };
+}
+// one QR as a self-contained SVG string (crisp at any print size, no external assets)
+function stayQrSvg(text, px){
+    const q = stayQrMatrix(text);
+    if(!q) return "";
+    const quiet = 4, n = q.size + quiet * 2;
+    let d = "";
+    for(let r = 0; r < q.size; r++) for(let c = 0; c < q.size; c++) if(q.rows[r][c]) d += "M" + (c + quiet) + " " + (r + quiet) + "h1v1h-1z";
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + n + ' ' + n + '" width="' + px + '" height="' + px + '"'
+        + ' shape-rendering="crispEdges" role="img" aria-label="QR code"><rect width="' + n + '" height="' + n + '" fill="#fff"/>'
+        + '<path d="' + d + '" fill="#000"/></svg>';
+}
+// the live URL to encode. Taken from THIS page's origin so it is the real domain in
+// production and localhost while testing — never a hardcoded address that prints wrong.
+// Tokens are keyed by the haven's ID, not its name: renaming a haven must never kill the
+// QR already printed and stuck to that unit's wall.
+function stayQrUrl(id){
+    return location.origin + "/stay/" + encodeURIComponent((stayQrData && stayQrData.tokens[id]) || "");
+}
+async function renderStayQR(){
+    const el = document.getElementById("stayQrGrid");
+    if(!el) return;
+    el.innerHTML = '<div class="qrp-empty">Loading…</div>';
+    try{
+        const r = await fetch("/api/stay-tokens", { cache:"no-store" });
+        if(!r.ok) throw new Error("HTTP " + r.status);
+        stayQrData = await r.json();
+    }catch(e){
+        el.innerHTML = '<div class="qrp-empty">Could not load the QR codes — try Reload.</div>';
+        return;
+    }
+    const havens = (stayQrData.havens || []).filter(h => h && stayQrData.tokens[h.id]);
+    if(!havens.length){ el.innerHTML = '<div class="qrp-empty">No havens yet — add one on the Havens page first.</div>'; return; }
+    el.innerHTML = havens.map(h => {
+        const url = stayQrUrl(h.id);
+        const svg = stayQrSvg(url, 176);
+        return `<div class="qrp-card">
+            <h3>${escHtml(h.name)}</h3>
+            <div class="qrp-img">${svg || '<div class="qrp-empty">QR unavailable — use the link below.</div>'}</div>
+            <div class="qrp-url">${escHtml(url)}</div>
+            <div class="qrp-acts">
+                <button class="qrp-btn" onclick="stayQrCopy('${escAttr(h.id).replace(/'/g, "\\'")}')">Copy link</button>
+                <button class="qrp-btn" onclick="window.open('${escAttr(url)}','_blank')">Test</button>
+                <button class="qrp-btn qrp-danger" onclick="stayQrRegen('${escAttr(h.id).replace(/'/g, "\\'")}','${escAttr(h.name).replace(/'/g, "\\'")}')">Regenerate</button>
+            </div>
+        </div>`;
+    }).join("");
+}
+function stayQrCopy(id){
+    const url = stayQrUrl(id);
+    try{ navigator.clipboard.writeText(url); alert("Link copied:\n" + url); }
+    catch(e){ prompt("Copy this link:", url); }
+}
+async function stayQrRegen(id, haven){
+    if(!confirm("Regenerate the QR for " + haven + "?\n\nAng QR na naka-post na sa loob ng unit ay HINDI NA GAGANA. "
+        + "Kailangan mong mag-print at magpalit ng bago. Tuloy?")) return;
+    try{
+        const r = await fetch("/api/stay-tokens", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ id:id }) });
+        if(!r.ok) throw new Error("HTTP " + r.status);
+        if(typeof logActivity === "function") logActivity("regenerated the guest-guide QR for " + haven);
+        alert("Done — bagong QR na. Print the new one and replace the old sticker in " + haven + ".");
+        renderStayQR();
+    }catch(e){
+        alert("Could not regenerate — try again.");
+    }
+}
+// A4 print sheet: one big QR per haven with the name underneath, ready to cut and post.
+function stayQrPrint(){
+    if(!stayQrData){ alert("Still loading — try again in a second."); return; }
+    const havens = (stayQrData.havens || []).filter(h => h && stayQrData.tokens[h.id]);
+    if(!havens.length){ alert("No havens to print yet."); return; }
+    const cards = havens.map(h => `\x3Cdiv class="pc">${stayQrSvg(stayQrUrl(h.id), 250)}`
+        + `\x3Cdiv class="pn">${escHtml(h.name)}\x3C/div>`
+        + `\x3Cdiv class="ps">Scan for your check-in &amp; check-out guide\x3C/div>\x3C/div>`).join("");
+    const css = "*{box-sizing:border-box}body{font-family:Georgia,'Times New Roman',serif;color:#201f1d;margin:0;padding:16px;background:#fff}"
+        + "h1{font-size:17px;margin:0 0 4px}.meta{font-size:11px;color:#8b857c;margin-bottom:16px}"
+        + ".grid{display:flex;flex-wrap:wrap;gap:16px}"
+        + ".pc{width:300px;border:1px dashed #cfc7ba;border-radius:12px;padding:18px 12px;text-align:center;page-break-inside:avoid}"
+        + ".pc svg{display:block;margin:0 auto}"
+        + ".pn{font-size:21px;font-weight:700;margin-top:12px}"
+        + ".ps{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#8b857c;margin-top:5px}"
+        + "@media print{body{padding:0}.noprint{display:none}}";
+    openPrint(`\x3C!DOCTYPE html>\x3Chtml>\x3Chead>\x3Cmeta charset="utf-8">\x3Ctitle>Guest Guide QR — Staycation Haven PH\x3C/title>`
+        + `\x3Cstyle>${css}\x3C/style>\x3C/head>\x3Cbody>`
+        + `\x3Ch1>Staycation Haven PH — Guest Guide QR\x3C/h1>`
+        + `\x3Cdiv class="meta">${havens.length} haven(s) · printed ${new Date().toLocaleDateString("en-PH")} · post one inside each unit\x3C/div>`
+        + `\x3Cdiv class="grid">${cards}\x3C/div>\x3C/body>\x3C/html>`);
+}
+
 // ---- deep-link routing: each sidebar page has its own /admin/<slug> URL (back/forward works) ----
 const PAGE_SLUGS = {
     board:"board", calendar:"calendar-bookings", guestform:"guest-form",
@@ -8825,6 +9153,7 @@ const PAGE_SLUGS = {
     deposit:"security-deposit", violations:"violations-damages",
     partners:"partner-list", commissions:"commissions", partnerbookings:"bookings-by-partner",
     prrooms:"pr-rooms", addpartner:"add-partner", applications:"applications", affiliates:"affiliates", havens:"havens", booking:"rates-addons",
+    qrcodes:"guest-guide-qr",
     cleaners:"housekeeping", inventory:"inventory", finance:"finance", payments:"payments",
     payroll:"payroll", bills:"bills", expenses:"expenses", analytics:"analytics",
     users:"users", employees:"employees", assist:"assist", log:"log", notes:"notes"
@@ -8884,6 +9213,7 @@ function showPage(page, _nav){
     const CRUMB = {
         today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"], guestform:["Main","Guest Form"], collections:["Main","Collection Reports"], website:["Main","Website"], approval:["Front Desk","Booking Approval"], deposit:["Front Desk","Security Deposit"], violations:["Front Desk","Violations & Damages"],
         havens:["Property","Havens"], booking:["Property","Rates & Add-ons"], cleaners:["Property","Housekeeping"],
+        qrcodes:["Property","Guest Guide QR"],
         finance:["Finance","Finance"], payments:["Finance","Payments"], payroll:["Finance","Payroll"],
         bills:["Finance","Bills"], expenses:["Finance","Expenses"], analytics:["Finance","Analytics"],
         users:["Team","Users"], employees:["Team","Employees"], assist:["Assistant","Trav"], log:["Team","Log"]
@@ -8910,6 +9240,7 @@ function showPage(page, _nav){
     if(page === "employees" && typeof renderEmployees === "function") renderEmployees();
     if(page === "log" && typeof renderLog === "function") renderLog();
     if(page === "notes" && typeof renderNotes === "function") renderNotes();
+    if(page === "qrcodes" && typeof renderStayQR === "function") renderStayQR();
     if(page === "assist" && typeof renderAssist === "function") renderAssist();
 }
 
@@ -14690,6 +15021,7 @@ function fillBookingSettings(){
 
     customAddons = (s.customAddons || []).map(a => ({ name:a.name, price:Number(a.price)||0, perPax: !!a.perPax }));
     renderCustomAddons();
+    renderWifiRows();
 
     promos = (s.promos || []).map(p => ({
         title: p.title || "", desc: p.desc || "",
@@ -14699,13 +15031,58 @@ function fillBookingSettings(){
     renderPromos();
 }
 
+/* ---------- per-haven WiFi (guest guide) ----------------------------------------
+   The ONLY place these credentials live. They are saved inside shph_settings.wifi,
+   keyed by the haven's stable ID, and the server strips them from every non-admin
+   seed — so an admin browser is the only one that ever holds them. The guest guide
+   never contains a password: /stay/<token> injects just the scanning haven's.
+   -------------------------------------------------------------------------------- */
+function renderWifiRows(){
+    const el = document.getElementById("wifiRows");
+    if(!el) return;
+    const w = (loadSettings().wifi) || {};
+    const list = (typeof listings !== "undefined" && listings.length) ? listings : loadHavens();
+    if(!list.length){ el.innerHTML = '<div class="muted" style="padding:8px 2px;">No havens yet — add one on the Havens page first.</div>'; return; }
+    el.innerHTML = list.map(h => {
+        const e = w[String(h.id)] || {};
+        return `<div class="wifi-row" data-wid="${escAttr(String(h.id))}">
+            <div class="wifi-name">${escHtml(h.name)}</div>
+            <input type="text" data-wf="ssid" placeholder="Network name" value="${escAttr(e.ssid || "")}" autocomplete="off">
+            <span class="wifi-pw">
+                <input type="password" data-wf="pass" placeholder="Password" value="${escAttr(e.pass || "")}" autocomplete="new-password">
+                <button type="button" class="wifi-eye" onclick="wifiToggleShow(this)">SHOW</button>
+            </span>
+        </div>`;
+    }).join("");
+}
+function wifiToggleShow(btn){
+    const inp = btn.parentNode.querySelector('[data-wf="pass"]');
+    if(!inp) return;
+    const show = inp.type === "password";
+    inp.type = show ? "text" : "password";
+    btn.textContent = show ? "HIDE" : "SHOW";
+}
+// Only what was actually typed is kept; a haven left blank is dropped rather than stored empty.
+function collectWifi(){
+    const out = {};
+    document.querySelectorAll("#wifiRows .wifi-row").forEach(row => {
+        const id = row.dataset.wid;
+        const ssid = (row.querySelector('[data-wf="ssid"]').value || "").trim();
+        const pass = (row.querySelector('[data-wf="pass"]').value || "").trim();
+        if(id && (ssid || pass)) out[id] = { ssid: ssid, pass: pass };
+    });
+    return out;
+}
+
 /* ---------- custom add-ons editor ---------- */
 let customAddons = [];
 // Rates & Add-ons page: turn the section cards into tabbed panels (Rates / Guests / Add-ons / Downpayment / Promos)
+// The keys are matched to the .rcard elements BY POSITION — add a card and you must add its key
+// here, in the same order, or every tab after it opens the wrong panel.
 (function initRateTabs(){
     const page = document.getElementById("page-booking");
     if(!page) return;
-    const keys = ["rates", "guests", "addons", "dp", "promos", "fines"];
+    const keys = ["rates", "guests", "addons", "dp", "promos", "fines", "wifi"];
     page.querySelectorAll(".rcard").forEach(function(c, i){ c.classList.add("rpanel"); if(keys[i]) c.dataset.rt = keys[i]; if(i === 0) c.classList.add("active"); });
 })();
 function rateTab(key){
@@ -14824,6 +15201,10 @@ function saveBookingSettings(){
         Smoking: getNum("s_fineSmoking"), Damage: getNum("s_fineDamage"), Missing: getNum("s_fineMissing"),
         Mess: getNum("s_fineMess"), Dishes: getNum("s_fineDishes")
     };
+    // Guest-guide WiFi — admin only, and ONLY when the rows are actually on screen. A non-admin
+    // browser never receives s.wifi (the server strips it), so writing collectWifi()'s empty
+    // result would wipe every haven's password. (The server re-attaches it as a second guard.)
+    if(document.querySelector("#wifiRows .wifi-row") && (typeof isAdminUser !== "function" || isAdminUser())) s.wifi = collectWifi();
     saveSettings(s);
     syncPricingFromSettings();   // apply the new rates to the dashboard's own pricing immediately
     alert("Saved! Rates, add-ons, promos and violation fines now apply across the dashboard.");
@@ -15132,7 +15513,8 @@ function currentPerms(){
 }
 function pageAllowed(page){
     if(window.__PARTNER__) return ["today", "calendar", "deposit", "analytics", "finance", "bills", "expenses", "board", "inventory"].includes(page);   // partner pages
-    if(page === "users" || page === "log" || page === "notes") return isAdminUser();   // Activity Log + private Notes are admin-only (not partners/employees)
+    // Activity Log, private Notes and the Guest Guide QR secrets are admin-only (not partners/employees)
+    if(page === "users" || page === "log" || page === "notes" || page === "qrcodes") return isAdminUser();
     return currentPerms().includes(page);
 }
 // hide nav items the current user can't access; redirect off a disallowed page
@@ -15183,10 +15565,14 @@ function applyPermissions(){
     // the inline Activity Log on the Calendar page is admin-only — hide it from employees
     const _calLog = document.getElementById("calLogPanel");
     if(_calLog) _calLog.style.display = admin ? "" : "none";
+    // the WiFi tab on Rates & Add-ons holds the guest-guide credentials — admin only (the server
+    // strips them from a non-admin's seed too, so the fields would be empty anyway)
+    document.querySelectorAll('#page-booking [data-rt="wifi"]').forEach(n => { n.style.display = admin ? "" : "none"; });
+    if(!admin){ const _wr = document.getElementById("wifiRows"); if(_wr) _wr.innerHTML = ""; }
     let _visible = 0;
     document.querySelectorAll(".sidebar .nav-item").forEach(n => {
         const pg = n.dataset.page;
-        const ok = (pg === "users" || pg === "log" || pg === "notes") ? admin : perms.includes(pg);
+        const ok = (pg === "users" || pg === "log" || pg === "notes" || pg === "qrcodes") ? admin : perms.includes(pg);
         n.style.display = ok ? "flex" : "none";
         if(ok) _visible++;
     });
@@ -15411,7 +15797,9 @@ function pickDefaultPage(){
         // Notes is the owner's private notebook and Board is a noticeboard — neither is a
         // sensible place to dump someone on login, so they're never auto-landing targets.
         const NEVER_LAND = ["notes", "board", "partnerdash", "addpartner", "assist"];
-        const _ok = pg => (pg === "users" || pg === "log" || pg === "notes") ? _adm : _p.includes(pg);
+        // KEEP IN SYNC with pageAllowed() and applyPermissions() — this is the third copy of the
+        // admin-only page list, and one that forgets a page would land a non-admin on it.
+        const _ok = pg => (pg === "users" || pg === "log" || pg === "notes" || pg === "qrcodes") ? _adm : _p.includes(pg);
         const _curOk = savedPage && document.getElementById("page-" + savedPage) && _ok(savedPage);
         if(_curOk) return;                       // the page they asked for is fine — leave it alone
         const _order = [...document.querySelectorAll(".sidebar .nav-item")].map(n => n.dataset.page).filter(Boolean);
