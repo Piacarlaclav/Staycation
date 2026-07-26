@@ -16055,7 +16055,13 @@ try{ if(localStorage.getItem("shph_dashboard_page") === "paymentapproval") local
 // Trav's nav entry is hidden (see views/partials/sidebar-nav.ejs). Anyone whose remembered page is
 // Trav would otherwise still open onto it with no way back to it once they navigate off — clear it
 // so they land on their normal first page instead. Remove this line if Trav is ever brought back.
-try{ if(localStorage.getItem("shph_dashboard_page") === "assist") localStorage.removeItem("shph_dashboard_page"); }catch(e){}
+// Pages whose nav entry is hidden (see views/partials/sidebar-nav.ejs). Anyone whose remembered page
+// is one of these would open onto it with no way back once they navigated off, so the saved value is
+// cleared and they land on their normal first page. Drop a name from here if its nav item returns.
+try{
+    const _hidden = ["assist","commissions","partnerbookings","prrooms","applications","affiliates","partnerdash"];
+    if(_hidden.indexOf(localStorage.getItem("shph_dashboard_page")) !== -1) localStorage.removeItem("shph_dashboard_page");
+}catch(e){}
 // Branded shortcut URLs (e.g. /nicole-board) open straight to that section, overriding the
 // remembered page. Access control still applies — showPage() ignores pages the user can't see.
 const BRANDED_PAGE = { "/nicole-board":"board", "/nicole-calendar":"calendar", "/nicole-guestform":"guestform", "/nicole-deposit":"deposit" };
