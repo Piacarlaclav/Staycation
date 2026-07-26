@@ -7114,11 +7114,18 @@ function onCheckinChange(){
     onStayChange();
 }
 
-// populate the check-in time options (hourly, all day: 12 MN … 11 PM — staff may book any time)
+// populate the check-in time options (hourly, all day: 12:01 MN … 11 PM — staff may book any time).
+// Midnight is offered as 12:01 MN, never 12:00 MN: a check-in that lands on minute 0 is read as the
+// END of the stored date (dashCheckinMin coerces 0 → 1440), so "Aug 10 · 12:00 MN" actually means
+// Aug 11 00:00 — the booking then vanishes from Aug 10 on the Timeline and confuses staff. One
+// minute past midnight carries the obvious meaning and dodges the coercion entirely.
 function fillCheckinTimes(){
     const sel = document.getElementById("f_checkinTime");
     let html = "";
-    for(let h = 0; h < 24; h++){ const t = minToTime(h * 60); html += `<option value="${t}">${t}</option>`; }
+    for(let h = 0; h < 24; h++){
+        const t = h === 0 ? "12:01 MN" : minToTime(h * 60);
+        html += `<option value="${t}">${t}</option>`;
+    }
     html += `<option value="__custom__">Custom time…</option>`;
     sel.innerHTML = html;
 }
