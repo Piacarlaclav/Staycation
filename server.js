@@ -15,6 +15,10 @@
 const express = require("express");
 const path = require("path");
 const store = require("./lib/store");
+// The SAME availability module the public pages <script> in. Requiring it here (rather than
+// keeping yet another copy) is what makes the server's double-booking guard agree with the
+// haven page byte for byte.
+const rules = require("./booking-rules");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -204,6 +208,7 @@ const apiRouter = express.Router();
    list (guest names, mobiles, payments) or write records anonymously. The allowlist:
    - POST /visit             (public visit counter)
    - POST /send-confirmation (guest booking confirmation email)
+   - POST /conflict-alert    (guest paid but the slot clashed — owner must refund/re-book)
    - POST /apply             (partner/affiliate application form)
    - POST /list/…            (guest booking write — hardened per-route below)
    - /backup, /restore       (guarded by their own CRON_SECRET / token, no cookie on a cron)
@@ -219,7 +224,7 @@ apiRouter.use((req, res, next) => {
   } else if (readSession(req)) {
     return next();   // staff / partner → full back-office access
   }
-  if (req.method === "POST" && (p === "/visit" || p === "/send-confirmation" || p === "/apply")) return next();
+  if (req.method === "POST" && (p === "/visit" || p === "/send-confirmation" || p === "/conflict-alert" || p === "/apply")) return next();
   if (req.method === "POST" && p.startsWith("/list/")) return next();   // per-route hardening below
   if (p === "/backup" || p === "/restore" || p === "/retention") return next();  // own token guards
   return res.status(401).json({ error: "login required" });
@@ -628,14 +633,39 @@ apiRouter.post("/list/:key", async (req, res) => {
     if (String(upsert.source || "") !== "website" || upsert.deleted === true || upsert.cancelled === true) {
       return res.status(401).json({ error: "login required" });
     }
-    try {
-      const list = await store.readFreshList(key);
-      const existing = (list || []).find(x => x && String(x.id) === String(upsert.id));
+    let list = null;
+    try { list = await store.readFreshList(key); }
+    catch (e) { /* fresh read failed → fall through; upsertOne itself is merge-safe */ }
+    if (list) {
+      const existing = list.find(x => x && String(x.id) === String(upsert.id));
       // never overwrite a staff-made record, and never resurrect/flip one already deleted or cancelled
       if (existing && (existing.source !== "website" || existing.deleted === true || existing.cancelled === true)) {
         return res.status(401).json({ error: "login required" });
       }
-    } catch (e) { /* fresh read failed → fall through; upsertOne itself is merge-safe */ }
+      // SERVER-SIDE DOUBLE-BOOKING GUARD — the one that actually closes the hole.
+      // payment.html also checks, but it checks a localStorage snapshot it never refetches,
+      // so two guests booking at once (or one stale tab) both pass it. This re-reads the LIVE
+      // list and re-runs the identical rules, so the write is the thing being serialised.
+      // Only the anonymous/guest path is gated: staff and partners keep their dashboard
+      // override (they move and merge stays deliberately).
+      try {
+        const cand = rules.bookingInterval(upsert);
+        // A candidate we cannot place in time cannot be conflict-checked, and a NaN window
+        // silently passes every comparison. Refuse it outright rather than write a booking
+        // that would be invisible to availability from then on.
+        if (!rules.isIsoDate(upsert.checkin) || !rules.intervalIsValid(cand)) {
+          return res.status(400).json({ error: "bad dates", message: "Sorry, those dates weren't valid. Please pick your dates again." });
+        }
+        const clash = rules.findClash(list, upsert.haven, cand.start, cand.end, { excludeId: upsert.id });
+        if (clash) {
+          console.warn(`[api] rejected double-booking: ${upsert.haven} ${upsert.checkin} ${upsert.checkinTime || ""} clashes with #${clash.id}`);
+          return res.status(409).json({
+            error: "conflict",
+            message: "That time was just booked by someone else. Please pick another date or time."
+          });
+        }
+      } catch (e) { console.error("[api] conflict check failed:", e.message); }
+    }
   }
   try {
     if (upsert && upsert.id != null) {
@@ -1205,6 +1235,53 @@ apiRouter.post("/send-confirmation", async (req, res) => {
   }
 });
 
+// ---- A guest PAID and then hit the double-booking guard ------------------------------
+// The payment page only reaches this after the guest has uploaded proof of payment, so their
+// money is already gone while the booking was (correctly) refused. Nothing is written to the
+// calendar — but a human has to make it right, so the owner is told immediately with the
+// payment screenshot attached. Without this the guest just sees an apology and Pia never
+// finds out: a silent double-booking traded for a silent lost customer.
+// Structured fields only (never raw HTML from the client), same as /send-confirmation.
+apiRouter.post("/conflict-alert", async (req, res) => {
+  try {
+    const b = (req.body && req.body.booking) || {};
+    const user = process.env.GMAIL_USER || "staycationhavenph@gmail.com";
+    const pass = process.env.GMAIL_APP_PASSWORD || process.env.EMAIL_PASSWORD;
+    if (!pass) return res.status(200).json({ ok: false, error: "not_configured" });
+    let nodemailer;
+    try { nodemailer = require("nodemailer"); } catch (e) { return res.status(200).json({ ok: false, error: "not_installed" }); }
+    const row = (k, v) => `<tr><td style="padding:6px 0;color:#6a6459;font-size:14px">${_esc(k)}</td><td style="padding:6px 0;text-align:right;font-weight:600;font-size:14px">${_esc(v)}</td></tr>`;
+    const html = `<div style="font-family:Arial,Helvetica,sans-serif;padding:20px">
+      <h2 style="color:#b3261e;margin:0 0 6px">⚠️ Guest paid, but the slot was already taken</h2>
+      <p style="color:#6a6459;font-size:14px;margin:0 0 14px">The booking was <b>refused</b> (no double-booking was created), but this guest has already sent payment. Please refund them or help them re-book.</p>
+      <table style="width:100%;max-width:460px;border-collapse:collapse">
+        ${row("Haven", b.haven)}${row("Check-in", b.checkin)}${row("Time", b.checkinTime)}
+        ${row("Stay", b.stay)}${row("Contact", b.contact)}${row("Email", b.email)}
+        ${row("Amount paid", b.downpayment)}${row("Payment method", b.method)}
+      </table>
+      <p style="color:#6a6459;font-size:13px;margin:14px 0 0">The guest's payment screenshot is attached (if they uploaded one).</p>
+    </div>`;
+    // attach the proof screenshot so the owner can verify + refund without chasing the guest
+    const attachments = [];
+    const proof = typeof req.body.proof === "string" ? req.body.proof : "";
+    const m = /^data:(image\/[a-z.+-]+);base64,([A-Za-z0-9+/=]+)$/.exec(proof);
+    if (m && m[2].length < 6e6) {   // ~4.5MB decoded ceiling; the client already downscales
+      attachments.push({ filename: "payment-proof." + (m[1].split("/")[1] || "jpg"), content: Buffer.from(m[2], "base64") });
+    }
+    const transporter = nodemailer.createTransport({ service: "gmail", auth: { user, pass } });
+    await transporter.sendMail({
+      from: `"Staycation Haven PH" <${user}>`,
+      to: process.env.OWNER_EMAIL || "staycationhavenph@gmail.com, piacarlaclav@gmail.com",
+      subject: `ACTION NEEDED - paid but double-booked - ${String(b.haven || "").slice(0, 24)} ${String(b.checkin || "").slice(0, 10)}`,
+      html, attachments
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("[api] conflict-alert failed:", e.message);
+    res.status(200).json({ ok: false, error: "send_failed" });
+  }
+});
+
 /* ============================================================================
    GUEST GUIDE — the check-in/check-out walkthrough behind /stay/<token>
    ----------------------------------------------------------------------------
@@ -1542,6 +1619,10 @@ const PUBLIC_BOOKING_FIELDS = [
   "id",                                                              // merge identity
   "haven", "checkin", "checkout", "checkinTime", "stayHours",        // availability window
   "slot", "extend", "cancelled", "deleted",                          // …and what frees it
+  // An admin-recorded early check-out NARROWS the occupied window, so the freed hours become
+  // sellable again. Without it in the seed the public pages read 0 and keep offering the full
+  // stay as occupied — the benefit reached nobody. Plain integer (minutes), carries no PII.
+  "actualCheckoutMin",
   "source", "bookingNo"                                              // SH-000x sequence (contact REMOVED — it leaked every guest's phone in page source; the website dup-check still catches same-session re-clicks and slot conflicts are refused separately)
 ];
 /* settings.wifi = the per-haven guest-guide WiFi (SSID + password). shph_settings is public-seeded,

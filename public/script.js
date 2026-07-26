@@ -56,27 +56,33 @@ function loadBookings(){
 }
 
 function sameHaven(a, b){
-    return String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
+    return SHB.sameHaven(a, b);
 }
 
-// is a haven free for the requested stay? slot-aware for 6-hour stays.
+// the owner's currently-offered stay lengths (dashboard → Rates & Add-ons)
+function searchPricing(){
+    try { return (JSON.parse(localStorage.getItem("shph_settings")) || {}).pricing || {}; }
+    catch(e){ return {}; }
+}
+
+// Is a haven free for the requested stay?
+// This asks booking-rules.js the EXACT question havens.html's booking panel asks, so a
+// haven listed here as "available" can never say "Fully booked for this date" one click
+// later. It used to run its own whole-day overlap check: no cleaning gap, no check-in
+// times, no Saturday overnight-only rule and no offer6/10/21 settings — which is why the
+// listing and the panel disagreed (e.g. Haven 1 on Sat 01/08/2026).
 function havenAvailable(havenName, startIso, endIso, hours){
-    const reqEnd = (endIso && endIso > startIso) ? endIso : addDaysIso(startIso, 1);
-    const overlapping = loadBookings().filter(b => {
-        if(b.deleted || b.cancelled) return false;   // deleted/cancelled → slot is free again
-        if(!sameHaven(b.haven, havenName)) return false;
-        const bEnd = (b.checkout && b.checkout > b.checkin) ? b.checkout : addDaysIso(b.checkin, 1);
-        return startIso < bEnd && b.checkin < reqEnd;   // half-open overlap
-    });
-    if(overlapping.length === 0) return true;            // nothing booked → free
-
-    // 10h / 21h need the whole day(s); any overlap blocks them
-    if(hours === 10 || hours === 21) return false;
-
-    // 6h or "Any": free unless a full-day booking exists or BOTH 6h slots are taken
-    if(overlapping.some(b => Number(b.stayHours) !== 6)) return false;
-    const slots = new Set(overlapping.filter(b => Number(b.stayHours) === 6).map(b => b.slot || "morning"));
-    return !(slots.has("morning") && slots.has("evening"));
+    const list = loadBookings();
+    // a multi-night range needs WHOLE days → any day-overlap blocks it
+    if(endIso && endIso > addDaysIso(startIso, 1)){
+        return !SHB.rangeHasBooking(list, havenName, startIso, endIso);
+    }
+    const lead = SHB.earliestLeadMin(startIso);
+    if(!hours) return SHB.dayHasAnyFreeTime(list, havenName, startIso, searchPricing(), lead);
+    // an explicit duration was chosen: it must be offered AND still fit somewhere that day
+    if(SHB.offeredHours(searchPricing()).indexOf(hours) < 0) return false;
+    if(SHB.isoWeekday(startIso) === 6 && hours !== 21) return false;   // Saturday = overnight only
+    return SHB.freeCheckinTimes(list, havenName, hours, startIso, 0, lead).length > 0;
 }
 
 function checkAvailability(opts){

@@ -118,6 +118,8 @@
 </footer>
 
 <script src="site-settings.js"></script>
+<!-- shared booking rules — the same occupied-window maths the haven page and the server use -->
+<script src="booking-rules.js"></script>
 <script>
 function peso(n){ return "₱" + Number(n).toLocaleString("en-PH"); }
 function fmtDate(iso){
@@ -130,71 +132,29 @@ const PAY = loadSettings().payment;
 const container = document.getElementById("payment-content");
 
 // --- final slot-aware double-booking guard (point of no return) ---
-function pAddOneDay(iso){
-    const d = new Date(iso + "T00:00:00");
-    d.setDate(d.getDate() + 1);
-    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-}
-function pEndExcl(checkin, checkout){ return checkout > checkin ? checkout : pAddOneDay(checkin); }
-function pSameHaven(a, b){ return String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase(); }
+function pEndExcl(checkin, checkout){ return SHB.endExcl({ checkin, checkout }); }
 
-// time-aware conflict guard, mirroring the haven page (2-hour cleaning gap)
-const PAY_CLEAN_BUFFER = 120;
-// Haven names here MUST match the strings stored on bookings exactly: "CasaBienca"
-// and "CasaSiesta", no space. "Casa Bienca" (with a space) never matched, so a
-// 21-hour booking there with no explicit checkinTime fell back to 12:00 NN.
-const PAY_HAVEN_TIMES = {
-    "Haven 1":{in:"12:00 NN"}, "Haven 2":{in:"12:00 NN"}, "Haven 3":{in:"12:00 NN"},
-    "Haven 4":{in:"3:00 PM"}, "Haven 5":{in:"3:00 PM"}, "Haven 7":{in:"3:00 PM"},
-    "Haven 8":{in:"6:00 PM"}, "CasaBienca":{in:"6:00 PM"}, "CasaSiesta":{in:"6:00 PM"}
-};
-// Tolerant lookup: bookings saved before the spelling fix carry "Casa Bienca" (with a
-// space), so retry ignoring spaces. Old records must still resolve to the right times.
-function pHavenTimes(name){
-    const t = PAY_HAVEN_TIMES[name];
-    if(t) return t;
-    const k = String(name || "").replace(/\s+/g, "");
-    const hit = Object.keys(PAY_HAVEN_TIMES).find(h => h.replace(/\s+/g, "") === k);
-    return hit ? PAY_HAVEN_TIMES[hit] : null;
-}
-function pParseTime(str){
-    const m = String(str).match(/^(\d{1,2}):(\d{2})\s*(AM|PM|NN|MN)$/i);
-    if(!m) return null;
-    let h = Number(m[1]); const min = Number(m[2]); const suf = m[3].toUpperCase();
-    if(suf === "NN") h = 12; else if(suf === "MN") h = 0; else if(suf === "PM") h = (h % 12) + 12; else h = h % 12;
-    return h * 60 + min;
-}
-function pDayIndex(iso){ return Math.round((new Date(iso + "T00:00:00") - new Date("2000-01-01T00:00:00")) / 86400000); }
-function pCheckinMin(timeStr){ const m = pParseTime(timeStr); if(m == null) return null; return m === 0 ? 1440 : m; }
-function pStartMin(x){
-    if(x.checkinTime){ const m = pCheckinMin(x.checkinTime); if(m != null) return m; }
-    const h = Number(x.stayHours) || 21;
-    if(h === 6) return pParseTime(x.slot === "evening" ? "7:00 PM" : "8:00 AM");
-    if(h === 21){ const t = pHavenTimes(x.haven); return t ? pParseTime(t.in) : pParseTime("12:00 NN"); }
-    return pParseTime("8:00 AM");
-}
-function pAbsInterval(x){
-    const s = pDayIndex(x.checkin) * 1440 + (pStartMin(x) || 0);
-    return { s, e: s + ((Number(x.stayHours) || 21) + (Number(x.extend) || 0)) * 60 };
-}
+// Time-aware conflict guard. The occupied-window maths lives in booking-rules.js (SHB) —
+// this page used to carry its own copy that computed an existing booking's window as
+// `checkin + stayHours`. stayHours is 21 for a 5-night stay too, so nights 2-5 read as free
+// and this guard — the last one before the booking is written — waved a double-booking
+// through. The SERVER re-checks with the same module (see POST /api/list in server.js),
+// because this check reads a localStorage snapshot that two guests can both hold at once.
+function pDayIndex(iso){ return Math.round(SHB.midnightAbs(iso) / 1440); }
+function pCheckinMin(timeStr){ return SHB.checkinMin(timeStr); }
+function pStartMin(x){ return SHB.bookingCheckinMin(x); }
 function bookingConflicts(arr, b){
     const cs = b.checkinDate, ce = pEndExcl(b.checkinDate, b.checkoutDate || b.checkinDate);
     const isMulti = (b.nights && b.nights >= 2) ||
         (b.checkoutDate && pDayIndex(b.checkoutDate) - pDayIndex(b.checkinDate) >= 2);
     if(isMulti){
-        // multi-night needs whole days → any overlap blocks (ignore deleted/cancelled)
-        return arr.some(x => !x.deleted && !x.cancelled && pSameHaven(x.haven, b.haven) && cs < pEndExcl(x.checkin, x.checkout) && x.checkin < ce);
+        // multi-night needs whole days → any overlap blocks (deleted/cancelled free the haven)
+        return SHB.rangeHasBooking(arr, b.haven, cs, ce);
     }
     const sMin = b.checkinTime ? pCheckinMin(b.checkinTime) : pStartMin(b);
-    const candS = pDayIndex(b.checkinDate) * 1440 + (sMin != null ? sMin : 0);
+    const candS = SHB.midnightAbs(b.checkinDate) + (sMin != null ? sMin : 0);
     const candE = candS + ((Number(b.stayHours) || 21) + (Number(b.addons && b.addons.hours) || 0)) * 60;
-    return arr.some(x => {
-        if(x.deleted || x.cancelled) return false;   // freed slot
-        if(!pSameHaven(x.haven, b.haven)) return false;
-        const { s, e } = pAbsInterval(x);
-        return candS < e + PAY_CLEAN_BUFFER && s - PAY_CLEAN_BUFFER < candE;
-    });
+    return !!SHB.findClash(arr, b.haven, candS, candE);
 }
 // short booking code — SAME algorithm as the dashboard (bookingCode) so both show e.g. MJN3ET
 function deriveCode(id){
@@ -238,8 +198,13 @@ async function addToCalendar(b, proof){
     // booking only went to localStorage and relied on a background sync that's lost if the page
     // closes — while the confirmation email (a server call) always sent, so a guest could get an
     // email with no booking recorded. The server offloads the base64 proof to a tiny /img ref.
+    // "ok" saved · "conflict" the server refused it as a double-booking (409) · "fail" retry
     async function persist(rec){
-        try{ const res = await fetch("/api/list/" + KEY, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ upsert: rec }) }); return res.ok; }catch(e){ return false; }
+        try{
+            const res = await fetch("/api/list/" + KEY, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ upsert: rec }) });
+            if(res.ok) return "ok";
+            return res.status === 409 ? "conflict" : "fail";
+        }catch(e){ return "fail"; }
     }
 
     // avoid duplicates if the button is clicked twice / retried after a failed save — re-send to the server.
@@ -248,7 +213,10 @@ async function addToCalendar(b, proof){
     // guest gets a confirmation + email but no booking is ever created (and always the SAME code). Skip them.
     const dupB = arr.find(x => !x.deleted && !x.cancelled && x.source === "website" && x.haven === b.haven &&
         x.checkin === b.checkinDate && x.contact === (b.contact || ""));
-    if(dupB) return (await persist(dupB)) ? dupB.id : -1;
+    if(dupB){
+        const st = await persist(dupB);
+        return st === "ok" ? dupB.id : (st === "conflict" ? false : -1);
+    }
 
     // refuse to write a booking that clashes with an existing one
     if(bookingConflicts(arr, b)) return false;
@@ -304,9 +272,15 @@ async function addToCalendar(b, proof){
             return null;
         })()
     };
+    // Ask the SERVER first. It re-checks the LIVE list, so it catches the clashes this page
+    // cannot see (a second guest booking at the same moment, or a stale localStorage copy).
+    const status = await persist(rec);
+    // A 409 is authoritative: do NOT keep the record locally, or the background sync /
+    // seed merge would push the double-booking straight back in.
+    if(status === "conflict") return false;
     arr.push(rec);
     localStorage.setItem(KEY, JSON.stringify(arr));   // local copy + background-sync backup
-    return (await persist(rec)) ? nextId : -1;         // require the server to confirm; -1 = save failed, retry
+    return status === "ok" ? nextId : -1;              // -1 = save failed (network), guest retries
 }
 const raw = localStorage.getItem("shph_confirmed_booking");
 
@@ -437,13 +411,44 @@ function renderPayment(b){
         let bookingNo;
         try{ bookingNo = await addToCalendar(b, proofData); }catch(e){ bookingNo = -1; }
         if(bookingNo === false){
+            // The guest has ALREADY SENT PAYMENT by this point (the button is gated on an
+            // uploaded screenshot above), so this is a money situation, not just a "try again".
+            // No booking was created — but never tell them "no payment has been recorded", which
+            // reads as reassurance to someone who just paid. Tell them how to get it back, and
+            // alert the owner with the proof so it doesn't depend on the guest chasing us.
+            const paid = !isCash && proofData;
+            try{
+                fetch("/api/conflict-alert", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        booking: {
+                            haven: b.haven, checkin: b.checkinDate, checkinTime: b.checkinTime,
+                            stay: b.stayLabel, contact: b.contact || "", email: b.email || "",
+                            downpayment: b.downpayment, method: b.method || ""
+                        },
+                        proof: proofData || ""
+                    })
+                });   // fire-and-forget: the guest must never wait on an email
+            }catch(e){}
             container.innerHTML = `
                 <div class="booknow-success">
                     <h2>😔 That slot was just booked</h2>
                     <p>Sorry, <strong>${b.haven}</strong> on <strong>${fmtDate(b.checkinDate)}</strong>
-                       (${b.checkinTime || "your time"}) was just reserved by someone else.</p>
-                    <p>Please go back and pick a different date or time slot. No payment has been recorded.</p>
-                    <a class="home-link" href="havens.html${b.havenId ? "?id=" + b.havenId : ""}">Pick another time</a>
+                       (${b.checkinTime || "your time"}) was reserved by someone else moments before you.
+                       <strong>We did not create this booking.</strong></p>
+                    ${paid ? `
+                    <p><strong>Your payment has NOT been lost.</strong> We've already alerted our team with a copy
+                       of your payment screenshot. Please message us on Facebook with that same screenshot and
+                       we'll either <strong>refund you in full</strong> or move you to another date or haven —
+                       whichever you prefer.</p>
+                    <p style="margin-top:10px">
+                        <a class="home-link" href="https://www.facebook.com/staycationhavenph" target="_blank" rel="noopener">Message us on Facebook</a>
+                    </p>
+                    <p style="font-size:13px;color:#6a6459;margin-top:12px">Please keep your screenshot until this is sorted.
+                       ${b.contact ? "We'll also try to reach you at " + b.contact + "." : ""}</p>
+                    ` : `
+                    <p>Nothing has been charged. Please pick a different date or time slot.</p>`}
+                    <p style="margin-top:14px"><a class="home-link" href="havens.html${b.havenId ? "?id=" + b.havenId : ""}">Pick another time</a></p>
                 </div>`;
             window.scrollTo(0, 0);
             return;

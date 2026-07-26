@@ -487,6 +487,8 @@
     if(wrap) wrap.innerHTML = cards;
 })();
 </script>
+<!-- shared booking rules — MUST load before script.js, whose availability search calls SHB -->
+<script src="booking-rules.js"></script>
 <script src="script.js"></script>
 <script>
 /* ---------- homepage search: custom date-range calendar + hours dropdown ---------- */

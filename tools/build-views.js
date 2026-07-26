@@ -21,7 +21,9 @@ const PAGES = [
   "partner-login", "be-a-partner", "affiliate"
 ];
 
-const ASSETS = ["style.css", "havens-data.js", "site-settings.js", "script.js", "db.js", "amenity-icons.js", "partners.js"];
+// booking-rules.js is the shared availability logic — index/havens/payment all <script> it,
+// so it MUST be copied to /public or the public pages throw and every date reads as free.
+const ASSETS = ["style.css", "havens-data.js", "site-settings.js", "script.js", "db.js", "amenity-icons.js", "partners.js", "booking-rules.js"];
 
 const SEED_INCLUDE = "\n<%- include('partials/seed') %>\n";
 
