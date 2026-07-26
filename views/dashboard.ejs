@@ -1045,6 +1045,13 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
 .opt-row{ display:flex; align-items:center; gap:18px; flex-wrap:wrap; margin-top:16px; }
 .opt-check{ display:flex; align-items:center; gap:6px; font-size:14px; color:#333; cursor:pointer; }
 .opt-check input{ width:auto; }
+/* Edit User → "Pages this user can access": grouped + labelled exactly like the sidebar
+   so Pia can match the two lists by eye (see fillUserPerms). */
+.perm-group{ width:100%; font-size:11px; font-weight:800; letter-spacing:.7px; text-transform:uppercase;
+             color:#a08f6d; margin:14px 0 -6px; }
+.perm-group:first-child{ margin-top:2px; }
+.opt-check.perm-locked{ cursor:not-allowed; color:#9b9b9b; }
+.perm-lock{ font-size:11px; color:#a08f6d; background:#f4efe4; border-radius:20px; padding:1px 7px; }
 .custom-addons-head{ font-weight:600; margin:20px 0 10px; }
 .addon-edit-row{ display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
 .addon-edit-row input[type=text]{ flex:2; min-width:150px; padding:9px; border:1px solid #ddd; border-radius:8px; font-size:14px; font-family:inherit; }
@@ -15550,6 +15557,12 @@ fillPaymentSettings();
 
 /* ---------- users & access control ---------- */
 const USERS_KEY = "shph_users";
+// Registry of every dashboard page (key + label). partners.js appends its own pages to this
+// array as it loads, so it is complete only AFTER partners.js has run.
+// It is used for: pageLabel(), the admin's "all pages" perms array, and as the fallback label
+// source for the Edit-User checkboxes. The checkbox list itself is now built from the REAL
+// sidebar (views/partials/sidebar-nav.ejs) — see fillUserPerms — so a new nav item becomes
+// grantable automatically instead of drifting out of sync here.
 const DASH_PAGES = [
     { key:"today",     label:"Today's Booking" },
     { key:"addbooking", label:"Add Booking" },
@@ -15567,12 +15580,16 @@ const DASH_PAGES = [
     { key:"payments",  label:"Payments" },
     { key:"cleaners",  label:"Housekeeping" },
     { key:"employees", label:"Employees" },
-    { key:"log",       label:"Activity Log" },
+    { key:"log",       label:"Log" },
     { key:"payroll",   label:"Payroll" },
     { key:"bills",     label:"Bills" },
     { key:"expenses",  label:"Expenses" },
     { key:"assist",    label:"Trav" },
-    { key:"notes",     label:"Notes" }
+    // Administrator-only pages (see isAdminOnlyPage). Listed here ONLY so pageLabel() can name
+    // them and an admin's perms array is complete — they are never grantable checkboxes.
+    { key:"notes",     label:"Notes" },
+    { key:"users",     label:"Users" },
+    { key:"qrcodes",   label:"Guest Guide QR" }
 ];
 function pageLabel(key){ const p = DASH_PAGES.find(x => x.key === key); return p ? p.label : key; }
 function loadUsers(){
@@ -15664,10 +15681,22 @@ function currentPerms(){
     if(u.admin) return DASH_PAGES.map(p => p.key);
     return u.perms || [];
 }
+// THE admin-only page list — one definition, used by every gate. Used to be copy-pasted in
+// three places (pageAllowed, applyPermissions, pickDefaultPage._ok) and a copy that forgot a
+// page would have handed it to a non-admin. A function DECLARATION on purpose: it hoists, so
+// an early call (before this line runs) can't hit a temporal-dead-zone crash.
+//   • users   — user management
+//   • log     — the activity/audit trail
+//   • notes   — the owner's private notebook (also in ADMIN_ONLY_KEYS server-side)
+//   • qrcodes — Guest Guide QR, holds the stay token
+// These are NEVER offered as grantable checkboxes (fillUserPerms renders them disabled), and
+// the check below is what actually enforces it — a hand-edited perms array cannot get past it.
+function isAdminOnlyPage(page){
+    return page === "users" || page === "log" || page === "notes" || page === "qrcodes";
+}
 function pageAllowed(page){
     if(window.__PARTNER__) return ["today", "calendar", "deposit", "analytics", "finance", "bills", "expenses", "board", "inventory"].includes(page);   // partner pages
-    // Activity Log, private Notes and the Guest Guide QR secrets are admin-only (not partners/employees)
-    if(page === "users" || page === "log" || page === "notes" || page === "qrcodes") return isAdminUser();
+    if(isAdminOnlyPage(page)) return isAdminUser();
     return currentPerms().includes(page);
 }
 // hide nav items the current user can't access; redirect off a disallowed page
@@ -15725,7 +15754,7 @@ function applyPermissions(){
     let _visible = 0;
     document.querySelectorAll(".sidebar .nav-item").forEach(n => {
         const pg = n.dataset.page;
-        const ok = (pg === "users" || pg === "log" || pg === "notes" || pg === "qrcodes") ? admin : perms.includes(pg);
+        const ok = isAdminOnlyPage(pg) ? admin : perms.includes(pg);
         n.style.display = ok ? "flex" : "none";
         if(ok) _visible++;
     });
@@ -15814,12 +15843,49 @@ function toggleUserActivity(id, name){
         : `<div class="muted" style="padding:6px 2px;">No activity recorded for ${escHtml(name)} yet.</div>`;
     box.style.display = "";
 }
+// Build the "Pages this user can access" checkboxes from THE SIDEBAR ITSELF
+// (views/partials/sidebar-nav.ejs), grouped and worded exactly as it is, so the two lists read
+// the same way and a page added to the nav becomes grantable automatically. The old hand-kept
+// copy had drifted: Guest Guide QR and Users were missing entirely and every Partners page was
+// dumped at the bottom out of sidebar order.
+// Two rules this must never break:
+//  • Admin-only pages (isAdminOnlyPage) are shown DISABLED and carry no .u-perm class, so
+//    saveUser() can't pick them up — visible so it's obvious why they can't be ticked.
+//  • Keys that are NOT sidebar items (Add Booking = a capability, Booking Approval = a page
+//    with no nav entry) are still rendered, in an "Other" group. Leaving them out would
+//    silently REVOKE them from users who already hold them the next time an admin hits Save.
 function fillUserPerms(selected){
-    // "notes" is the owner's private notebook — admin-only by definition, so it's never a
-    // grantable permission (listing it would imply you could give a staff member access)
-    document.getElementById("u_perms").innerHTML = `<div class="opt-row">` + DASH_PAGES.filter(p => p.key !== "notes").map(p =>
-        `<label class="opt-check"><input type="checkbox" class="u-perm" value="${p.key}" ${selected.includes(p.key) ? "checked" : ""}> ${p.label}</label>`
-    ).join("") + `</div>`;
+    const box = document.getElementById("u_perms");
+    if(!box) return;
+    const sel = Array.isArray(selected) ? selected : [];
+    const groups = [];              // [{ title, items:[{key,label}] }] in sidebar order
+    const seen = new Set();
+    let cur = null;
+    document.querySelectorAll(".sidebar .nav-group, .sidebar .nav-item").forEach(n => {
+        if(n.classList.contains("nav-group")){
+            cur = { title:(n.textContent || "").trim(), items:[] }; groups.push(cur); return;
+        }
+        const key = n.dataset.page;
+        if(!key || seen.has(key)) return;
+        seen.add(key);
+        // the nav item's own text, minus its badge element (e.g. "Today's Booking 3")
+        const label = Array.prototype.filter.call(n.childNodes, c => c.nodeType === 3)
+            .map(c => c.textContent).join(" ").replace(/\s+/g, " ").trim();
+        if(!cur){ cur = { title:"", items:[] }; groups.push(cur); }   // Trav sits above the first group
+        cur.items.push({ key, label: label || pageLabel(key) });
+    });
+    // anything granted/registered that has no sidebar item — never drop it (see note above)
+    const extras = DASH_PAGES.filter(p => !seen.has(p.key))
+        .concat(sel.filter(k => !seen.has(k) && !DASH_PAGES.some(p => p.key === k))
+                   .map(k => ({ key:k, label:k })));
+    if(extras.length) groups.push({ title:"Other", items:extras.map(p => ({ key:p.key, label:p.label })) });
+    box.innerHTML = groups.filter(g => g.items.length).map(g =>
+        (g.title ? `<div class="perm-group">${escHtml(g.title)}</div>` : "")
+        + `<div class="opt-row">` + g.items.map(p => isAdminOnlyPage(p.key)
+            ? `<label class="opt-check perm-locked" title="Administrator only — this page can't be given to a staff account"><input type="checkbox" disabled> ${escHtml(p.label)} <span class="perm-lock">admin only</span></label>`
+            : `<label class="opt-check"><input type="checkbox" class="u-perm" value="${escAttr(p.key)}" ${sel.includes(p.key) ? "checked" : ""}> ${escHtml(p.label)}</label>`
+        ).join("") + `</div>`
+    ).join("");
 }
 function toggleUserAdmin(){
     const admin = document.getElementById("u_admin").checked;
@@ -15950,9 +16016,7 @@ function pickDefaultPage(){
         // Notes is the owner's private notebook and Board is a noticeboard — neither is a
         // sensible place to dump someone on login, so they're never auto-landing targets.
         const NEVER_LAND = ["notes", "board", "partnerdash", "addpartner", "assist"];
-        // KEEP IN SYNC with pageAllowed() and applyPermissions() — this is the third copy of the
-        // admin-only page list, and one that forgets a page would land a non-admin on it.
-        const _ok = pg => (pg === "users" || pg === "log" || pg === "notes" || pg === "qrcodes") ? _adm : _p.includes(pg);
+        const _ok = pg => isAdminOnlyPage(pg) ? _adm : _p.includes(pg);
         const _curOk = savedPage && document.getElementById("page-" + savedPage) && _ok(savedPage);
         if(_curOk) return;                       // the page they asked for is fine — leave it alone
         const _order = [...document.querySelectorAll(".sidebar .nav-item")].map(n => n.dataset.page).filter(Boolean);
