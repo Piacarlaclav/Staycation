@@ -2087,9 +2087,20 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
           #availBody .mc-cell.avail-full{ background:#f4faf5; }
         </style>
         <div style="display:flex; align-items:center; gap:10px; margin:6px 0 16px; flex-wrap:wrap;">
+            <!-- Day / Month toggle HIDDEN 2026-07-26 at Pia's request ("remove mo na yung month").
+                 The Availability month grid still exists (setAvailView, renderAvailMonth,
+                 #availMonthControls) and the Calendar's own Month tab is untouched — restoring this
+                 block brings the sub-view back. Nothing else calls setAvailView("month") and
+                 availViewMode isn't persisted, so it stays "day" with the buttons gone. The hidden
+                 pair below only keeps setAvailView's getElementById calls from throwing.
             <div class="av-seg">
                 <button class="av-seg-btn active" id="availSegDay" onclick="setAvailView('day')">Day</button>
                 <button class="av-seg-btn" id="availSegMonth" onclick="setAvailView('month')">Month</button>
+            </div>
+            -->
+            <div class="av-seg" style="display:none;">
+                <button class="av-seg-btn active" id="availSegDay" type="button"></button>
+                <button class="av-seg-btn" id="availSegMonth" type="button"></button>
             </div>
             <span id="availDayControls" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                 <label style="font-size:13px; color:var(--hv-muted);">Date</label>
