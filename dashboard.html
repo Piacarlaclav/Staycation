@@ -2091,6 +2091,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             </div>
             <span id="availDayControls" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                 <label style="font-size:13px; color:var(--hv-muted);">Date</label>
+                <button class="btn secondary" onclick="availDayShift(-1)" title="Previous day">‹ Prev</button>
                 <div class="dp-wrap" style="position:relative;">
                     <span class="date-pill" onclick="openAvailPicker(event)" title="Pick a date"><svg class="cal-ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span id="availDateLabel"></span></span>
                     <div class="dp-popup" id="availDpPopup" onclick="event.stopPropagation()">
@@ -2099,6 +2100,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                         <div class="dp-foot"><span onclick="availPickerToday()">Today</span></div>
                     </div>
                 </div>
+                <button class="btn secondary" onclick="availDayShift(1)" title="Next day">Next ›</button>
                 <button class="btn secondary" onclick="availPickerToday()">Today</button>
             </span>
             <span id="availMonthControls" style="display:none; align-items:center; gap:8px;">
@@ -5483,6 +5485,13 @@ function availPickerNav(dir){
 }
 function availPickerToday(){ availDateSel = iso(today()); const p = document.getElementById("availDpPopup"); if(p) p.classList.remove("show"); renderAvailability(); }
 function availPickDay(di){ availDateSel = di; const p = document.getElementById("availDpPopup"); if(p) p.classList.remove("show"); renderAvailability(); }
+// step the Availability day view one day at a time (‹ Prev / Next ›), like the Calendar's
+function availDayShift(delta){
+    availDateSel = iso(addDays(new Date((availDateSel || iso(today())) + "T00:00:00"), delta));
+    const p = document.getElementById("availDpPopup"); if(p) p.classList.remove("show");
+    availPickerMonth = null;          // let the picker re-open on whatever month we stepped into
+    renderAvailability();
+}
 function availPickerRender(){
     const ttl = document.getElementById("availDpTitle"); if(!ttl || !availPickerMonth) return;
     const y = availPickerMonth.getFullYear(), m = availPickerMonth.getMonth();
