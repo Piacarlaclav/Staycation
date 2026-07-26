@@ -3516,7 +3516,9 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                     <div class="dp-foot"><span onclick="sdDpToday()">Today</span></div>
                 </div>
             </div>
+            <button class="btn secondary" id="depPrevBtn" onclick="depShift(-1)" title="Previous day">‹ Prev</button>
             <span class="dep-date-label" title="Selected date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span id="depositDateLabel"></span></span>
+            <button class="btn secondary" id="depNextBtn" onclick="depShift(1)" title="Next day">Next ›</button>
             <select id="depHavenFilter" onchange="renderDeposit()" title="Filter by haven" style="padding:9px 12px;border:1px solid var(--hv-line);border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:var(--hv-ink);font-family:inherit;cursor:pointer;margin-left:auto;"></select>
         </div>
         <div style="overflow-x:auto;">
@@ -11220,6 +11222,28 @@ function setDepQuick(which){
     if(which === "month"){ di.value = iso(_depMonthStart()); de.value = iso(_depMonthEnd()); }
     else if(which === "yesterday"){ di.value = iso(addDays(today(), -1)); de.value = ""; }
     else { di.value = iso(today()); de.value = ""; }   // today
+    renderDeposit();
+}
+// Step the selected day back / forward, like the Calendar's ‹ Prev / Next ›.
+// "To return" and "This month" aren't single days, so stepping from either lands on today first —
+// otherwise Prev would jump somewhere the label never showed. A month range steps a whole month.
+function depShift(delta){
+    const di = document.getElementById("depositDate"), de = document.getElementById("depositDateEnd");
+    if(depQuick === "month"){
+        const start = new Date((di.value || iso(today())) + "T00:00:00");
+        const m = new Date(start.getFullYear(), start.getMonth() + delta, 1);
+        di.value = iso(m);
+        de.value = iso(new Date(m.getFullYear(), m.getMonth() + 1, 0));
+        renderDeposit();
+        return;
+    }
+    const base = (depQuick === "toreturn" || !di.value) ? today() : new Date(di.value + "T00:00:00");
+    const ci = iso(addDays(base, delta));
+    di.value = ci;
+    de.value = "";
+    // same rule the date picker uses, so stepping onto today or yesterday re-lights that button
+    depQuick = (ci === iso(today())) ? "today" : (ci === iso(addDays(today(), -1)) ? "yesterday" : "custom");
+    if(typeof sdUpdateLabel === "function") sdUpdateLabel();
     renderDeposit();
 }
 // undo a return — clears the proof so re-marking requires a fresh photo
