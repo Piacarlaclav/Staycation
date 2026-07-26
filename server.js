@@ -1241,7 +1241,16 @@ const STAY_TOKENS_KEY = "shph_stay_tokens_v1";
 // The one shared QR's token. Lives in the same map as the per-haven ones under a key that can
 // never collide with a haven id (ids are numbers; this starts with an underscore).
 const STAY_ALL_KEY = "_all";
-const GUIDE_FILE = path.join(__dirname, "guest-guide", "guide.html");
+/* The guide is now built from Pia's LIVE Claude Design source ("Guest Welcome.dc.html" in her
+   export zip) into guest-guide/app/, instead of the 3.1 MB single-file bundled export, which was
+   stale and missing her FAQ and restaurant content. The design source is deliberately NOT in this
+   repo: it ships with the WiFi passwords hard-coded, and both remotes are public — the build step
+   strips them and the server injects them per request (see stayWifiAll below).
+   index.html is small (~63 KB) and stays behind the gate;
+   everything it loads — runtime, fonts, photos — is served ungated and immutable from
+   /guide-assets, so it is cached once and never re-downloaded. */
+const GUIDE_FILE = path.join(__dirname, "guest-guide", "app", "index.html");
+const GUIDE_ASSET_DIR = path.join(__dirname, "guest-guide", "app");
 
 /* ACCESS WINDOW — PIA'S RULE. Tune it HERE and nowhere else:
    from check-in until check-out, OR 24 hours after check-in, WHICHEVER IS LATER.
@@ -1403,6 +1412,22 @@ function stayClosedHtml() {
 // /api (so the API session gate doesn't apply) and outside PROTECTED_PAGES (so it isn't treated
 // as an admin page). Registered BEFORE the /:user/<slug> deep links so a token can never be
 // swallowed by one of those. ----
+/* The guide's own runtime + photos. PUBLIC and UNGATED on purpose: they are unit photos, fonts
+   and JS, never guest data, and the WiFi passwords are injected into the gated HTML — never into
+   a file here. Ungated is what makes them cacheable, which is the whole speed win: the guest
+   downloads them once and every later scan is just the 63 KB HTML.
+   index.html is EXCLUDED — serving it here would hand out the guide without the stay gate. */
+app.use("/guide-assets", (req, res, next) => {
+  if (/^\/?index\.html?$/i.test(req.path)) return res.status(404).end();
+  next();
+}, express.static(GUIDE_ASSET_DIR, {
+  dotfiles: "allow",            // .image-slots.state.json holds the welcome hero photo
+  index: false,
+  immutable: true,
+  maxAge: "365d",               // safe: every asset is content-fixed; a change ships a new build
+  setHeaders: (res) => { res.set("X-Robots-Tag", "noindex, nofollow"); }
+}));
+
 app.get("/stay/:token", async (req, res) => {
   res.set("Content-Type", "text/html; charset=utf-8");
   res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");

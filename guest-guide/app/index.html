@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<base href="/guide-assets/">
+<script>window.__resources={"https:\u002F\u002Funpkg.com\u002Freact@18.3.1\u002Fumd\u002Freact.production.min.js":"react.production.min.js","https:\u002F\u002Funpkg.com\u002Freact-dom@18.3.1\u002Fumd\u002Freact-dom.production.min.js":"react-dom.production.min.js"};</script>
+<script src="support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="stylesheet" href="_ds/classical-4df697c6-a36c-42cd-bee4-782728174cb5/styles.css">
+<script src="_ds/classical-4df697c6-a36c-42cd-bee4-782728174cb5/_ds_bundle.js"></script>
+<script src="./image-slot.js"></script>
+<link rel="stylesheet" href="fonts.css">
+<style>
+html,body{margin:0;background:var(--color-bg,#f3f2f2);-webkit-text-size-adjust:100%}
+*{font-family:Arial,Helvetica,sans-serif !important}
+:root{--color-neutral-700:#33302e;--color-neutral-600:#423f3c}
+a{color:var(--color-accent);text-underline-offset:3px}
+a:hover{color:var(--color-accent-700)}
+*::-webkit-scrollbar{width:0;height:0;display:none}
+*{scrollbar-width:none;-ms-overflow-style:none}
+@keyframes gwFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+<div style="min-height:100dvh;background:var(--color-bg);padding:0">
+<div style="width:100%;max-width:560px;margin:0 auto;min-height:100dvh;background:var(--color-bg);box-sizing:border-box;padding-top:calc(env(safe-area-inset-top, 0px) + 14px);padding-bottom:env(safe-area-inset-bottom, 0px);padding-left:env(safe-area-inset-left, 0px);padding-right:env(safe-area-inset-right, 0px);position:relative">
+
+<sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+<div style="animation:gwFade .35s ease both">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px 0">
+<button type="button" aria-label="Menu" style="display:flex;flex-direction:column;gap:5px;width:44px;height:44px;align-items:flex-start;justify-content:center;background:transparent;border:0;cursor:pointer;padding:0" onClick="{{ toggleMenu }}">
+<span style="display:block;width:26px;height:1.5px;background:var(--color-text)"></span>
+<span style="display:block;width:26px;height:1.5px;background:var(--color-text)"></span>
+<span style="display:block;width:26px;height:1.5px;background:var(--color-text)"></span>
+</button>
+<span style="display:flex;align-items:center;gap:6px;font-family:var(--font-heading);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--color-neutral-600);font-feature-settings:'tnum'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#d0342c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3" fill="#d0342c" stroke="none"></circle></svg>Mplace Tower D · QC</span>
+</div>
+
+<div style="padding:22px 26px 0;text-align:center">
+<img src="img/logo.webp" alt="Staycation Haven PH" style="width:64px;height:64px;object-fit:contain;margin:0 auto var(--space-3)">
+<div style="font-family:var(--font-heading);font-size:12px;letter-spacing:.3em;text-transform:uppercase;color:var(--color-neutral-700)">Dear Guests,</div>
+<h1 style="font-family: var(--font-heading); font-weight: 300; font-size: 24px; letter-spacing: .02em; margin: var(--space-2) 0 var(--space-2); line-height: 1">Welcome!</h1>
+
+<div style="display:flex;align-items:center;gap:var(--space-3);margin:var(--space-4) 0 0">
+<span style="flex:1;height:1px;background:var(--color-divider)"></span>
+<span style="font-family:var(--font-heading);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--color-neutral-600)">Click on the icons</span>
+<span style="flex:1;height:1px;background:var(--color-divider)"></span>
+</div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:var(--space-4) 16px var(--space-2)">
+<button type="button" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 4px;min-height:100px;background:transparent;border:1px solid transparent;border-radius:var(--radius-md);cursor:pointer;color:var(--color-text);font-family:var(--font-heading);font-weight:600;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;line-height:1.3;text-align:center" style-hover="background:var(--color-accent-100);border-color:var(--color-accent-200)" onClick="{{ go.welcome }}">
+<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+Welcome</button>
+<button type="button" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 4px;min-height:100px;background:transparent;border:1px solid transparent;border-radius:var(--radius-md);cursor:pointer;color:var(--color-text);font-family:var(--font-heading);font-weight:600;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;line-height:1.3;text-align:center" style-hover="background:var(--color-accent-100);border-color:var(--color-accent-200)" onClick="{{ go.directions }}">
+<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg>
+Driving Directions</button>
+<button type="button" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 4px;min-height:100px;background:transparent;border:1px solid transparent;border-radius:var(--radius-md);cursor:pointer;color:var(--color-text);font-family:var(--font-heading);font-weight:600;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;line-height:1.3;text-align:center" style-hover="background:var(--color-accent-100);border-color:var(--color-accent-200)" onClick="{{ go.checkin }}">
+<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"></path><circle cx="16.5" cy="7.5" r=".5"></circle></svg>
+Check-in / Out</button>
+<button type="button" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 4px;min-height:100px;background:transparent;border:1px solid transparent;border-radius:var(--radius-md);cursor:pointer;color:var(--color-text);font-family:var(--font-heading);font-weight:600;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;line-height:1.3;text-align:center" style-hover="background:var(--color-accent-100);border-color:var(--color-accent-200)" onClick="{{ go.wifi }}">
+<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h.01"></path><path d="M2 8.82a15 15 0 0 1 20 0"></path><path d="M5 12.859a10 10 0 0 1 14 0"></path><path d="M8.5 16.429a5 5 0 0 1 7 0"></path></svg>
+WiFi</button>
+<button type="button" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 4px;min-height:100px;background:transparent;border:1px solid transparent;border-radius:var(--radius-md);cursor:pointer;color:var(--color-text);font-family:var(--font-heading);font-weight:600;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;line-height:1.3;text-align:center" style-hover="background:var(--color-accent-100);border-color:var(--color-accent-200)" onClick="{{ go.rules }}">
+<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 12h-5"></path><path d="M15 8h-5"></path><path d="M19 17V5a2 2 0 0 0-2-2H4"></path><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"></path></svg>
+House Rules</button>
+<button type="button" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 4px;min-height:100px;background:transparent;border:1px solid transparent;border-radius:var(--radius-md);cursor:pointer;color:var(--color-text);font-family:var(--font-heading);font-weight:600;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;line-height:1.3;text-align:center" style-hover="background:var(--color-accent-100);border-color:var(--color-accent-200)" onClick="{{ go.faq }}">
+<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path></svg>
+FAQ</button>
+<button type="button" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 4px;min-height:100px;background:transparent;border:1px solid transparent;border-radius:var(--radius-md);cursor:pointer;color:var(--color-text);font-family:var(--font-heading);font-weight:600;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;line-height:1.3;text-align:center" style-hover="background:var(--color-accent-100);border-color:var(--color-accent-200)" onClick="{{ go.shops }}">
+<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 11-1 9"></path><path d="m19 11-4-7"></path><path d="M2 11h20"></path><path d="m3.5 11 1.6 7.4a2 2 0 0 0 2 1.6h9.8a2 2 0 0 0 2-1.6l1.7-7.4"></path><path d="M4.5 15.5h15"></path><path d="m5 11 4-7"></path><path d="m9 11 1 9"></path></svg>
+Supermarkets &amp; Shops</button>
+<button type="button" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 4px;min-height:100px;background:transparent;border:1px solid transparent;border-radius:var(--radius-md);cursor:pointer;color:var(--color-text);font-family:var(--font-heading);font-weight:600;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;line-height:1.3;text-align:center" style-hover="background:var(--color-accent-100);border-color:var(--color-accent-200)" onClick="{{ go.food }}">
+<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"></path><path d="M7 2v20"></path><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Z"></path></svg>
+Restaurants &amp; Cafes</button>
+<button type="button" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 4px;min-height:100px;background:transparent;border:1px solid transparent;border-radius:var(--radius-md);cursor:pointer;color:var(--color-text);font-family:var(--font-heading);font-weight:600;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;line-height:1.3;text-align:center" style-hover="background:var(--color-accent-100);border-color:var(--color-accent-200)" onClick="{{ go.pool }}">
+<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"></path><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"></path><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"></path></svg>
+Pool</button>
+<button type="button" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 4px;min-height:100px;background:transparent;border:1px solid transparent;border-radius:var(--radius-md);cursor:pointer;color:var(--color-text);font-family:var(--font-heading);font-weight:600;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;line-height:1.3;text-align:center" style-hover="background:var(--color-accent-100);border-color:var(--color-accent-200)" onClick="{{ go.parking }}">
+<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M9 17V7h4a3 3 0 0 1 0 6H9"></path></svg>
+Parking</button>
+<button type="button" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px 4px;min-height:100px;background:transparent;border:1px solid transparent;border-radius:var(--radius-md);cursor:pointer;color:var(--color-text);font-family:var(--font-heading);font-weight:600;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;line-height:1.3;text-align:center" style-hover="background:var(--color-accent-100);border-color:var(--color-accent-200)" onClick="{{ go.contact }}">
+<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"></path></svg>
+Need Assist</button>
+</div>
+
+<div style="padding:0 16px var(--space-4)">
+<div style="position:relative;height:230px;border:6px solid var(--color-surface);outline:1px solid var(--color-divider)">
+<image-slot id="gw-hero" shape="rect" placeholder="Drop a property photo"></image-slot>
+</div>
+</div>
+
+<sc-if value="{{ showQuickBar }}" hint-placeholder-val="{{ true }}">
+<a href="https://m.me/staycationhavenph" target="_blank" rel="noreferrer" style="width:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:10px;padding:18px;min-height:56px;background:var(--color-neutral-900);color:var(--color-neutral-100);border:0;cursor:pointer;font-family:var(--font-heading);font-weight:600;font-size:11px;letter-spacing:.24em;text-transform:uppercase;text-decoration:none" style-hover="background:var(--color-neutral-800)">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-300)" stroke-width="1.5" stroke-linecap="round"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384"></path></svg>
+Need Assist
+</a>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+<div style="animation:gwFade .3s ease both">
+<div style="display:flex;align-items:center;gap:var(--space-2);padding:16px 18px;border-bottom:1px solid var(--color-divider);background:var(--color-bg);z-index:2">
+<button type="button" style="display:flex;align-items:center;gap:8px;min-height:44px;padding:0 6px;background:transparent;border:0;cursor:pointer;color:var(--color-text);font-family:var(--font-heading);font-weight:600;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase" style-hover="color:var(--color-accent-700)" onClick="{{ go.home }}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg>
+Menu
+</button>
+<span style="flex:1"></span>
+<span style="font-family:var(--font-heading);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--color-neutral-600)">Staycation Haven PH</span>
+<img src="img/logo.webp" alt="" style="width:26px;height:26px;object-fit:contain">
+</div><div style="padding:var(--space-6) 26px 60px">
+
+<sc-if value="{{ is.welcome }}" hint-placeholder-val="{{ false }}">
+<div style="font-family:var(--font-heading);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--color-accent-700)"><b>HELLO</b></div>
+<h2 style="font-size: 34px; font-weight: 700; margin: var(--space-2) 0 var(--space-4)">Welcome to our home</h2>
+<hr class="hr">
+<p style="font-size:15.5px;line-height:1.65;text-align:justify;hyphens:auto">Thank you for choosing Staycation Haven PH. We prepared this house for you — fresh linens, a hot shower and a nice pool. If you need anything at all, however small, message us any time.</p>
+<p style="font-size:15.5px;line-height:1.65;text-align:justify;hyphens:auto">Everything you need is one tap away in this guide — come back here whenever you have a question.</p>
+<div style="display:grid;gap:1px;background:var(--color-divider);border:1px solid var(--color-divider);margin-top:var(--space-6)">
+<div style="display:flex;justify-content:space-between;gap:var(--space-3);padding:14px 16px;background:var(--color-bg)"><span style="font-family: var(--font-heading); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--color-neutral-700); font-weight: 700">Address</span><span style="font-size:14.5px;text-align:right">Mplace Tower D, Panay Ave, Quezon City</span></div>
+<div style="display:flex;justify-content:space-between;gap:var(--space-3);padding:14px 16px;background:var(--color-bg)"><span style="font-family: var(--font-heading); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--color-neutral-700); font-weight: 700">Host</span><span style="font-size:14.5px">Maris -&nbsp;<span style="white-space: pre-wrap;">(0930) 911 0991  
+</span></span></div>
+</div>
+
+</sc-if>
+
+<sc-if value="{{ is.directions }}" hint-placeholder-val="{{ false }}">
+<div style="font-family:var(--font-heading);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--color-accent-700)">Getting here</div>
+<h2 style="font-size:34px;font-weight:400;margin:var(--space-2) 0 var(--space-4)">Driving directions</h2>
+<hr class="hr">
+<a href="https://maps.google.com" target="_blank" rel="noreferrer" style="display:block;border:6px solid var(--color-surface);outline:1px solid var(--color-divider);margin-bottom:var(--space-6)">
+<img src="img/map.webp" alt="Map to Mplace Tower D, Panay Ave, Quezon City" style="display:block;width:100%;height:auto">
+</a>
+
+<h3 style="font-size:19px;font-weight:600;margin:var(--space-8) 0 var(--space-4)">Coming via MRT</h3>
+<div style="display:grid;gap:var(--space-4)">
+<div style="display:grid;grid-template-columns:26px 1fr;gap:var(--space-3)"><span style="font-family:var(--font-heading);font-size:15px;color:var(--color-accent-700);font-feature-settings:'tnum'">01</span><p style="margin:0;font-size:15.5px;line-height:1.6">Take the MRT to Quezon Avenue Station — the nearest stop to us.</p></div>
+<div style="display:grid;grid-template-columns:26px 1fr;gap:var(--space-3)"><span style="font-family:var(--font-heading);font-size:15px;color:var(--color-accent-700);font-feature-settings:'tnum'">02</span><p style="margin:0;font-size:15.5px;line-height:1.6">Exit at the Lawson convenience store and walk a short distance to the tricycle terminal on Panay Ave.</p></div>
+<div style="display:grid;grid-template-columns:26px 1fr;gap:var(--space-3)"><span style="font-family:var(--font-heading);font-size:15px;color:var(--color-accent-700);font-feature-settings:'tnum'">03</span><p style="margin:0;font-size:15.5px;line-height:1.6">Tell the driver: <em>Mplace Tower D, near Savemore</em>.</p></div>
+<div style="display:grid;grid-template-columns:26px 1fr;gap:var(--space-3)"><span style="font-family:var(--font-heading);font-size:15px;color:var(--color-accent-700);font-feature-settings:'tnum'">04</span><p style="margin:0;font-size:15.5px;line-height:1.6">The fare is around ₱30. Message us when you reach the lobby.</p></div>
+</div>
+<a class="btn btn-primary btn-block" href="https://maps.google.com" target="_blank" rel="noreferrer" style="margin-top:var(--space-6);min-height:46px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;text-decoration:none">Open in Google Maps</a>
+</sc-if>
+
+<sc-if value="{{ is.checkin }}" hint-placeholder-val="{{ false }}">
+
+<div style="font-family: var(--font-heading); font-size: 10px; letter-spacing: .24em; text-transform: uppercase; color: var(--color-accent-700); text-align: center"><b style="width: 99px; height: 30px; font-size: 24px">CHECK-IN</b></div><h2 style="font-size: 24px; font-weight: 400; margin: var(--space-2) 0 var(--space-4); text-align: center"></h2>
+<hr class="hr">
+<div style="font-family: var(--font-heading); font-size: 10px; line-height: 1.6; margin: 0 0 var(--space-4); font-style: normal; text-align: center; font-weight: 700">Thank you for choosing Staycation Haven PH!</div>
+
+<div style="display:grid;gap:var(--space-4);margin-bottom:var(--space-6)">
+<div style="display:grid;grid-template-columns:26px 1fr;gap:var(--space-3)"><span style="font-family:var(--font-heading);font-size:15px;color:var(--color-accent-700);font-feature-settings:'tnum'">01</span><p style="margin: 0; font-size: 12px; line-height: 1.6">Send a text message to <b>Miss Maris at</b> <a href="tel:+639309110991" style="text-decoration: none;">(0930) 911 0991</a> so she can send your guest form and assist you.</p></div>
+<div style="display:grid;grid-template-columns:26px 1fr;gap:var(--space-3)"><span style="font-family:var(--font-heading);font-size:15px;color:var(--color-accent-700);font-feature-settings:'tnum'">02</span><p style="margin: 0; font-size: 12px; line-height: 1.6">Present the guest form together with your IDs at the lobby and log in with the front desk.</p></div>
+<div style="display:grid;grid-template-columns:26px 1fr;gap:var(--space-3)"><span style="font-family:var(--font-heading);font-size:15px;color:var(--color-accent-700);font-feature-settings:'tnum'">03</span><p style="margin: 0; font-size: 12px; line-height: 1.6">Please proceed to your unit and enjoy your stay.</p></div>
+</div>
+<hr class="hr">
+<div style="font-family:var(--font-heading);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--color-accent-700);text-align:center"><b style="font-size:24px">CHECK-OUT</b></div>
+<hr class="hr">
+<p style="margin:0 0 var(--space-4);font-size:12px;line-height:1.6">To facilitate a smooth check-out process, kindly do the following before you leave:</p>
+<div style="display:grid;gap:var(--space-3);margin-bottom:var(--space-6)">
+<div style="display:grid;grid-template-columns:26px 1fr;gap:var(--space-3)"><span style="font-family:var(--font-heading);font-size:15px;color:var(--color-accent-700);font-feature-settings:'tnum'">01</span><p style="margin:0;font-size:12px;line-height:1.6">Take a video of the room to show that it is in good condition and all belongings have been removed.</p></div>
+<div style="display:grid;grid-template-columns:26px 1fr;gap:var(--space-3)"><span style="font-family:var(--font-heading);font-size:15px;color:var(--color-accent-700);font-feature-settings:'tnum'">02</span><p style="margin:0;font-size:12px;line-height:1.6">Show the current time on your device in the video to confirm the check-out time.</p></div>
+<div style="display:grid;grid-template-columns:26px 1fr;gap:var(--space-3)"><span style="font-family:var(--font-heading);font-size:15px;color:var(--color-accent-700);font-feature-settings:'tnum'">03</span><p style="margin:0;font-size:12px;line-height:1.6">For change or Security Deposit:<br>- after we check the unit; any refund or additional charges are settled the next day after inspection via <b>GCash or bank transfer.</b></p></div>
+</div>
+<div style="font-family:var(--font-heading);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--color-accent-700);text-align:center;margin:0 0 var(--space-3)"><b style="font-size:24px">BEFORE YOU LEAVE</b></div>
+<div style="display:grid;gap:var(--space-2)">
+<div style="display:flex;gap:var(--space-2);font-size:12px;line-height:1.6"><span style="color:var(--color-accent-700)">•</span>Please return your room key on top of the ref counter.</div>
+<div style="display:flex;gap:var(--space-2);font-size:12px;line-height:1.6"><span style="color:var(--color-accent-700)">•</span>Make sure the aircon, projector/TV and lights are turned off.</div>
+<div style="display:flex;gap:var(--space-2);font-size:12px;line-height:1.6"><span style="color:var(--color-accent-700)">•</span>Lock your room door securely upon departure.</div>
+<div style="display:flex;gap:var(--space-2);font-size:12px;line-height:1.6"><span style="color:var(--color-accent-700)">•</span>Message us once you have left so we can check the unit.</div>
+</div>
+<p style="margin:var(--space-6) 0 0;font-family:var(--font-heading);font-size:15px;font-weight:600;text-align:center">Thank you!</p>
+<p style="font-size:14px;line-height:1.55;color:var(--color-neutral-700);margin-top:var(--space-4)">Early check-in or late check-out? Message the host — free if no guest follows you.</p>
+</sc-if>
+
+<sc-if value="{{ is.wifi }}" hint-placeholder-val="{{ false }}">
+<div style="font-family:var(--font-heading);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--color-accent-700)">Internet</div>
+<h2 style="font-size:34px;font-weight:400;margin:var(--space-2) 0 var(--space-4)">WiFi</h2>
+<hr class="hr">
+<div style="font-family:var(--font-heading);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--color-neutral-700);margin-bottom:var(--space-2)">Pick your unit</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-2);margin-bottom:var(--space-6)">
+<sc-for list="{{ units }}" as="unit" hint-placeholder-count="9">
+<button type="button" style="width:100%;box-sizing:border-box;min-height:48px;padding:10px 6px;text-align:center;background:{{ unit.bg }};border:1px solid {{ unit.border }};border-radius:var(--radius-md);cursor:pointer;color:{{ unit.color }};font-family:var(--font-heading);font-weight:600;font-size:11px;letter-spacing:.06em;text-transform:uppercase;line-height:1.25" style-hover="border-color:var(--color-accent)" onClick="{{ unit.pick }}">{{ unit.label }}</button>
+</sc-for>
+</div>
+<div style="border:1px solid var(--color-divider);padding:22px 20px;text-align:center">
+<div style="font-family:var(--font-heading);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--color-neutral-700)">Network</div>
+<div style="font-family:var(--font-heading);font-size:26px;font-weight:400;margin-bottom:var(--space-4)">{{ ssid }}</div>
+<div style="font-family:var(--font-heading);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--color-neutral-700)">Password</div>
+<div style="font-family:var(--font-heading);font-size:26px;font-weight:400;letter-spacing:.12em;font-feature-settings:'tnum'">{{ wifiPass }}</div>
+<button type="button" class="btn btn-primary" style="margin-top:var(--space-4);min-height:46px;font-size:11px;letter-spacing:.16em;text-transform:uppercase" onClick="{{ copyWifi }}">{{ copyLabel }}</button>
+</div>
+<div style="display:grid;gap:var(--space-3);margin-top:var(--space-6)">
+
+<p style="margin:0;font-size:15.5px;line-height:1.6">Streaming-ready (~50-100 Mbps). Each unit has its own network — pick your unit above and the password updates.</p>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.rules }}" hint-placeholder-val="{{ false }}">
+<div style="font-family:var(--font-heading);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--color-accent-700)">A few requests</div>
+<h2 style="font-size:34px;font-weight:400;margin:var(--space-2) 0 var(--space-4)">House rules</h2>
+<hr class="hr">
+<div style="display:grid;gap:1px;background:var(--color-divider);border-top:1px solid var(--color-divider);border-bottom:1px solid var(--color-divider)">
+<div style="background:var(--color-bg);display:grid;grid-template-columns:28px 1fr;gap:var(--space-3);padding:16px 4px"><span style="font-family:var(--font-heading);color:var(--color-accent-700);font-feature-settings:'tnum'">01</span><div><div style="font-family:var(--font-heading);font-weight:600;font-size:15px">No smoking inside the unit</div><p style="margin:4px 0 0;font-size:12px;line-height:1.6;color:var(--color-neutral-700)">Cigarettes are not allowed indoors; vaping is allowed. A ₱1,000 charge applies for any smoking violation.</p></div></div>
+<div style="background:var(--color-bg);display:grid;grid-template-columns:28px 1fr;gap:var(--space-3);padding:16px 4px"><span style="font-family:var(--font-heading);color:var(--color-accent-700);font-feature-settings:'tnum'">02</span><div><div style="font-family:var(--font-heading);font-weight:600;font-size:15px">Quiet hours: 9PM–6AM</div><p style="margin:4px 0 0;font-size:12px;line-height:1.6;color:var(--color-neutral-700)">Please keep music and voices low so the neighbouring units can rest.</p></div></div>
+<div style="background:var(--color-bg);display:grid;grid-template-columns:28px 1fr;gap:var(--space-3);padding:16px 4px"><span style="font-family:var(--font-heading);color:var(--color-accent-700);font-feature-settings:'tnum'">03</span><div><div style="font-family:var(--font-heading);font-weight:600;font-size:15px">Swimming attire only at the pool</div><p style="margin:4px 0 0;font-size:12px;line-height:1.6;color:var(--color-neutral-700)">Strictly swimming attire in the pool area.</p></div></div>
+<div style="background:var(--color-bg);display:grid;grid-template-columns:28px 1fr;gap:var(--space-3);padding:16px 4px"><span style="font-family:var(--font-heading);color:var(--color-accent-700);font-feature-settings:'tnum'">04</span><div><div style="font-family:var(--font-heading);font-weight:600;font-size:15px">No food or alcohol at the pool</div><p style="margin:4px 0 0;font-size:12px;line-height:1.6;color:var(--color-neutral-700)">Please enjoy food and drinks inside the unit instead.</p></div></div>
+<div style="background:var(--color-bg);display:grid;grid-template-columns:28px 1fr;gap:var(--space-3);padding:16px 4px"><span style="font-family:var(--font-heading);color:var(--color-accent-700);font-feature-settings:'tnum'">05</span><div><div style="font-family:var(--font-heading);font-weight:600;font-size:15px">Pool hours: 6AM–10PM</div><p style="margin:4px 0 0;font-size:12px;line-height:1.6;color:var(--color-neutral-700)">Kids may swim until 6PM only.</p></div></div>
+<div style="background:var(--color-bg);display:grid;grid-template-columns:28px 1fr;gap:var(--space-3);padding:16px 4px"><span style="font-family:var(--font-heading);color:var(--color-accent-700);font-feature-settings:'tnum'">06</span><div><div style="font-family:var(--font-heading);font-weight:600;font-size:15px">Do not log out of Netflix</div><p style="margin:4px 0 0;font-size:12px;line-height:1.6;color:var(--color-neutral-700)">Please leave the smart TV signed in to our account.</p></div></div>
+<div style="background:var(--color-bg);display:grid;grid-template-columns:28px 1fr;gap:var(--space-3);padding:16px 4px"><span style="font-family:var(--font-heading);color:var(--color-accent-700);font-feature-settings:'tnum'">07</span><div><div style="font-family:var(--font-heading);font-weight:600;font-size:15px">Nothing attached to the walls</div><p style="margin:4px 0 0;font-size:12px;line-height:1.6;color:var(--color-neutral-700)">Do not attach, stick or hang posters, decorations, hooks or tape using adhesives, glue or nails. Wall damage carries a ₱1,000 charge.</p></div></div>
+<div style="background:var(--color-bg);display:grid;grid-template-columns:28px 1fr;gap:var(--space-3);padding:16px 4px"><span style="font-family:var(--font-heading);color:var(--color-accent-700);font-feature-settings:'tnum'">08</span><div><div style="font-family:var(--font-heading);font-weight:600;font-size:15px">Wash your dishes</div><p style="margin:4px 0 0;font-size:12px;line-height:1.6;color:var(--color-neutral-700)">Please clean up after cooking or eating. A ₱100 fine applies for dishes left unwashed.</p></div></div>
+<div style="background:var(--color-bg);display:grid;grid-template-columns:28px 1fr;gap:var(--space-3);padding:16px 4px"><span style="font-family:var(--font-heading);color:var(--color-accent-700);font-feature-settings:'tnum'">09</span><div><div style="font-family:var(--font-heading);font-weight:600;font-size:15px">No unregistered visitors</div><p style="margin:4px 0 0;font-size:12px;line-height:1.6;color:var(--color-neutral-700)">Only registered guests may enter the unit. A ₱1,000 fine applies.</p></div></div>
+<div style="background:var(--color-bg);display:grid;grid-template-columns:28px 1fr;gap:var(--space-3);padding:16px 4px"><span style="font-family:var(--font-heading);color:var(--color-accent-700);font-feature-settings:'tnum'">10</span><div><div style="font-family:var(--font-heading);font-weight:600;font-size:15px">No cooking fish or strong-smelling food</div><p style="margin:4px 0 0;font-size:12px;line-height:1.6;color:var(--color-neutral-700)">A ₱500 fine applies — the smell lingers for the next guests.</p></div></div>
+<div style="background:var(--color-bg);display:grid;grid-template-columns:28px 1fr;gap:var(--space-3);padding:16px 4px"><span style="font-family:var(--font-heading);color:var(--color-accent-700);font-feature-settings:'tnum'">11</span><div><div style="font-family:var(--font-heading);font-weight:600;font-size:15px">Bring your own personal items</div><p style="margin:4px 0 0;font-size:12px;line-height:1.6;color:var(--color-neutral-700)">Toiletries, slippers and personal hygiene kits are not provided.</p></div></div>
+<div style="background:var(--color-bg);display:grid;grid-template-columns:28px 1fr;gap:var(--space-3);padding:16px 4px"><span style="font-family:var(--font-heading);color:var(--color-accent-700);font-feature-settings:'tnum'">12</span><div><div style="font-family:var(--font-heading);font-weight:600;font-size:15px">Towel rental</div><p style="margin:4px 0 0;font-size:12px;line-height:1.6;color:var(--color-neutral-700)">₱50 per towel — just message us if you need one.</p></div></div>
+<div style="background:var(--color-bg);display:grid;grid-template-columns:28px 1fr;gap:var(--space-3);padding:16px 4px"><span style="font-family:var(--font-heading);color:var(--color-accent-700);font-feature-settings:'tnum'">13</span><div><div style="font-family:var(--font-heading);font-weight:600;font-size:15px">Proper swim attire only</div><p style="margin:4px 0 0;font-size:12px;line-height:1.6;color:var(--color-neutral-700)">Nylon, rash guard or lycra. No cotton or maong (denim) in the pool.</p></div></div>
+</div>
+<p style="margin:var(--space-4) 0 0;font-size:12px;line-height:1.6;color:var(--color-neutral-700)"><strong>Note:</strong> Guest requests and room service are available until 8 PM only.</p>
+<sc-if value="{{ requireAck }}" hint-placeholder-val="{{ true }}">
+<button type="button" style="display:flex;align-items:center;gap:var(--space-3);width:100%;box-sizing:border-box;margin-top:var(--space-6);min-height:52px;padding:14px 16px;background:transparent;border:1px solid var(--color-divider);border-radius:var(--radius-md);cursor:pointer;text-align:left;color:var(--color-text)" style-hover="border-color:var(--color-accent)" onClick="{{ toggleAck }}">
+<span style="width:20px;height:20px;border:1px solid var(--color-accent);display:grid;place-items:center;flex:none;font-family:var(--font-heading);color:var(--color-accent-700);font-size:13px">{{ ackMark }}</span>
+<span style="font-family:var(--font-heading);font-size:13px;letter-spacing:.05em">{{ ackLabel }}</span>
+</button>
+</sc-if>
+</sc-if>
+
+<sc-if value="{{ is.faq }}" hint-placeholder-val="{{ false }}">
+<div style="font-family:var(--font-heading);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--color-accent-700)">Questions</div>
+<h2 style="font-size:34px;font-weight:400;margin:var(--space-2) 0 var(--space-4)">FAQ</h2>
+<hr class="hr">
+<div>
+<sc-for list="{{ faqItems }}" as="item" hint-placeholder-count="8">
+<div>
+<sc-if value="{{ item.hasSection }}" hint-placeholder-val="{{ false }}">
+<div style="font-family:var(--font-heading);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--color-accent-700);margin:var(--space-6) 0 var(--space-2)">{{ item.section }}</div>
+</sc-if>
+<button type="button" style="width:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);min-height:56px;padding:15px 2px;background:transparent;border:0;border-top:1px solid var(--color-divider);cursor:pointer;text-align:left;font-family:var(--font-heading);font-weight:600;font-size:15px;line-height:1.35;color:var(--color-text)" style-hover="color:var(--color-accent-700)" onClick="{{ item.toggle }}">{{ item.q }}<span style="color:var(--color-accent);font-size:18px;flex:none">{{ item.mark }}</span></button>
+<sc-if value="{{ item.open }}" hint-placeholder-val="{{ false }}">
+<div style="padding:2px 2px 18px;display:grid;gap:var(--space-2)">
+<p style="margin:0;font-size:13.5px;line-height:1.6;color:var(--color-neutral-700)">{{ item.body }}</p>
+<sc-if value="{{ item.hasBullets }}" hint-placeholder-val="{{ false }}">
+<div style="display:grid;gap:6px">
+<sc-for list="{{ item.bullets }}" as="b" hint-placeholder-count="3">
+<div style="display:flex;gap:var(--space-2);font-size:13.5px;line-height:1.55;color:var(--color-neutral-700)"><span style="color:var(--color-accent-700)">•</span>{{ b }}</div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ item.hasNote }}" hint-placeholder-val="{{ false }}">
+<p style="margin:0;font-family:var(--font-heading);font-size:14px;font-weight:600;color:var(--color-accent-700);font-feature-settings:'tnum'">{{ item.note }}</p>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+<div style="border-top:1px solid var(--color-divider);margin-top:var(--space-6);padding-top:var(--space-4)">
+<div style="font-family:var(--font-heading);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--color-accent-700)">Need help?</div>
+<p style="margin:var(--space-2) 0 var(--space-3);font-size:13.5px;line-height:1.6">If you have any questions before or during your stay, message us on our Facebook page. Our team is happy to assist you.</p>
+<a class="btn btn-primary btn-block" href="https://m.me/staycationhavenph" target="_blank" rel="noreferrer" style="min-height:46px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;text-decoration:none">Message us on Facebook</a>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.shops }}" hint-placeholder-val="{{ false }}">
+<div style="font-family:var(--font-heading);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--color-accent-700)">Groceries</div>
+<h2 style="font-size:34px;font-weight:400;margin:var(--space-2) 0 var(--space-4)">Supermarkets &amp; shops</h2>
+<hr class="hr">
+<div class="card" style="padding:0;overflow:hidden">
+<div style="position:relative;height:170px"><image-slot id="gw-savemore" shape="rect" src="img/savemore.webp" placeholder="Photo of Savemore Market"></image-slot></div>
+<div style="padding:16px 18px 18px">
+<div class="card-kicker" style="font-feature-settings:'tnum'">Ground floor, Mplace Mall · 10 AM – 10 PM</div>
+<div class="card-title" style="font-size:19px">Savemore Market</div>
+<p class="card-body" style="margin:6px 0 0;font-size:13.5px;line-height:1.55">Full grocery downstairs — fresh meat, produce, bakery and everyday essentials, a lift ride away.</p>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.food }}" hint-placeholder-val="{{ false }}">
+<div style="font-family:var(--font-heading);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--color-accent-700)">Mplace Mall</div>
+<h2 style="font-size:34px;font-weight:400;margin:var(--space-2) 0 var(--space-4)">Restaurants &amp; cafes</h2>
+<hr class="hr">
+<p style="margin:0 0 var(--space-6);font-size:13.5px;line-height:1.6">Everything below is downstairs in Mplace Mall — no need to leave the building.</p>
+<div style="display:grid;gap:var(--space-8)">
+<div>
+<div style="border:6px solid var(--color-surface);outline:1px solid var(--color-divider)"><img src="img/mall-dining-1.webp" alt="Dining" style="display:block;width:100%;height:auto"></div>
+<div style="font-family:var(--font-heading);font-size:16px;font-weight:600;margin-top:var(--space-2)">Dining</div>
+<p style="margin:2px 0 0;font-size:13.5px;line-height:1.55;color:var(--color-neutral-700)">Sinji Dimsum, Cafe Moccatto, Buffalo&rsquo;s Wings n&rsquo; Things and Turks.</p>
+</div>
+<div>
+<div style="border:6px solid var(--color-surface);outline:1px solid var(--color-divider)"><img src="img/mall-dining-2.webp" alt="Snacks &amp; coffee" style="display:block;width:100%;height:auto"></div>
+<div style="font-family:var(--font-heading);font-size:16px;font-weight:600;margin-top:var(--space-2)">Snacks &amp; coffee</div>
+<p style="margin:2px 0 0;font-size:13.5px;line-height:1.55;color:var(--color-neutral-700)">Potato Corner, Coffee Bean &amp; Tea Leaf, Famous Belgian Waffles and Cha Tuk Chak.</p>
+</div>
+<div>
+<div style="border:6px solid var(--color-surface);outline:1px solid var(--color-divider)"><img src="img/mall-711.webp" alt="7-Eleven" style="display:block;width:100%;height:auto"></div>
+<div style="font-family:var(--font-heading);font-size:16px;font-weight:600;margin-top:var(--space-2)">7-Eleven</div>
+<p style="margin:2px 0 0;font-size:13.5px;line-height:1.55;color:var(--color-neutral-700)">Open 24 hours for ice cream, drinks and quick bites.</p>
+</div>
+<div>
+<div style="border:6px solid var(--color-surface);outline:1px solid var(--color-divider)"><img src="img/mall-activities.webp" alt="Fun activities" style="display:block;width:100%;height:auto"></div>
+<div style="font-family:var(--font-heading);font-size:16px;font-weight:600;margin-top:var(--space-2)">Fun activities</div>
+<p style="margin:2px 0 0;font-size:13.5px;line-height:1.55;color:var(--color-neutral-700)">Art &amp; craft, pool &amp; games, DIY &amp; decorate, paint &amp; create.</p>
+</div>
+<div>
+<div style="border:6px solid var(--color-surface);outline:1px solid var(--color-divider)"><img src="img/mall-relax.webp" alt="Relax" style="display:block;width:100%;height:auto"></div>
+<div style="font-family:var(--font-heading);font-size:16px;font-weight:600;margin-top:var(--space-2)">Relax</div>
+<p style="margin:2px 0 0;font-size:13.5px;line-height:1.55;color:var(--color-neutral-700)">Cropp Salon, Pretty Momma, Skin Station and Nuat Thai.</p>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.pool }}" hint-placeholder-val="{{ false }}">
+<div style="font-family:var(--font-heading);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--color-accent-700)">Second floor</div>
+<h2 style="font-size:34px;font-weight:400;margin:var(--space-2) 0 var(--space-4)">Pool</h2>
+<hr class="hr">
+<div style="border:6px solid var(--color-surface);outline:1px solid var(--color-divider);margin-bottom:var(--space-4)"><img src="img/pool.webp" alt="The pool on the second floor" style="display:block;width:100%;aspect-ratio:1/1;object-fit:cover"></div>
+<p style="margin:0 0 var(--space-6);font-size:13.5px;line-height:1.6">Access to the pool area on the 2nd floor is free. A swim pass is only needed if you want to get in the water.</p>
+<h3 style="font-size:16px;font-weight:600;margin:0 0 var(--space-2)">Swim pass (any age)</h3>
+<div style="display:grid;gap:6px;margin-bottom:var(--space-6)">
+<div style="display:flex;gap:var(--space-2);font-size:13.5px;line-height:1.55"><span style="color:var(--color-accent-700)">•</span><span style="font-feature-settings:'tnum'">₱150 per head on regular days.</span></div>
+<div style="display:flex;gap:var(--space-2);font-size:13.5px;line-height:1.55"><span style="color:var(--color-accent-700)">•</span><span style="font-feature-settings:'tnum'">₱300 per head on holidays.</span></div>
+<div style="display:flex;gap:var(--space-2);font-size:13.5px;line-height:1.55"><span style="color:var(--color-accent-700)">•</span><span style="font-feature-settings:'tnum'">Each pass is good for one day of access.</span></div>
+</div>
+<h3 style="font-size:16px;font-weight:600;margin:0 0 var(--space-2)">Opening hours</h3>
+<div style="display:grid;gap:6px;margin-bottom:var(--space-6)">
+<div style="display:flex;gap:var(--space-2);font-size:13.5px;line-height:1.55"><span style="color:var(--color-accent-700)">•</span><span style="font-feature-settings:'tnum'">Adults — 6:00 AM to 10:00 PM (4–5 ft pool).</span></div>
+<div style="display:flex;gap:var(--space-2);font-size:13.5px;line-height:1.55"><span style="color:var(--color-accent-700)">•</span><span style="font-feature-settings:'tnum'">Kids — 6:00 AM to 6:00 PM (2 ft pool).</span></div>
+</div>
+<h3 style="font-size:16px;font-weight:600;margin:0 0 var(--space-2)">Swim attire is strictly required</h3>
+<div style="display:grid;gap:6px;margin-bottom:var(--space-6)">
+<div style="display:flex;gap:var(--space-2);font-size:13.5px;line-height:1.55"><span style="color:var(--color-accent-700)">•</span><span style="font-feature-settings:'tnum'">Allowed: rash guard, swimsuit, board shorts, nylon or lycra.</span></div>
+<div style="display:flex;gap:var(--space-2);font-size:13.5px;line-height:1.55"><span style="color:var(--color-accent-700)">•</span><span style="font-feature-settings:'tnum'">Not allowed: maong / denim and cotton.</span></div>
+</div>
+<div style="border:1px solid var(--color-accent-300);background:var(--color-accent-100);padding:16px 18px;margin-bottom:var(--space-4)">
+<div style="font-family:var(--font-heading);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--color-accent-700);margin-bottom:6px">Please confirm in advance</div>
+<p style="margin:0 0 var(--space-2);font-size:13.5px;line-height:1.6">We buy your pool passes ahead of time, so kindly confirm if your booking falls on:</p>
+<div style="display:grid;gap:6px">
+<div style="display:flex;gap:var(--space-2);font-size:13.5px;line-height:1.55"><span style="color:var(--color-accent-700)">•</span><span style="font-feature-settings:'tnum'">Check-in from 6:00 PM onwards.</span></div>
+<div style="display:flex;gap:var(--space-2);font-size:13.5px;line-height:1.55"><span style="color:var(--color-accent-700)">•</span><span style="font-feature-settings:'tnum'">Saturdays, Sundays and holidays.</span></div>
+</div>
+</div>
+<a class="btn btn-primary btn-block" href="https://m.me/staycationhavenph" target="_blank" rel="noreferrer" style="min-height:46px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;text-decoration:none">Confirm my pool pass</a>
+<div style="display:grid;gap:var(--space-2);margin-top:var(--space-4)">
+<a class="btn btn-secondary btn-block" href="https://www.facebook.com/share/p/1DnRhz7XCG/" target="_blank" rel="noreferrer" style="min-height:44px;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;text-decoration:none">See pool photos on Facebook</a>
+<a class="btn btn-secondary btn-block" href="https://www.tiktok.com/@staycationhavenph" target="_blank" rel="noreferrer" style="min-height:44px;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;text-decoration:none">Watch on TikTok</a>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.parking }}" hint-placeholder-val="{{ false }}">
+<div style="font-family:var(--font-heading);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--color-accent-700)">Where to park</div>
+<h2 style="font-size:34px;font-weight:400;margin:var(--space-2) 0 var(--space-4)">Parking</h2>
+<hr class="hr">
+<p style="margin:0 0 var(--space-6);font-size:13.5px;line-height:1.6">Guest parking is at the Savemore basement, right beside the building. Below are the current rates.</p>
+<h3 style="font-size:16px;font-weight:600;margin:0 0 var(--space-2)">Motorcycle</h3>
+<div style="display:grid;gap:6px;margin-bottom:var(--space-6)">
+<div style="display:flex;gap:var(--space-2);font-size:13.5px;line-height:1.55"><span style="color:var(--color-accent-700)">•</span><span style="font-feature-settings:'tnum'">₱50 flat rate, including overnight.</span></div>
+</div>
+<h3 style="font-size:16px;font-weight:600;margin:0 0 var(--space-2)">Car (Savemore basement)</h3>
+<div style="display:grid;gap:6px;margin-bottom:var(--space-6)">
+<div style="display:flex;gap:var(--space-2);font-size:13.5px;line-height:1.55"><span style="color:var(--color-accent-700)">•</span><span style="font-feature-settings:'tnum'">₱60 for the first 2 hours.</span></div>
+<div style="display:flex;gap:var(--space-2);font-size:13.5px;line-height:1.55"><span style="color:var(--color-accent-700)">•</span><span style="font-feature-settings:'tnum'">₱30 for every succeeding hour.</span></div>
+<div style="display:flex;gap:var(--space-2);font-size:13.5px;line-height:1.55"><span style="color:var(--color-accent-700)">•</span><span style="font-feature-settings:'tnum'">₱300 for overnight (1:30 AM – 6:00 AM).</span></div>
+</div>
+<h3 style="font-size:16px;font-weight:600;margin:0 0 var(--space-2)">Mplace parking for rent</h3>
+<p style="margin:0 0 var(--space-3);font-size:13.5px;line-height:1.6;font-feature-settings:'tnum'">₱500 per night. This has to be filed with the Mplace admin first, so please let us know in advance if you would like to avail of it.</p>
+<a class="btn btn-primary btn-block" href="https://m.me/staycationhavenph" target="_blank" rel="noreferrer" style="margin-top:var(--space-4);min-height:46px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;text-decoration:none">Reserve a parking slot</a>
+</sc-if>
+
+<sc-if value="{{ is.contact }}" hint-placeholder-val="{{ false }}">
+<div style="font-family:var(--font-heading);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--color-accent-700)">We are here</div>
+<h2 style="font-size:34px;font-weight:400;margin:var(--space-2) 0 var(--space-4)">Contact assist:</h2>
+<hr class="hr">
+<div style="display:flex;align-items:center;gap:var(--space-4);margin-bottom:var(--space-6)">
+<div style="flex:none;width:76px;height:76px;border-radius:50%;overflow:hidden;border:1px solid var(--color-divider);position:relative"><image-slot id="gw-host" shape="circle" src="img/host.webp" placeholder="Host photo"></image-slot></div>
+<div><div style="font-family:var(--font-heading);font-size:22px;font-weight:600">Maris</div><div style="font-size:13px;color:var(--color-neutral-700)">onsite : 8am to 8pm only</div></div>
+</div>
+<div style="display:grid;gap:var(--space-3)">
+<a class="btn btn-primary btn-block" href="tel:+639309110991" style="min-height:48px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;text-decoration:none">Call · (0930) 911 0991</a>
+
+</div>
+</sc-if>
+
+</div>
+
+</div>
+</sc-if>
+
+<sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;background:color-mix(in srgb, #201f1d 45%, transparent);z-index:5;display:flex" onClick="{{ closeMenu }}">
+<div style="width:84%;max-width:340px;background:var(--color-bg);border-right:1px solid var(--color-divider);padding:24px 22px;box-shadow:var(--shadow-lg);overflow:auto">
+<div style="font-family:var(--font-heading);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--color-neutral-700);margin-bottom:var(--space-4)">Guest guide</div>
+<div style="display:grid;gap:1px;background:var(--color-divider)">
+<button type="button" style="background:var(--color-bg);border:0;text-align:left;padding:14px 4px;min-height:48px;cursor:pointer;font-family:var(--font-heading);font-size:15px;font-weight:600;color:var(--color-text)" style-hover="color:var(--color-accent-700)" onClick="{{ go.welcome }}">Welcome</button>
+<button type="button" style="background:var(--color-bg);border:0;text-align:left;padding:14px 4px;min-height:48px;cursor:pointer;font-family:var(--font-heading);font-size:15px;font-weight:600;color:var(--color-text)" style-hover="color:var(--color-accent-700)" onClick="{{ go.directions }}">Driving directions</button>
+<button type="button" style="background:var(--color-bg);border:0;text-align:left;padding:14px 4px;min-height:48px;cursor:pointer;font-family:var(--font-heading);font-size:15px;font-weight:600;color:var(--color-text)" style-hover="color:var(--color-accent-700)" onClick="{{ go.checkin }}">Check-in / out</button>
+<button type="button" style="background:var(--color-bg);border:0;text-align:left;padding:14px 4px;min-height:48px;cursor:pointer;font-family:var(--font-heading);font-size:15px;font-weight:600;color:var(--color-text)" style-hover="color:var(--color-accent-700)" onClick="{{ go.wifi }}">WiFi</button>
+<button type="button" style="background:var(--color-bg);border:0;text-align:left;padding:14px 4px;min-height:48px;cursor:pointer;font-family:var(--font-heading);font-size:15px;font-weight:600;color:var(--color-text)" style-hover="color:var(--color-accent-700)" onClick="{{ go.rules }}">House rules</button>
+<button type="button" style="background:var(--color-bg);border:0;text-align:left;padding:14px 4px;min-height:48px;cursor:pointer;font-family:var(--font-heading);font-size:15px;font-weight:600;color:var(--color-text)" style-hover="color:var(--color-accent-700)" onClick="{{ go.faq }}">FAQ</button>
+<button type="button" style="background:var(--color-bg);border:0;text-align:left;padding:14px 4px;min-height:48px;cursor:pointer;font-family:var(--font-heading);font-size:15px;font-weight:600;color:var(--color-text)" style-hover="color:var(--color-accent-700)" onClick="{{ go.shops }}">Supermarkets &amp; shops</button>
+<button type="button" style="background:var(--color-bg);border:0;text-align:left;padding:14px 4px;min-height:48px;cursor:pointer;font-family:var(--font-heading);font-size:15px;font-weight:600;color:var(--color-text)" style-hover="color:var(--color-accent-700)" onClick="{{ go.food }}">Restaurants &amp; cafes</button>
+<button type="button" style="background:var(--color-bg);border:0;text-align:left;padding:14px 4px;min-height:48px;cursor:pointer;font-family:var(--font-heading);font-size:15px;font-weight:600;color:var(--color-text)" style-hover="color:var(--color-accent-700)" onClick="{{ go.pool }}">Pool</button>
+<button type="button" style="background:var(--color-bg);border:0;text-align:left;padding:14px 4px;min-height:48px;cursor:pointer;font-family:var(--font-heading);font-size:15px;font-weight:600;color:var(--color-text)" style-hover="color:var(--color-accent-700)" onClick="{{ go.parking }}">Parking</button>
+<button type="button" style="background:var(--color-bg);border:0;text-align:left;padding:14px 4px;min-height:48px;cursor:pointer;font-family:var(--font-heading);font-size:15px;font-weight:600;color:var(--color-text)" style-hover="color:var(--color-accent-700)" onClick="{{ go.contact }}">Need assist</button>
+</div>
+<button type="button" class="btn btn-secondary btn-block" style="margin-top:var(--space-6);min-height:44px;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase" onClick="{{ closeMenu }}">Close</button>
+</div>
+</div>
+</sc-if>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showScanIntro&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Flow&quot;},&quot;showQuickBar&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Flow&quot;},&quot;requireRulesAck&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Content&quot;}}">
+class Component extends DCLogic {
+  state = { screen: null, menu: false, copied: false, faq: null, ack: false, code: false, unit: 0 };
+
+  renderVals() {
+    /* Opens on the WELCOME GRID, always: the guest already scanned the QR to get here, so a
+       "Scan the QR at the door" intro is a dead end. The showScanIntro prop is deliberately not
+       consulted — its declared default is true, so reading it would bring the dead end back. */
+    const screen = this.state.screen ?? 'home';
+    const keys = ['home','welcome','directions','checkin','wifi','rules','faq','shops','food','pool','parking','contact'];
+    const go = {}, is = {};
+    keys.forEach(k => {
+      go[k] = () => { this.setState({ screen: k, menu: false, copied: false }); window.scrollTo(0, 0); };
+      is[k] = screen === k;
+    });
+    const FAQ = [
+      { section: 'Booking', q: 'Can I reserve without payment?', body: 'No. We cannot hold dates without payment.' },
+      { q: 'Can I check in early?', body: 'Early check-in depends on room availability and may have an additional charge.' },
+      { q: 'Can I extend my stay?', body: 'Yes, subject to room availability.', note: 'Extension fee: ₱150 per hour' },
+      { section: 'Payment', q: 'What payment methods do you accept?', body: 'We accept:', bullets: ['GCash', 'BDO', 'Maya', 'Maribank'] },
+      { q: 'Do I need to pay a security deposit?', body: 'Yes — ₱1,000. It is refundable via GCash the following day after inspection, provided there are:', bullets: ['No damages', 'No missing items', 'No smoking violation', 'No unpaid penalties'] },
+      { section: 'Guests', q: 'How many guests are allowed?', body: 'The maximum number depends on the room booked.', note: 'Additional guest fee: ₱300 per person' },
+      { q: 'Are visitors allowed?', body: 'No. Only registered guests are allowed inside the unit.', note: 'Unauthorized visitors: ₱1,000 penalty' },
+      { q: 'Are children allowed?', body: 'Yes. Children 3 years old and below stay free (room charge only).' },
+      { q: 'Can minors book?', body: 'No. Guests below 18 years old must be accompanied by an adult family member.' },
+      { section: 'Pool', q: 'What should I wear in the pool?', body: 'Allowed: swimwear, rash guard, nylon and lycra. Not allowed:', bullets: ['Cotton', 'Maong / denim'] },
+      { q: 'Do we need a swim pass?', body: 'The pool area is free to access, but swimming needs a pass: ₱150 per head on regular days and ₱300 on holidays. See the Pool page for hours and reminders.' },
+      { section: 'Cooking', q: 'Can we cook?', body: 'Light cooking is allowed depending on the unit. However, cooking fish or food with a strong odor is prohibited.', note: 'Penalty: ₱500' },
+      { section: 'House rules', q: 'Is smoking allowed?', body: 'No. Smoking inside the room is strictly prohibited. Smoking odor may also result in forfeiture of the security deposit.', note: 'Penalty: ₱1,000' },
+      { q: "What happens if we don't wash the dishes?", body: 'Unwashed dishes incur a cleaning fee.', note: 'Cleaning fee: ₱100' },
+      { section: 'Amenities', q: 'Are towels provided?', body: 'Towels are available for rent.', note: 'Towel rental: ₱50 each' },
+      { q: 'Do you provide toiletries?', body: 'Please bring your own:', bullets: ['Toothbrush', 'Toothpaste', 'Shampoo', 'Soap', 'Slippers', 'Personal hygiene kit'] },
+      { section: 'Check-in', q: 'What happens during check-in?', body: 'Five quick steps:', bullets: ['Complete the guest form.', 'Present your guest form and valid IDs at the lobby.', 'Wait for our confirmation before proceeding to your room.', 'Pay any remaining balance, if applicable.', 'Enjoy your stay!'] },
+      { section: 'Trash', q: 'Where do we throw our trash?', body: 'The garbage room is beside the electrical room, behind the elevator on your floor. Please bag your trash before dropping it off.' },
+      { section: 'Internet', q: 'Is Wi-Fi included?', body: 'Yes. Complimentary high-speed Wi-Fi is available in all units.' }
+    ];
+    const faqItems = FAQ.map((f, i) => ({
+      section: f.section || '', hasSection: !!f.section,
+      q: f.q, body: f.body,
+      bullets: f.bullets || [], hasBullets: !!(f.bullets && f.bullets.length),
+      note: f.note || '', hasNote: !!f.note,
+      open: this.state.faq === i, mark: this.state.faq === i ? '−' : '+',
+      toggle: () => this.setState(s => ({ faq: s.faq === i ? null : i }))
+    }));
+    /* THE UNIT PICKER. The labels are Pia's design; the CREDENTIALS ARE NOT IN THIS FILE and
+       must never be pasted back (both GitHub remotes are public). The server injects them per
+       request from the WiFi tab in Rates & Add-ons — see /stay/:token in server.js:
+
+         window.__STAY_WIFI__ = [{ label, ssid, pass }, ...]
+
+       Labels are matched ignoring spaces and case, because the store spells it "CasaBienca"
+       while this design says "Casa Bienca". Anything the feed doesn't cover — or no feed at
+       all — shows "Ask the host" rather than a blank or an error. */
+    const ASK = 'Ask the host';
+    const LABELS = ['Haven 1', 'Haven 2', 'Haven 3', 'Haven 4', 'Haven 5', 'Haven 7', 'Haven 8', 'Casa Bienca', 'Casa Siesta'];
+    const FEED = (typeof window !== 'undefined' && Array.isArray(window.__STAY_WIFI__)) ? window.__STAY_WIFI__ : [];
+    const norm = (s) => String(s == null ? '' : s).toLowerCase().replace(/\s+/g, '');
+    const UNITS = LABELS.map(label => {
+      const w = FEED.find(x => x && norm(x.label) === norm(label)) || {};
+      return { label: label, ssid: w.ssid || ASK, pass: w.pass || ASK };
+    });
+    // a haven added after this design was drawn still gets a button — never invisible to a guest
+    FEED.forEach(w => {
+      if (w && w.label && !LABELS.some(l => norm(l) === norm(w.label)))
+        UNITS.push({ label: String(w.label), ssid: w.ssid || ASK, pass: w.pass || ASK });
+    });
+    const unitIdx = Math.min(this.state.unit ?? 0, UNITS.length - 1);
+    const current = UNITS[unitIdx] || { label: '', ssid: ASK, pass: ASK };
+    const units = UNITS.map((u, i) => ({
+      label: u.label,
+      bg: i === unitIdx ? 'var(--color-accent-100)' : 'transparent',
+      border: i === unitIdx ? 'var(--color-accent)' : 'var(--color-divider)',
+      color: i === unitIdx ? 'var(--color-accent-700)' : 'var(--color-text)',
+      pick: () => this.setState({ unit: i, copied: false })
+    }));
+    return {
+      isHome: screen === 'home',
+      isDetail: screen !== 'home',   // every screen except the welcome grid (there is no intro)
+      is, go, faqItems,
+      menuOpen: this.state.menu,
+      toggleMenu: () => this.setState(s => ({ menu: !s.menu })),
+      closeMenu: () => this.setState({ menu: false }),
+      showQuickBar: this.props.showQuickBar ?? true,
+      requireAck: this.props.requireRulesAck ?? true,
+      ackMark: this.state.ack ? '✓' : '',
+      ackLabel: this.state.ack ? 'Thank you — noted' : 'I agree to the house rules',
+      toggleAck: () => this.setState(s => ({ ack: !s.ack })),
+      units, ssid: current.ssid, wifiPass: current.pass,
+      copyLabel: this.state.copied ? 'Copied ✓' : 'Copy password',
+      copyWifi: () => {
+        if (navigator.clipboard) navigator.clipboard.writeText(current.pass).catch(() => {});
+        this.setState({ copied: true });
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>
