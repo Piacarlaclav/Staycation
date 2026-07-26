@@ -15992,6 +15992,10 @@ function ensureSidebarNotEmpty(){
 // Payment Approval was removed (its job is now done on Collection Reports) — send anyone whose last
 // page was Payment Approval to Collection Reports instead of a now-inaccessible page.
 try{ if(localStorage.getItem("shph_dashboard_page") === "paymentapproval") localStorage.setItem("shph_dashboard_page", "collections"); }catch(e){}
+// Trav's nav entry is hidden (see views/partials/sidebar-nav.ejs). Anyone whose remembered page is
+// Trav would otherwise still open onto it with no way back to it once they navigate off — clear it
+// so they land on their normal first page instead. Remove this line if Trav is ever brought back.
+try{ if(localStorage.getItem("shph_dashboard_page") === "assist") localStorage.removeItem("shph_dashboard_page"); }catch(e){}
 // Branded shortcut URLs (e.g. /nicole-board) open straight to that section, overriding the
 // remembered page. Access control still applies — showPage() ignores pages the user can't see.
 const BRANDED_PAGE = { "/nicole-board":"board", "/nicole-calendar":"calendar", "/nicole-guestform":"guestform", "/nicole-deposit":"deposit" };
