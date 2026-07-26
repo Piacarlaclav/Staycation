@@ -3492,7 +3492,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <div class="panel-head">
             <h2><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 5 3.4 8.3 8 10 4.6-1.7 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/></svg></span>Security Deposit</h2>
         </div>
-        <p class="muted" style="margin:0 0 14px;">Security deposits <b>due to return</b> on the selected day. Overnight stays show on their check-out day; <b>day-use (same-day) stays show the next day</b>. Use the quick filters, or pick any date.</p>
+        <p class="muted" style="margin:0 0 14px;">Security deposits <b>due to return</b> on the selected day. A deposit becomes returnable <b>the day AFTER check-out</b> — every stay, overnight or day-use — so the team has time to check the room first. That is why picking <b>today</b> lists <b>yesterday's</b> check-outs. Use the quick filters, or pick any date.</p>
         <div class="dep-toolbar">
             <div class="seg" id="depSeg">
                 <button type="button" data-d="toreturn" class="active" onclick="setDepQuick('toreturn')">To return</button>
@@ -6868,9 +6868,10 @@ function updatePaymentApprovalBadge(){
 }
 // security deposits STILL to return: guests who have already checked out (checkout ≤ today), have a
 // deposit, and it hasn't been marked returned yet.
-// the day a booking's security deposit is due to be returned:
-//  • overnight stays (check-out after check-in) → the check-out day
-//  • same-day / day-use stays (check-out not after check-in) → the NEXT day (returned tomorrow)
+// The day a booking's security deposit is due to be returned: ALWAYS the day after check-out, for
+// every stay type. (It used to differ for overnight vs day-use; Jul 7 made it uniform. The comment
+// describing the old two-case rule survived that change and misled the page's own help text for
+// three weeks — hence the wording is spelled out here and on screen.)
 function depReturnDate(b){
     if(!b || !b.checkout) return b && b.checkout;
     // a security deposit is only returnable the DAY AFTER check-out — this gives staff time to
@@ -11149,6 +11150,7 @@ function renderDeposit(){
         const dot = (HAVEN_COLORS[b.haven] || { am:"#ccc" }).am;
         const dep = Number(b.deposit || 0);
         const returned = !!b.depositReturned;
+        const rd = depReturnDate(b);   // the day this deposit opens up — the row is FILTERED on this, not on b.checkout
         const _vdPend = (!returned && typeof _vdDeductForBooking === "function") ? _vdDeductForBooking(b.id) : 0;   // logged-violation deduction, not yet applied
         const ro = _partnerReadOnly();   // scoped partners see deposits READ-ONLY (View only)
         let statusCell;
@@ -11161,7 +11163,6 @@ function renderDeposit(){
                 statusCell = `<div class="dep-cell">${pill}<button class="btn secondary" onclick="viewBooking(${b.id})">View</button>${ro ? "" : `<button class="btn secondary" onclick="undoDeposit(${b.id})">↺ Undo</button>`}</div>`;
             } else {
                 // a deposit can only be returned the day AFTER check-out — until then show when it opens up
-                const rd = depReturnDate(b);
                 const returnable = rd && rd <= _tToday;
                 if(returnable){
                     statusCell = `<div class="dep-cell"><span class="dep-status held">To return</span><button class="btn secondary" onclick="viewBooking(${b.id})">View</button>${ro ? "" : `<button class="btn" onclick="openDepReturn(${b.id})">Mark returned</button>`}</div>`;
@@ -11177,7 +11178,7 @@ function renderDeposit(){
             <td><a onclick="viewBooking(${b.id})" title="Open booking details" style="color:#a56b2e; font-weight:700; letter-spacing:.3px; text-decoration:none; cursor:pointer; white-space:nowrap;">#${bookingCode(b)}</a></td>
             <td>${primaryName(b)}${b.fbName ? `<br><span class="muted">FB: ${b.fbName}</span>` : ""}</td>
             <td>${b.contact || "—"}</td>
-            <td>${fmt(b.checkout)} · <span class="muted">${checkoutTimeStr(b)}</span></td>
+            <td>${fmt(b.checkout)} · <span class="muted">${checkoutTimeStr(b)}</span><br><span class="muted" style="font-size:11px;">returnable ${fmt(rd)}</span></td>
             <td class="dep-amt">${dep > 0 ? peso(dep) : "—"}${
                 (dep > 0 && returned && (Number(b.depositDeductAmount) > 0 || Number(b.depositAddAmount) > 0))
                     ? `<br><span class="muted" style="font-weight:500;">Refunded ${peso(b.depositRefundAmount)}${Number(b.depositDeductAmount) > 0 ? ` · −${peso(b.depositDeductAmount)} ${b.depositDeductReason}` : ""}${Number(b.depositAddAmount) > 0 ? ` · +${peso(b.depositAddAmount)} sukli` : ""}</span>`
