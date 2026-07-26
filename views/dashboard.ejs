@@ -3906,6 +3906,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <div class="field">
                     <label>Balance upon check-in (₱)</label>
                     <input type="text" id="f_balance" readonly>
+                    <!-- Payments collected AFTER the downpayment are subtracted from this balance, but
+                         nothing on screen said so — a booking with a 999 collection looked like the
+                         maths was broken. recalc() fills this line in. -->
+                    <div id="f_paidNote" class="muted" style="font-size:11px; margin-top:4px; display:none;"></div>
                 </div>
             </div>
             <div class="field full">
@@ -7636,6 +7640,18 @@ function recalc(){
     const down = Number(document.getElementById("f_down").value) || 0;
     const collected = editingId ? collectedSum(bookings.find(x => x.id === editingId) || {}) : 0;
     document.getElementById("f_balance").value = peso(Math.max(0, total - down - collected));
+    // Show WHY the balance is what it is. Without this a booking that already had a payment
+    // collected read as a broken calculation: total 1,999 minus a 500 downpayment showing 500.
+    const _paidNote = document.getElementById("f_paidNote");
+    if(_paidNote){
+        if(collected > 0){
+            _paidNote.style.display = "block";
+            _paidNote.innerHTML = `${peso(total)} total − ${peso(down)} downpayment − <b>${peso(collected)} already collected</b>`;
+        } else {
+            _paidNote.style.display = "none";
+            _paidNote.textContent = "";
+        }
+    }
 
     const baseLabel = stayHours === 21
         ? `Base for 2 pax (${nights} night${nights > 1 ? "s" : ""}${nights >= 3 ? ", long-stay rate" : ""})`
