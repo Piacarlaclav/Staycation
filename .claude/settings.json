@@ -1,10 +1,36 @@
 {
   "permissions": {
     "allow": [
+      "Read(//c/Users/USER/**)",
+      "Read(c:\\Users\\USER\\**)",
+
+      "Write(//c/Users/USER/Desktop/StaycationhavenPH/**)",
+      "Edit(//c/Users/USER/Desktop/StaycationhavenPH/**)",
+      "Write(c:\\Users\\USER\\Desktop\\StaycationhavenPH\\**)",
+      "Edit(c:\\Users\\USER\\Desktop\\StaycationhavenPH\\**)",
+
+      "Write(//c/Users/USER/.claude/projects/c--Users-USER-Desktop-StaycationhavenPH/memory/**)",
+      "Edit(//c/Users/USER/.claude/projects/c--Users-USER-Desktop-StaycationhavenPH/memory/**)",
+      "Write(c:\\Users\\USER\\.claude\\projects\\c--Users-USER-Desktop-StaycationhavenPH\\memory\\**)",
+      "Edit(c:\\Users\\USER\\.claude\\projects\\c--Users-USER-Desktop-StaycationhavenPH\\memory\\**)",
+
+      "Write(//c/Users/USER/AppData/Local/Temp/claude/**)",
+      "Edit(//c/Users/USER/AppData/Local/Temp/claude/**)",
+      "Write(c:\\Users\\USER\\AppData\\Local\\Temp\\claude\\**)",
+      "Edit(c:\\Users\\USER\\AppData\\Local\\Temp\\claude\\**)",
+      "Write(/temp/**)",
+      "Edit(/temp/**)",
+
       "Bash(npm run build)",
-      "Bash(node tools/build-views.js)",
+      "Bash(npm run *)",
+      "Bash(npm install *)",
+      "Bash(npm ls *)",
+      "Bash(node *)",
+      "Bash(node -e *)",
       "Bash(node --check *)",
       "Bash(node -c *)",
+      "Bash(npx *)",
+
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(git push pia pia-side)",
@@ -16,10 +42,22 @@
       "Bash(git ls-files *)",
       "Bash(git check-ignore *)",
       "Bash(git remote *)",
-      "Bash(npm ls *)",
-      "Bash(unzip -q *)",
+      "Bash(git stash *)",
+      "Bash(git checkout *)",
+      "Bash(git revert *)",
+
+      "Bash(curl *)",
+      "Bash(unzip *)",
+      "Bash(zip *)",
       "Bash(md5sum *)",
-      "Bash(gzip -c *)"
+      "Bash(gzip *)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(du *)",
+      "Bash(for *)",
+      "Bash(if *)",
+      "Bash(pkill *)"
     ]
   }
 }

@@ -2770,7 +2770,8 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         </div>
         <div class="qrp-tools">
             <button class="qrp-btn" onclick="renderStayQR()">Reload</button>
-            <button class="qrp-btn primary" onclick="stayQrPrint()">🖨 Print</button>
+            <button class="qrp-btn primary" onclick="stayQrDownload()">⬇ Download poster</button>
+            <button class="qrp-btn" onclick="stayQrPrint()">🖨 Print</button>
         </div>
     </div>
     <div class="qrp-note">
@@ -2784,6 +2785,9 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <b>Hindi nagbabago ang QR</b> — isang beses mo lang i-print o i-send. Dahil iisa lang ito para
         sa lahat, bukas ang guide habang <b>may kahit sinong guest</b> na naka-check in sa alinmang
         haven. Ang <b>Regenerate</b> lang ang pumapatay sa QR na naipadala/naipaskil na.
+        <br><br>
+        <b>⬇ Download poster</b> — PNG na may nakasulat na <b>“PLEASE SCAN FOR CHECK IN”</b>, pwedeng
+        i-send sa Messenger o i-pa-print (A5). Pareho lang ang lalabas sa 🖨 Print.
     </div>
     <div id="stayQrGrid"><div class="qrp-empty">Loading…</div></div>
 </div>
@@ -9079,6 +9083,7 @@ function stayQrUrl(){
 async function renderStayQR(){
     const el = document.getElementById("stayQrGrid");
     if(!el) return;
+    stayQrLogo();                                   // warm the brand mark now, so Download/Print are instant
     el.innerHTML = '<div class="qrp-empty">Loading…</div>';
     try{
         const r = await fetch("/api/stay-tokens", { cache:"no-store" });
@@ -9120,10 +9125,161 @@ async function stayQrRegen(){
         alert("Could not regenerate — try again.");
     }
 }
+/* The real brand mark is the gold "S" monogram at /images/logo.png — a 1563px JPEG despite
+   the .png name, and the highest-resolution copy in the repo (the guest guide's own
+   img/logo.webp is only 256px, too soft for a 300dpi print; there is no SVG anywhere).
+   It is loaded ONCE, its white JPEG background keyed out, the mark re-tinted to the exact
+   brand gold, then trimmed to its ink box so it always sits at the same optical size.
+   Same-origin, so the poster canvas never gets tainted and toDataURL/toBlob still work.
+   Resolves to null on any failure — the poster then prints text-only rather than broken. */
+let stayQrLogoP = null;                                   // declared before stayQrPoster reads it
+function stayQrLogoMask(im){
+    const N = 1024;                                       // 2× headroom over the ~200px it is drawn at
+    const c = document.createElement("canvas");
+    c.width = N; c.height = N;
+    const x = c.getContext && c.getContext("2d");
+    if(!x) return null;
+    x.drawImage(im, 0, 0, N, N);
+    const d = x.getImageData(0, 0, N, N), p = d.data;
+    let x0 = N, y0 = N, x1 = -1, y1 = -1;
+    for(let i = 0, px = 0; i < p.length; i += 4, px++){
+        const v = (p[i] + p[i + 1] + p[i + 2]) / 3;
+        // white → transparent, gold → opaque, edges keep their antialiasing (133 = white
+        // brightness minus the brand gold's, so a full-strength gold pixel lands on alpha 255)
+        const a = Math.max(0, Math.min(255, Math.round((255 - v) * 255 / 133)));
+        p[i] = 0xb6; p[i + 1] = 0x82; p[i + 2] = 0x35; p[i + 3] = a;
+        if(a > 60){
+            const cx = px % N, cy = (px / N) | 0;
+            if(cx < x0) x0 = cx;
+            if(cx > x1) x1 = cx;
+            if(cy < y0) y0 = cy;
+            if(cy > y1) y1 = cy;
+        }
+    }
+    if(x1 < 0) return null;                               // all white — no mark to draw
+    x.putImageData(d, 0, 0);
+    const w = x1 - x0 + 1, h = y1 - y0 + 1;
+    const t = document.createElement("canvas");
+    t.width = w; t.height = h;
+    const tx = t.getContext && t.getContext("2d");
+    if(!tx) return null;
+    tx.drawImage(c, x0, y0, w, h, 0, 0, w, h);
+    return t;
+}
+function stayQrLogo(){
+    if(stayQrLogoP) return stayQrLogoP;
+    stayQrLogoP = new Promise(res => {
+        let done = false;
+        const finish = v => { if(!done){ done = true; res(v); } };
+        const im = new Image();
+        im.onload = () => { try{ finish(stayQrLogoMask(im)); }catch(e){ finish(null); } };
+        im.onerror = () => finish(null);
+        setTimeout(() => finish(null), 5000);             // a slow or missing asset must never hang the download
+        im.src = "/images/logo.png";
+    });
+    return stayQrLogoP;
+}
+/* ---------- the check-in poster (Download + Print use the SAME artwork) ----------
+   Pia sends this over Messenger and prints it for the units, so the file has to be a
+   finished poster, not a bare QR. Drawn by hand on a canvas — no html2canvas, no CDN —
+   same offline-safe rule as the encoder above, and it lets every QR module land on a
+   WHOLE pixel: a module on a half pixel gets blurred by the browser's scaling and stops
+   scanning in dim light. Never tint the QR or put art behind it for the same reason.
+   Async only because of the logo image; resolves to a canvas, or null if the URL is too
+   long to encode. */
+async function stayQrPoster(url){
+    const q = stayQrMatrix(url);
+    if(!q) return null;
+    const W = 1748, H = 2480;                       // A5 portrait at 300dpi: prints sharp, still a normal phone photo
+    const cv = document.createElement("canvas");
+    cv.width = W; cv.height = H;
+    const g = cv.getContext && cv.getContext("2d");
+    if(!g) return null;
+    const CREAM = "#f3f2f2", GOLD = "#b68235", INK = "#201f1d", MUTED = "#726b60";
+    const SERIF = "Georgia,'Times New Roman',serif", SANS = "Arial,Helvetica,sans-serif";
+    // one centred line; shrinks itself to fit, optional letter-spacing drawn per character
+    // (canvas letterSpacing isn't supported on every browser we print from)
+    function line(txt, y, size, family, color, opt){
+        opt = opt || {};
+        const track = opt.track || 0, weight = opt.weight ? opt.weight + " " : "", max = opt.max || (W - 320);
+        let s = size, w = 0;
+        for(;;){
+            g.font = weight + s + "px " + family;
+            w = g.measureText(txt).width + track * Math.max(0, txt.length - 1);
+            if(w <= max || s <= 12) break;
+            s -= 2;
+        }
+        g.fillStyle = color; g.textAlign = "left"; g.textBaseline = "alphabetic";
+        let x = (W - w) / 2;
+        if(!track){ g.fillText(txt, x, y); return; }
+        for(let i = 0; i < txt.length; i++){ g.fillText(txt[i], x, y); x += g.measureText(txt[i]).width + track; }
+    }
+    g.fillStyle = CREAM; g.fillRect(0, 0, W, H);
+    g.strokeStyle = GOLD; g.globalAlpha = .45; g.lineWidth = 4;
+    g.strokeRect(58, 58, W - 116, H - 116);
+    g.globalAlpha = 1;
+    // the gold S monogram, centred on its own ink box; if it didn't load, the wordmark below carries it
+    const logo = await stayQrLogo();
+    if(logo && logo.height){
+        const lh = 200, lw = Math.round(logo.width * lh / logo.height);
+        g.drawImage(logo, Math.round((W - lw) / 2), 180, lw, lh);
+    }
+    line("STAYCATION HAVEN PH", 480, 44, SERIF, GOLD, { track:14 });
+    g.fillStyle = GOLD; g.globalAlpha = .5; g.fillRect(W / 2 - 60, 520, 120, 3); g.globalAlpha = 1;
+    line("PLEASE SCAN FOR CHECK IN", 664, 104, SERIF, INK, { weight:"bold", track:2 });
+    line("Your guest guide — WiFi, house rules, and directions.", 736, 40, SANS, MUTED);
+    // whole-pixel modules + the 4-module quiet zone the spec requires, on plain white
+    const boxTop = 810, pad = 40, boxMax = H - boxTop - 260;
+    let mod = Math.max(4, Math.round(1080 / q.size));
+    while(mod > 4 && q.size * mod + 8 * mod + pad * 2 > boxMax) mod--;
+    const quiet = 4 * mod, box = q.size * mod + quiet * 2 + pad * 2;
+    const bx = Math.round((W - box) / 2), by = boxTop;
+    g.fillStyle = "#ffffff";
+    if(g.roundRect){ g.beginPath(); g.roundRect(bx, by, box, box, 34); g.fill(); } else g.fillRect(bx, by, box, box);
+    g.strokeStyle = "#e6ddcd"; g.lineWidth = 2;
+    if(g.roundRect){ g.beginPath(); g.roundRect(bx + 1, by + 1, box - 2, box - 2, 33); g.stroke(); } else g.strokeRect(bx + 1, by + 1, box - 2, box - 2);
+    g.fillStyle = "#000000";
+    const qx = bx + pad + quiet, qy = by + pad + quiet;                       // integers, so no module straddles a pixel
+    for(let r = 0; r < q.size; r++) for(let c = 0; c < q.size; c++)
+        if(q.rows[r][c]) g.fillRect(qx + c * mod, qy + r * mod, mod, mod);
+    line("Open your phone camera and point it at the code.", H - 160, 38, SANS, MUTED);
+    line(String((typeof location !== "undefined" && location.host) || "staycationhaven-ph.com").replace(/^www\./, ""), H - 98, 32, SERIF, GOLD, { track:8 });
+    return cv;
+}
+// Save the poster as a PNG she can send on Messenger or bring to a print shop.
+async function stayQrDownload(){
+    if(!stayQrData || !stayQrData.token){ alert("Still loading — try again in a second."); return; }
+    const cv = await stayQrPoster(stayQrUrl());
+    if(!cv){ alert("Couldn't build the poster here — use 🖨 Print instead."); return; }
+    const trigger = (href, revoke) => {
+        const a = document.createElement("a");
+        a.href = href; a.download = "staycation-guest-guide-qr.png";
+        document.body.appendChild(a); a.click(); a.remove();
+        if(revoke) setTimeout(() => URL.revokeObjectURL(href), 4000);
+    };
+    if(cv.toBlob) cv.toBlob(b => b ? trigger(URL.createObjectURL(b), true) : trigger(cv.toDataURL("image/png"), false), "image/png");
+    else trigger(cv.toDataURL("image/png"), false);
+}
 // Print the one QR big, ready to post by the door or send to a guest.
-function stayQrPrint(){
+async function stayQrPrint(){
     if(!stayQrData || !stayQrData.token){ alert("Still loading — try again in a second."); return; }
     const url = stayQrUrl();
+    // Print the SAME poster the Download button saves, so what's taped to the door and what
+    // the guest gets on Messenger are the one artwork. Awaited BEFORE openPrint, so its 350ms
+    // print timer starts on a document that is already complete. The old SVG sheet below stays
+    // as the fallback for any browser where the canvas doesn't come back.
+    const poster = await stayQrPoster(url);
+    if(poster){
+        const pcss = "@page{ size:A5 portrait; margin:0 }"
+            + "html,body{ margin:0; padding:0; background:#fff }"
+            + "img{ display:block; width:100%; height:auto }"
+            + "@media screen{ body{ background:#e9e6e0; padding:16px } img{ max-width:420px; margin:0 auto } }";
+        openPrint(`\x3C!DOCTYPE html>\x3Chtml>\x3Chead>\x3Cmeta charset="utf-8">\x3Ctitle>Guest Guide QR — Staycation Haven PH\x3C/title>`
+            + `\x3Cstyle>${pcss}\x3C/style>\x3C/head>\x3Cbody>`
+            + `\x3Cimg src="${poster.toDataURL("image/png")}" alt="Please scan for check in">`
+            + `\x3C/body>\x3C/html>`);
+        return;
+    }
     const css = "*{box-sizing:border-box}body{font-family:Georgia,'Times New Roman',serif;color:#201f1d;margin:0;padding:26px;background:#fff;text-align:center}"
         + "h1{font-size:22px;margin:0 0 6px}.meta{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#8b857c;margin-bottom:22px}"
         + ".pc{display:inline-block;border:1px dashed #cfc7ba;border-radius:14px;padding:26px 30px;page-break-inside:avoid}"
