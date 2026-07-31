@@ -5606,7 +5606,7 @@ function renderAvailability(){
     const havenList = scoped ? [window.__PARTNER__.haven] : HAVENS;
     const rows = havenList.map(function(h){
         const intervals = bookings.filter(function(b){ return !b.cancelled && sameHavenName(b.haven, h) && b.checkin; })
-            .map(function(b){ const iv = bookingInterval(b); return { ci: iv.start, freeAt: iv.end + CLEANING_GAP_MIN }; })
+            .map(function(b){ const iv = bookingInterval(b); return { ci: iv.start, out: iv.end, freeAt: iv.end + CLEANING_GAP_MIN }; })
             .sort(function(a, b){ return a.ci - b.ci; });
         // Earliest free check-in at/after the floor. IMPORTANT: if the first free gap is too
         // short for even a 6-hour stay (e.g. free 9:30 AM but the next guest arrives 10 AM),
@@ -5621,19 +5621,23 @@ function renderAvailability(){
            hours, not the ten you get by starting the clock at 8 AM. Pia corrected exactly this.
            A stay must start at/after the previous guest's cleaning is done, and must END one
            cleaning gap before the next check-in — hence `- CLEANING_GAP_MIN` on the closing edge. */
-        let gapFrom = null, gapTo = null;
+        let gapFrom = null, gapTo = null, gapPrevOut = null;
         (function(){
             // the next check-in at/after the start of the selected day — the window closes before it
             let nextCi = null;
             intervals.forEach(function(it){ if(it.ci >= dayAbs && (nextCi === null || it.ci < nextCi)) nextCi = it.ci; });
-            // the latest moment the haven became free, looking back past midnight
-            let freeSince = -Infinity;
-            intervals.forEach(function(it){ if(nextCi === null || it.ci < nextCi) freeSince = Math.max(freeSince, it.freeAt); });
+            // the latest moment the haven became free, looking back past midnight — and the guest
+            // whose departure created it, so the row can show when they actually checked out
+            let freeSince = -Infinity, prevOut = null;
+            intervals.forEach(function(it){
+                if(nextCi !== null && it.ci >= nextCi) return;
+                if(it.freeAt > freeSince){ freeSince = it.freeAt; prevOut = it.out; }
+            });
             const close = (nextCi === null) ? Infinity : (nextCi - CLEANING_GAP_MIN);
-            if(!isFinite(freeSince)) freeSince = dayAbs;        // no prior booking at all → from the day's start
+            if(!isFinite(freeSince)){ freeSince = dayAbs; prevOut = null; }   // no prior booking at all
             if(freeSince >= dayEnd) return;                     // the haven is still occupied past this day
             if(isFinite(close) && close <= freeSince) return;   // no room between the two
-            gapFrom = freeSince; gapTo = close;
+            gapFrom = freeSince; gapTo = close; gapPrevOut = prevOut;
         })();
         let hop = 0;
         while(hop++ < 40){
@@ -5656,11 +5660,13 @@ function renderAvailability(){
         const hcell = `<span class="av-hcell"><span class="dot" style="background:${dot}"></span>${h}</span>`;
         // A gap that fits no offered package is still a real gap Pia can sell by hand, so show it
         // either way — with the actual start and end, which may begin the previous evening.
+        // The previous guest's real check-out — the window opens one cleaning gap after it.
+        const outTxt = (gapPrevOut !== null) ? `<span class="muted" style="font-size:11px;">last out ${fmtAbs(gapPrevOut)}</span><br>` : "";
         const gapCell = (gapFrom === null)
             ? "—"
             : (!isFinite(gapTo)
-                ? `<span class="muted">no booking after</span><br><span class="muted" style="font-size:11px;">free from ${fmtAbs(gapFrom)}</span>`
-                : `${avSpanTxt(gapTo - gapFrom)}<br><span class="muted" style="font-size:11px;">${fmtAbs(gapFrom)} – ${fmtAbs(gapTo)}</span>`);
+                ? `<span class="muted">no booking after</span><br>${outTxt}<span class="muted" style="font-size:11px;">free from ${fmtAbs(gapFrom)}</span>`
+                : `${avSpanTxt(gapTo - gapFrom)}<br>${outTxt}<span class="muted" style="font-size:11px;">${fmtAbs(gapFrom)} – ${fmtAbs(gapTo)}</span>`);
         if(availFrom >= dayEnd){
             // occupied through the rest of the day
             return `<tr><td>${hcell}</td><td><span class="av-bad">Not available</span></td><td>—</td><td>${gapCell}</td><td class="muted">free ${fmtAbs(availFrom)}</td></tr>`;
