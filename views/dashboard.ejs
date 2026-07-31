@@ -2000,7 +2000,16 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
       #page-calendar .cal-tabs{ display:flex; width:100%; }   /* full-width, three equal tabs */
       #page-calendar .cal-tab{ flex:1; padding:9px 6px; font-size:13px; text-align:center; }
   }
-  #page-calendar .av-table{ width:100%; border-collapse:collapse; font-size:14px; }
+  #page-calendar .av-table{ width:100%; border-collapse:collapse; font-size:14px; table-layout:fixed; min-width:900px; }
+  /* Six columns, widths set explicitly. Without table-layout:fixed the browser sizes each column
+     from its content, so Haven sprawled while the two-line Free window cell was squeezed — the
+     columns also jumped around as the day changed and the text changed length. */
+  #page-calendar .av-table th:nth-child(1), #page-calendar .av-table td:nth-child(1){ width:15%; }
+  #page-calendar .av-table th:nth-child(2), #page-calendar .av-table td:nth-child(2){ width:16%; }
+  #page-calendar .av-table th:nth-child(3), #page-calendar .av-table td:nth-child(3){ width:15%; }
+  #page-calendar .av-table th:nth-child(4), #page-calendar .av-table td:nth-child(4){ width:16%; }
+  #page-calendar .av-table th:nth-child(5), #page-calendar .av-table td:nth-child(5){ width:21%; }
+  #page-calendar .av-table th:nth-child(6), #page-calendar .av-table td:nth-child(6){ width:17%; }
   #page-calendar .av-table th{ text-align:left; font-size:11px; letter-spacing:.4px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; padding:10px 14px; border-bottom:1px solid var(--hv-line); }
   #page-calendar .av-table td{ padding:14px; border-bottom:1px solid var(--hv-line); vertical-align:middle; color:var(--hv-ink); }
   #page-calendar .av-table tbody tr:last-child td{ border-bottom:none; }
