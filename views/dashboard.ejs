@@ -5660,30 +5660,31 @@ function renderAvailability(){
         }
         const dot = (HAVEN_COLORS[h] || { am:"#ccc" }).am;
         const hcell = `<span class="av-hcell"><span class="dot" style="background:${dot}"></span>${h}</span>`;
+        // The previous guest's real check-out, in its own column — the window opens one cleaning
+        // gap after it, so seeing both makes the arithmetic checkable against the Timeline.
+        const outCell = (gapPrevOut !== null) ? fmtAbs(gapPrevOut) : `<span class="muted">—</span>`;
         // A gap that fits no offered package is still a real gap Pia can sell by hand, so show it
         // either way — with the actual start and end, which may begin the previous evening.
-        // The previous guest's real check-out — the window opens one cleaning gap after it.
-        const outTxt = (gapPrevOut !== null) ? `<span class="muted" style="font-size:11px;">last out ${fmtAbs(gapPrevOut)}</span><br>` : "";
         const gapCell = (gapFrom === null)
             ? "—"
             : (!isFinite(gapTo)
-                ? `<span class="muted">no booking after</span><br>${outTxt}<span class="muted" style="font-size:11px;">free from ${fmtAbs(gapFrom)}</span>`
-                : `${avSpanTxt(gapTo - gapFrom)}<br>${outTxt}<span class="muted" style="font-size:11px;">${fmtAbs(gapFrom)} – ${fmtAbs(gapTo)}</span>`);
+                ? `<span class="muted">no booking after</span><br><span class="muted" style="font-size:11px;">free from ${fmtAbs(gapFrom)}</span>`
+                : `${avSpanTxt(gapTo - gapFrom)}<br><span class="muted" style="font-size:11px;">${fmtAbs(gapFrom)} – ${fmtAbs(gapTo)}</span>`);
         if(availFrom >= dayEnd){
             // occupied through the rest of the day
-            return `<tr><td>${hcell}</td><td><span class="av-bad">Not available</span></td><td>—</td><td>${gapCell}</td><td class="muted">free ${fmtAbs(availFrom)}</td></tr>`;
+            return `<tr><td>${hcell}</td><td><span class="av-bad">Not available</span></td><td>—</td><td>${outCell}</td><td>${gapCell}</td><td class="muted">free ${fmtAbs(availFrom)}</td></tr>`;
         }
         if(!fits.length){
             // no gap today fits even a 6-hour stay → not bookable
-            return `<tr><td>${hcell}</td><td><span class="av-bad">Not available</span></td><td>—</td><td>${gapCell}</td><td>${next !== null ? fmtAbs(next) : "—"}</td></tr>`;
+            return `<tr><td>${hcell}</td><td><span class="av-bad">Not available</span></td><td>—</td><td>${outCell}</td><td>${gapCell}</td><td>${next !== null ? fmtAbs(next) : "—"}</td></tr>`;
         }
         const availTxt = (availFrom <= floor) ? `${minToTime(floor - dayAbs)} <span class="muted">(open)</span>` : minToTime(availFrom - dayAbs);
         const hoursTxt = (fits.length === 1 ? String(fits[0]) : (fits.slice(0, -1).join(", ") + " or " + fits[fits.length - 1])) + " hrs";
         const nextTxt = (next !== null) ? fmtAbs(next) : `<span class="av-open">Open slot</span>`;
-        return `<tr><td>${hcell}</td><td><b>${availTxt}</b></td><td>${hoursTxt}</td><td>${gapCell}</td><td>${nextTxt}</td></tr>`;
+        return `<tr><td>${hcell}</td><td><b>${availTxt}</b></td><td>${hoursTxt}</td><td>${outCell}</td><td>${gapCell}</td><td>${nextTxt}</td></tr>`;
     }).join("");
     document.getElementById("availList").innerHTML = rows
-        ? `<div style="overflow-x:auto;"><table class="av-table"><thead><tr><th>Haven</th><th>Available check-in</th><th>Hours of stay available</th><th title="Real time free between the check-in above and the next booking — the cleaning gap is already taken out">Free window</th><th>Next check-in</th></tr></thead><tbody>${rows}</tbody></table></div>`
+        ? `<div style="overflow-x:auto;"><table class="av-table"><thead><tr><th>Haven</th><th>Available check-in</th><th>Hours of stay available</th><th title="When the last guest actually checked out — the room opens one cleaning gap after this">Previous check-out</th><th title="Real time free between that check-out and the next booking, with both cleaning gaps already taken out">Free window</th><th>Next check-in</th></tr></thead><tbody>${rows}</tbody></table></div>`
         : `<p class="muted">No havens.</p>`;
 }
 /* ---------- Availability: Month view (which havens are still bookable each day) ---------- */
