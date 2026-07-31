@@ -6500,7 +6500,7 @@ async function deleteBooking(id){
     if(!confirm("Delete this booking?")) return;
     const b = bookings.find(x => x.id === id);
     if(!b) return;
-    logActivity(`deleted booking — ${b.haven} (${primaryName(b)})`);
+    logActivity(`deleted booking #${bookingCode(b)} — ${b.haven} (${primaryName(b)}) · ${fmt(b.checkin)}`);
     const now = new Date().toISOString();
     b.deleted = true; b.deletedAt = now; _stampLocal(b);   // soft-delete, stamped so a failed server write is re-pushed by prime-merge
     setLocalKey(KEY, bookings);                            // mirror WITH the tombstone so localStorage agrees (no resurrect on refresh)
@@ -6524,7 +6524,7 @@ async function cancelBooking(id){
     b.cancelledAt = new Date().toISOString();
     _stampLocal(b); setLocalKey(KEY, bookings);   // stamp + mirror so a failed server write survives a refresh
     renderAll();   // instant feedback (in-memory)
-    logActivity(`cancelled booking — ${b.haven} (${primaryName(b)}); kept ${peso(kept)} non-refundable`);
+    logActivity(`cancelled booking #${bookingCode(b)} — ${b.haven} (${primaryName(b)}) · ${fmt(b.checkin)}; kept ${peso(kept)} non-refundable`);
     await bookingAction(id, "cancel");   // durable tiny write so a quick refresh can't lose it
 }
 
@@ -6543,7 +6543,7 @@ async function reinstateBooking(id){
     delete b.cancelledAt;
     _stampLocal(b); setLocalKey(KEY, bookings);   // stamp + mirror so a failed server write survives a refresh
     renderAll();   // instant feedback (in-memory)
-    logActivity(`reinstated booking — ${b.haven} (${primaryName(b)})`);
+    logActivity(`reinstated booking #${bookingCode(b)} — ${b.haven} (${primaryName(b)})`);
     await bookingAction(id, "reinstate");   // durable tiny write so a quick refresh can't lose it
 }
 
@@ -6804,7 +6804,7 @@ function approveBooking(id){
     if(!b) return;
     b.approved = true;
     bkSave(b, { approved:true });
-    logActivity(`approved booking — ${b.haven} (${primaryName(b)})`);
+    logActivity(`approved booking #${bookingCode(b)} — ${b.haven} (${primaryName(b)})`);
     renderApproval();
     renderAll();
 }
@@ -7056,7 +7056,7 @@ function approvePayment(bookingId, idx){
     if(!b || !b.payments || !b.payments[idx]) return;
     b.payments[idx].approved = true;
     bkPaymentEdit(b, idx);
-    logActivity(`approved payment — ${b.haven} · ${peso(b.payments[idx].amount)} (${b.payments[idx].category || "Balance"})`);
+    logActivity(`approved payment — booking #${bookingCode(b)} ${b.haven} · ${peso(b.payments[idx].amount)} (${b.payments[idx].category || "Balance"})`);
     renderPaymentApproval();
     renderAll();
 }
@@ -8600,7 +8600,7 @@ function replaceCollectionProof(idx, input){
         if(!p.proof) p.proof = ref;
         else p.proof2 = ref;
         bkPaymentEdit(bookings[bIdx], idx);
-        logActivity(`${p.proof && p.proof2 ? "added/replaced" : "added"} payment photo — ${bookings[bIdx].haven} · ${peso(p.amount)} (${p.category || "Balance"})`);
+        logActivity(`${p.proof && p.proof2 ? "added/replaced" : "added"} payment photo — booking #${bookingCode(bookings[bIdx])} ${bookings[bIdx].haven} · ${peso(p.amount)} (${p.category || "Balance"})`);
         renderProofPage(bookings[bIdx]);
         renderAll();
     });
@@ -8922,6 +8922,7 @@ async function saveBooking(){
         if(editingId){
             const idx = bookings.findIndex(b => b.id === editingId);
             if(idx === -1){ _savingBooking = false; return; }
+            const _before = { ...bookings[idx] };   // snapshot for the activity log's field-by-field diff
             // patch = form-owned fields ONLY. Never send ids/idOptOut (saved per-record on upload) or
             // payments (their own endpoint) — leaving them out preserves them on the live record.
             const patch = { ...data };
@@ -8942,7 +8943,9 @@ async function saveBooking(){
                     try{ await fetch(`/api/booking/${encodeURIComponent(editingId)}/payment`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ payment: pays[k], editId: existingPid, editIndex: k }) }); }catch(e){}
                 }
             }
-            logActivity(`edited booking — ${data.haven} (${primaryName(data)})`);
+            const _changes = bookingChanges(_before, bookings[idx]);
+            logActivity(`edited booking #${bookingCode(bookings[idx])} — ${data.haven} (${primaryName(data)})`
+                + (_changes.length ? ` · ${_changes.join("; ")}` : " · no field changed"));
         } else {
             const rec = { id: _newBookingId || uid(), ...data };   // stable id across retries → retry replaces, never duplicates
             const ok = await saveOneRecord("shph_bookings_v3", rec);
@@ -8951,7 +8954,7 @@ async function saveBooking(){
             const _exIdx = bookings.findIndex(b => String(b.id) === String(rec.id));
             if(_exIdx === -1) bookings.push(rec); else bookings[_exIdx] = rec;
             _lastCreatedBookingId = rec.id; _stampLocal(rec);
-            logActivity(`added booking — ${data.haven} (${primaryName(data)})`);
+            logActivity(`added booking #${bookingCode(rec)} — ${data.haven} (${primaryName(data)}) · ${fmt(rec.checkin)} ${rec.checkinTime || ""} · ${rec.stayHours}h`);
         }
         // linked haven segments → each its own per-record booking. Each seg row carries a
         // STABLE id (_sid) so a save retry re-UPSERTS the same record instead of duplicating;
@@ -11336,7 +11339,7 @@ async function undoDeposit(id){
         del.forEach(k => delete b[k]);
         b.updatedAt = new Date().toISOString();
         try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
-        logActivity(`un-returned security deposit — ${b.haven} (${primaryName(b)})`);
+        logActivity(`un-returned security deposit — booking #${bookingCode(b)} ${b.haven} (${primaryName(b)})`);
         renderDeposit();
     } finally { _undoDep = false; }
 }
@@ -11456,7 +11459,7 @@ async function confirmDepReturn(){
         try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
         const dedTxt = cost > 0 ? ` (−${peso(cost)} ${reason})` : "";
         const addTxt = add > 0 ? ` (+${peso(add)} sukli)` : "";
-        logActivity(`returned security deposit — ${b.haven} (${primaryName(b)}) · refunded ${peso(refund)}${dedTxt}${addTxt} via ${set.depositMop}`);
+        logActivity(`returned security deposit — booking #${bookingCode(b)} ${b.haven} (${primaryName(b)}) · refunded ${peso(refund)}${dedTxt}${addTxt} via ${set.depositMop}`);
         closeDepReturn();
         renderDeposit();
     } finally { _depSaving = false; }
@@ -12901,6 +12904,41 @@ function updateGuestCapNote(){
 
 /* ---------- global activity log (shared with todaysbooking.html) ---------- */
 const ACTIVITY_KEY = "shph_activity_log";
+/* What actually changed on a booking, in words — "edited booking" alone told Pia nothing, so a
+   mistake was impossible to trace back to who made it and what they touched. Compares the fields a
+   human edits and reports each as "label: old → new". Money is formatted as pesos, dates as dates.
+   Anything not listed here (proof photos, ids) is deliberately left out — it would only add noise. */
+const BOOKING_LOG_FIELDS = [
+    ["haven", "haven"], ["checkin", "check-in date", "date"], ["checkout", "check-out date", "date"],
+    ["checkinTime", "check-in time"], ["stayHours", "stay", "hours"], ["extend", "extra hours", "hours"],
+    ["total", "total", "peso"], ["downpayment", "downpayment", "peso"], ["deposit", "deposit", "peso"],
+    ["discount", "discount", "peso"], ["swimpass", "pool passes"], ["towels", "towels"],
+    ["contact", "contact"], ["fbName", "FB name"], ["partner", "partner"], ["holiday", "holiday rate"]
+];
+function bookingChanges(before, after){
+    const out = [];
+    const show = (v, kind) => {
+        if(v == null || v === "") return "—";
+        if(kind === "peso") return peso(Number(v) || 0);
+        if(kind === "date") return fmt(v);
+        if(kind === "hours") return String(v) + "h";
+        if(typeof v === "boolean") return v ? "yes" : "no";
+        return String(v);
+    };
+    BOOKING_LOG_FIELDS.forEach(function(f){
+        const key = f[0], label = f[1], kind = f[2];
+        const a = before ? before[key] : undefined, b = after ? after[key] : undefined;
+        // compare loosely so "500" and 500 don't read as a change
+        if(String(a == null ? "" : a) === String(b == null ? "" : b)) return;
+        out.push(`${label} ${show(a, kind)} → ${show(b, kind)}`);
+    });
+    // guests are objects — report the headcount and the lead name rather than dumping the array
+    const gA = (before && before.guests) || [], gB = (after && after.guests) || [];
+    if(JSON.stringify(gA) !== JSON.stringify(gB)){
+        out.push(gA.length !== gB.length ? `guests ${gA.length} → ${gB.length}` : "guest details edited");
+    }
+    return out;
+}
 function logActivity(action, user){
     try {
         let log = [];
@@ -14219,7 +14257,7 @@ function cleanAddHistory(log, action, id){
                 user: cleanCurrentUser(), action, at: new Date().toISOString() };
     log.history.push(h);
     const b = (id != null) ? bookings.find(x => x.id === id) : null;
-    logActivity(`${action}${b ? " — " + b.haven : ""} (cleaning)`, h.user);
+    logActivity(`${action}${b ? " — booking #" + bookingCode(b) + " " + b.haven : ""} (cleaning)`, h.user);
     return h;
 }
 // "HH:MM" (24h) -> "h:mm AM/PM"
