@@ -13807,7 +13807,11 @@ function _partnerMonthNet(ym, commissionRate){
     const bk = bookings.filter(b => b.checkin && b.checkin.slice(0, 7) === ym);
     const live = bk.filter(b => !b.cancelled);
     const swimRateOf = b => ((b.holiday || bookingIsHoliday(b)) ? PRICING.swimHoliday : PRICING.swimRegular);
-    const gross  = live.reduce((s, b) => s + paidOf(b), 0);   // partners: by MONTH (check-in), successful stays only — must match the window's gross above, or a month's carry-over disagrees with the month itself
+    // DELIBERATELY still counts cancelled stays' kept money, unlike the current window's Gross.
+    // A closed month's carry-over is a figure Pia and the partner have already settled on (June =
+    // −₱8,830); recomputing history under a new rule silently moves a balance both sides agreed.
+    // Do NOT "fix" this to match the window above — the difference is intentional.
+    const gross  = bk.reduce((s, b) => s + paidOf(b), 0);   // partners: by MONTH (check-in)
     const dep    = live.reduce((s, b) => { const d = Number(b.deposit) || 0; return s + ((d > 0 && paidOf(b) >= (Number(b.total) || 0)) ? d : 0); }, 0);   // deposit = liability, deducted once collected
     const pool   = live.filter(guestCheckedIn).reduce((s, b) => s + (Number(b.swimpass) || 0) * swimRateOf(b), 0);   // only once checked in
     const towel  = live.filter(guestCheckedIn).reduce((s, b) => s + (Number(b.towels) || 0) * PRICING.towel, 0);     // only once checked in
@@ -13889,11 +13893,10 @@ function renderAnalytics(){
     // for a future check-in is included here, and never double-counted when that booking checks in.
     // PARTNER GROSS EXCLUDES CANCELLED BOOKINGS. The header counts "successful bookings", so money
     // kept from a stay that never happened does not belong in the same figure — it made Gross exceed
-    // the total actually booked and stopped the page reconciling with Pia's own sheet. The kept
-    // amount is not hidden: it gets its own line below. Admin gross is untouched (cash basis).
-    const grossCancelledKept = _scopedPartner
-        ? Math.round(bk.filter(b => b.cancelled).reduce((s,b) => s + paidOf(b), 0))
-        : 0;
+    // the total actually booked and stopped the page reconciling with Pia's own sheet. That kept
+    // money is the OWNER's, not the partner's, so it is simply not shown here.
+    // Admin gross is untouched (cash basis), and so is _partnerMonthNet's — see the note there:
+    // closed months keep the balance both sides already agreed.
     const gross = _scopedPartner
         ? Math.round(bk.filter(b => !b.cancelled).reduce((s,b) => s + paidOf(b), 0))          // partners: by MONTH (check-in), successful stays only
         : Math.round(bookings.reduce((s,b) => s + cashReceivedIn(b, startIso, endIso), 0));  // admin: CASH basis (received date)
@@ -13995,9 +13998,6 @@ function renderAnalytics(){
     const RED = "#c0283d";
     const minis = [];
     if(_scopedPartner && carriedIn < 0) minis.push(["Carried over from last month", "−" + peso(-carriedIn), AN_ICO.hour, "ic-terra", RED]);
-    // Money kept from a cancelled stay — out of Gross (that counts successful bookings) but shown
-    // here so it is still accounted for. Only appears when there is some.
-    if(_scopedPartner && grossCancelledKept > 0) minis.push(["Kept from cancelled", "+" + peso(grossCancelledKept), AN_ICO.receipt, "ic-green", "#2e7d4f"]);
     if(!_scopedPartner) minis.push(["Receivables (pending)", peso(receivables), AN_ICO.hour, "ic-gold"]);
     // partner: "Pending Bills" = the unpaid balances still to collect (same as the Pending/Unpaid figure)
     minis.push(_scopedPartner
