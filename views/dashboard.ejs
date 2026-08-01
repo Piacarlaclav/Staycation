@@ -13955,8 +13955,11 @@ function renderAnalytics(){
     const carriedIn = _scopedPartner ? Math.round(_partnerCarryIn(startIso.slice(0, 7), commissionRate)) : 0;
     const partnerNetRunning = partnerNet + carriedIn;
 
-    document.getElementById("anScope").textContent =
-        `All units combined — bookings, bills, payroll &amp; expenses · ${scopeText}`;
+    // textContent, so write a real "&" — the HTML entity was being printed literally as "&amp;".
+    // A scoped partner sees only their own haven, so telling them "All units combined" is wrong.
+    document.getElementById("anScope").textContent = _scopedPartner
+        ? `${(window.__PARTNER__ || {}).haven || "Your unit"} — bookings, bills & expenses · ${scopeText}`
+        : `All units combined — bookings, bills, payroll & expenses · ${scopeText}`;
     const _bkEl = document.getElementById("anBookings"); if(_bkEl) _bkEl.textContent = _live.length;   // successful (non-cancelled) bookings, shown in the header
 
     // ---- big KPI cards ----
@@ -14046,9 +14049,12 @@ function renderAnalytics(){
         havenRev.length ? anHBars(havenRev, havenRev.reduce((s,x) => s + x.value, 0)) : `<p class="muted">No revenue yet.</p>`;
 
     // ---- expenses: bills vs payroll + bills by haven ----
-    const expTotal = (billsTotal + payrollGross + suppliesSpend) || 1;   // suppliesSpend: exclude negative Add-Funds so widths don't break
+    // Use `payroll`, NOT `payrollGross`: payroll is the whole business's wage bill and is zeroed for
+    // a scoped partner a few lines up. This breakdown was reading the gross figure directly, so a
+    // partner's own Analytics page was showing them every staff member's pay for the period.
+    const expTotal = (billsTotal + payroll + suppliesSpend) || 1;   // suppliesSpend: exclude negative Add-Funds so widths don't break
     const billsW = Math.round(billsTotal / expTotal * 100);
-    const payW   = Math.round(payrollGross / expTotal * 100);
+    const payW   = Math.round(payroll / expTotal * 100);
     const expW   = Math.max(0, 100 - billsW - payW);
     const billCats = (typeof BILL_HAVENS !== "undefined") ? BILL_HAVENS : HAVENS;
     const havenBills = billCats.map(h => ({
@@ -14065,7 +14071,7 @@ function renderAnalytics(){
         <div class="stack"><div class="seg-bills" style="width:${billsW}%"></div><div class="seg-pay" style="width:${payW}%"></div><div class="seg-exp" style="width:${expW}%"></div></div>
         <div class="stack-legend">
             <span class="k"><span class="sw" style="background:#bd6e3f"></span>Bills <b>${peso(billsTotal)}</b> · ${billsW}%</span>
-            <span class="k"><span class="sw" style="background:#9a3db8"></span>Payroll <b>${peso(payrollGross)}</b> · ${payW}%</span>
+            ${_scopedPartner ? "" : `<span class="k"><span class="sw" style="background:#9a3db8"></span>Payroll <b>${peso(payroll)}</b> · ${payW}%</span>`}
             <span class="k"><span class="sw" style="background:#3f9e6a"></span>Expenses <b>${peso(suppliesSpend)}</b> · ${expW}%</span>
         </div>
         <div class="sub-h">Bills by haven / category</div>
