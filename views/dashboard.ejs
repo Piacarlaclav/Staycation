@@ -14439,6 +14439,34 @@ const VIOLATION_KEYWORDS = [
     { type: "Dishes",  re: /(unwashed|dish|dishes|pinggan|plato|hugas|kaldero|kaserola)/i },
     { type: "Mess",    re: /(excess mess|sobrang kalat|sobra.*kalat|napaka.*kalat|very messy|super messy)/i }
 ];
+// What housekeeping actually WROTE for a booking, joined and trimmed. The auto-created violation
+// used to record only the type label ("Missing item — auto mula sa housekeeping report"), throwing
+// away the one detail that matters: Jedd reported a missing LED remote and the record never said
+// what was taken, so Pia could not tell what she was charging for.
+function housekeepingReportNote(bookingId){
+    try{
+        const map = (typeof cleaning !== "undefined" && cleaning) ? cleaning : {};
+        const log = map[String(bookingId)];
+        const notes = ((log && log.reports) || [])
+            .map(r => String((r && r.note) || "").trim())
+            .filter(Boolean);
+        if(!notes.length) return "";
+        const joined = [...new Set(notes)].join("; ");   // same note logged twice shouldn't read twice
+        return joined.length > 300 ? joined.slice(0, 299) + "…" : joined;
+    }catch(e){ return ""; }
+}
+// "Missing item — LED remote (housekeeping report)", falling back to the old wording when the
+// report carried no text at all.
+function housekeepingViolationText(bookingId, type, suffix){
+    const label = (CLEAN_LABELS[type] || type);
+    let note = housekeepingReportNote(bookingId);
+    if(!note) return `${label} — ${suffix}`;
+    // Housekeeping usually picks the type from a dropdown AND types it again, so the note often
+    // begins with the label ("Missing item — LED remote missing"). Don't print it twice.
+    const lead = new RegExp("^\\s*" + label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*[—\\-:]*\\s*", "i");
+    note = note.replace(lead, "").trim();
+    return note ? `${label} — ${note} (${suffix})` : `${label} — ${suffix}`;
+}
 function detectViolationType(text){
     for(const k of VIOLATION_KEYWORDS) if(k.re.test(String(text || ""))) return k.type;
     return "";
@@ -14472,7 +14500,7 @@ function chargeReportViolation(bookingId, type){
     if(_hasViolationType(bookingId, type)){ if(typeof renderCleaners === "function") renderCleaners(); return; }
     const fine = Math.max(0, Number(violationFines()[type]) || 0);
     if(!confirm(`I-charge ang ${(CLEAN_LABELS[type] || type)} kay ${primaryName(b)}?` + (fine ? `\n${peso(fine)} na fine ang ibabawas sa security deposit.` : "") + (Number(b.deposit) > 0 ? `\nDeposit ${peso(b.deposit)} → isasauli ${peso(Math.max(0, Number(b.deposit) - fine))}.` : "\n(Walang deposit na naka-file para dito.)"))) return;
-    createHousekeepingViolation(b, type, (CLEAN_LABELS[type] || type) + " — mula sa housekeeping report");
+    createHousekeepingViolation(b, type, housekeepingViolationText(bookingId, type, "mula sa housekeeping report"));
     if(typeof renderCleaners === "function") renderCleaners();
 }
 // Any non-waived fine already on this booking? — avoids auto-charging twice (covers manually-added
@@ -14501,7 +14529,7 @@ function reconcileHousekeepingViolations(){
             const b = bookings.find(x => String(x.id) === String(bid));
             if(!b) return;
             if(_hasViolationType(b.id, type) || _bookingHasFine(b.id)) return;   // already handled — leave it
-            createHousekeepingViolation(b, type, (CLEAN_LABELS[type] || type) + " — auto mula sa housekeeping report");
+            createHousekeepingViolation(b, type, housekeepingViolationText(b.id, type, "auto mula sa housekeeping report"));
             created++;
         });
     }catch(e){ /* never let reconciliation break the page */ }
