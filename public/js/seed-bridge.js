@@ -287,7 +287,11 @@
   // login/logout write a log entry and navigate immediately, so it's routinely in-flight at
   // unload — and it persists locally (persistPending) and re-flushes on the next page anyway.
   // Warning for it just shows a scary "Leave site?" prompt on every login. Real data still warns.
+  // Same audience rule as the banner: warn whoever is signed in that their work hasn't landed yet,
+  // but never block a guest — or Pia browsing her own homepage — with "Changes you made may not be
+  // saved" over a pending DASHBOARD write they had nothing to do with and cannot resolve there.
   window.addEventListener("beforeunload", function (e) {
+    if (!bannerAllowed()) return;
     var real = 0;
     for (var k in pending) if (pending.hasOwnProperty(k) && k !== "shph_activity_log") real++;
     if (real > 0) { e.preventDefault(); e.returnValue = ""; return ""; }
