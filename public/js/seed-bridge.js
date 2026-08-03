@@ -119,8 +119,24 @@
 
   function unsavedCount() { var n = 0; for (var k in pending) if (pending.hasOwnProperty(k)) n++; return n; }
 
+  // This banner is an ADMIN tool: it tells whoever is signed in that their work hasn't reached the
+  // server yet. Guest pages share the same browser and the same queue, so a pending dashboard write
+  // was putting a red alarm across the bottom of the public website for actual customers — and on
+  // the login screen, where nobody can act on it either. Queue and retries carry on regardless;
+  // only the message is withheld where it would be alarming and unactionable.
+  function bannerAllowed() {
+    try {
+      var p = String(location.pathname || "").replace(/\/+$/, "").toLowerCase();
+      var HIDE = ["", "/index", "/index.html", "/havens", "/havens.html", "/booknow", "/booknow.html",
+                  "/payment", "/payment.html", "/be-a-partner", "/be-a-partner.html",
+                  "/admin", "/admin.html", "/partner-login", "/affiliate", "/affiliate.html"];
+      if (HIDE.indexOf(p) !== -1) return false;
+      if (p.indexOf("/stay/") === 0) return false;      // guest-guide QR page
+      return true;
+    } catch (e) { return true; }
+  }
   function updateBanner() {
-    var n = unsavedCount();
+    var n = bannerAllowed() ? unsavedCount() : 0;
     try {
       if (n > 0) {
         if (!banner && document.body) {
