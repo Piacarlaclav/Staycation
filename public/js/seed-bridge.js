@@ -152,7 +152,15 @@
         if (pending[key] === body) { delete pending[key]; delete delay[key]; persistPending(); updateBanner(); }
         else { delay[key] = 200; flush(key); }      // a newer value queued meanwhile → save it
       } else {
-        lastErr[key] = (res.status === 413 || res.status === 502) ? ("the save is too large (error " + res.status + ")") : ("server error " + res.status);
+        // 401/403 = signed out (or not allowed), not a connection problem. Telling someone on the
+        // login screen to "check your internet" is wrong and there is nothing they can do about it
+        // until they sign back in — so keep the value queued and retrying quietly, but say what is
+        // actually happening instead of raising a red network alarm.
+        lastErr[key] = (res.status === 401 || res.status === 403)
+          ? ("waiting for you to sign in again (error " + res.status + ")")
+          : (res.status === 413 || res.status === 502)
+            ? ("the save is too large (error " + res.status + ")")
+            : ("server error " + res.status);
         try { res.text().then(function (t) { console.error("[sync] save REJECTED for " + key + " — HTTP " + res.status + ": " + String(t || "").slice(0, 300)); }).catch(function () {}); } catch (e) {}
         scheduleRetry(key);                          // 4xx/5xx → try again
       }
@@ -197,6 +205,26 @@
     _suppressPush = true;
     try { localStorage.setItem(key, String(value)); } catch (e) {}
     _suppressPush = false;
+  };
+  // Wait for everything queued to reach the server. Logout needs this: it clears the session
+  // cookie, and anything still in the queue then retries forever against a signed-out browser,
+  // which is a permanent 401 and an alarming red banner on the login screen. Resolves either way
+  // after `ms` so a slow network can never trap someone on the page they are trying to leave.
+  window.shphFlushAll = function (ms) {
+    var limit = Number(ms) || 2500;
+    return new Promise(function (resolve) {
+      var t0 = Date.now();
+      (function poll() {
+        if (!Object.keys(pending).length) return resolve(true);
+        if (Date.now() - t0 > limit) return resolve(false);
+        Object.keys(pending).forEach(function (k) {
+          if (timer[k]) { clearTimeout(timer[k]); timer[k] = null; }
+          delay[k] = 200;
+          flush(k);
+        });
+        setTimeout(poll, 250);
+      })();
+    });
   };
   // Let a page cancel a queued whole-key push it has replaced with per-record saves
   // (e.g. the housekeeping log after rescuing entries) — stops a doomed too-large retry loop.

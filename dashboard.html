@@ -8988,11 +8988,19 @@ async function saveBooking(){
     }
 }
 
-function logout(){
-    // clear the server session cookie too — otherwise the browser stays signed in
-    try{ fetch("/api/logout", { method:"POST", keepalive:true }); }catch(e){}
-    if(window.__PARTNER__){ localStorage.removeItem("shph_partner_session"); window.location.href = "/partner-login"; return; }
-    logActivity("logged out"); localStorage.removeItem("shph_current_user"); window.location.href = "/admin.html";
+async function logout(){
+    if(window.__PARTNER__){
+        try{ await fetch("/api/logout", { method:"POST", keepalive:true }); }catch(e){}
+        localStorage.removeItem("shph_partner_session"); window.location.href = "/partner-login"; return;
+    }
+    // ORDER MATTERS. Logging out clears the session cookie, so anything still queued afterwards can
+    // only ever get a 401 — it then retries forever and puts a red "not saved" banner on the login
+    // screen, which is what Pia saw. Write the entry, let the queue drain, and only then sign out.
+    logActivity("logged out");
+    try{ if(typeof window.shphFlushAll === "function") await window.shphFlushAll(2500); }catch(e){}
+    try{ await fetch("/api/logout", { method:"POST", keepalive:true }); }catch(e){}
+    localStorage.removeItem("shph_current_user");
+    window.location.href = "/admin.html";
 }
 
 /* ---------- sidebar navigation ---------- */
