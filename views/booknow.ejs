@@ -370,16 +370,42 @@ function updateIdAddBtn(){
     // only offer "upload another" when 2+ guests can submit, not opted out, and below the max
     btn.style.display = (!optedOut && idMax > 1 && list.children.length < idMax) ? "inline-block" : "none";
 }
+/* Shrink an ID photo before it goes anywhere. A phone camera file is several MB, and up to six can
+   be attached — held raw they overflow localStorage on the way to the payment page (which silently
+   loses the lot) and make the save request enormous. Same ladder the dashboard uses. */
+const ID_MAX_BYTES = 700 * 1024;
+function compressIdPhoto(file, cb){
+    const reader = new FileReader();
+    reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+            const render = (maxDim, q) => {
+                let w = img.width, h = img.height;
+                if(w > maxDim || h > maxDim){ const r = Math.min(maxDim / w, maxDim / h); w = Math.round(w * r); h = Math.round(h * r); }
+                const c = document.createElement("canvas"); c.width = w; c.height = h;
+                c.getContext("2d").drawImage(img, 0, 0, w, h);
+                return c.toDataURL("image/jpeg", q);
+            };
+            const bytesOf = url => { const i = url.indexOf(","); return Math.ceil((url.length - i - 1) * 3 / 4); };
+            const steps = [[2200,0.86],[1900,0.82],[1600,0.8],[1300,0.78],[1000,0.72]];
+            let out = render(steps[0][0], steps[0][1]);
+            for(let i = 1; i < steps.length && bytesOf(out) > ID_MAX_BYTES; i++) out = render(steps[i][0], steps[i][1]);
+            cb(out);
+        };
+        img.onerror = () => cb(e.target.result);   // not an image the canvas can read — keep the original
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
 function onIdChange(input, rid){
     const f = input.files[0];
     if(!f){ delete idPhotos[rid]; return; }
-    const r = new FileReader();
-    r.onload = e => {
-        idPhotos[rid] = e.target.result;
+    compressIdPhoto(f, out => {
+        if(!out) return;
+        idPhotos[rid] = out;
         const img = document.getElementById("idThumb" + rid);
-        if(img){ img.src = e.target.result; img.style.display = "block"; }
-    };
-    r.readAsDataURL(f);
+        if(img){ img.src = out; img.style.display = "block"; }
+    });
 }
 function removeIdRow(rid){
     const list = document.getElementById("idList");

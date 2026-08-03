@@ -254,6 +254,12 @@ async function addToCalendar(b, proof){
         total: b.total || 0,
         downpayment: b.downpayment || 0,
         downProof: proof || null,          // guest's uploaded payment screenshot
+        // The guest's valid IDs, uploaded back on booknow.html and carried here in the pending
+        // booking. These were being DROPPED: the record simply never included them, so every
+        // website booking reached the dashboard with no ID and a CSR had to chase the guest and
+        // re-upload by hand. The server offloads the base64 to /img refs, same as downProof.
+        ids: Array.isArray(b.ids) ? b.ids : [],
+        idOptOut: !!b.idOptOut,
         email: b.email || "",
         notes: [
             b.notes,
