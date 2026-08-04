@@ -1855,7 +1855,7 @@ const ADMIN_PAGE_ROUTES = {
   "booking-approval":"dashboard", "security-deposit":"dashboard", "violations-damages":"dashboard",
   "partner-list":"dashboard", "commissions":"dashboard", "bookings-by-partner":"dashboard",
   "pr-rooms":"dashboard", "add-partner":"dashboard", "applications":"dashboard", "affiliates":"dashboard", "havens":"dashboard", "rates-addons":"dashboard",
-  "guest-guide-qr":"dashboard",
+  "guest-guide-qr":"dashboard", "payout":"dashboard",
   "housekeeping":"dashboard", "inventory":"dashboard", "finance":"dashboard", "payments":"dashboard",
   "payroll":"dashboard", "bills":"dashboard", "expenses":"dashboard", "analytics":"dashboard",
   "users":"dashboard", "employees":"dashboard", "assist":"dashboard", "log":"dashboard", "notes":"dashboard"
