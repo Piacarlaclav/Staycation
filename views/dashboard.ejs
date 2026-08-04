@@ -16695,13 +16695,13 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
   :root.mui .sidebar{ display:none !important; }
   :root.mui .main, :root.mui .content{ margin-left:0 !important; padding-left:0 !important; padding-right:0 !important; }
   :root.mui .page{ padding:0 14px 92px; }
-  #muiTop{ display:none; }
-  :root.mui #muiTop{
-    display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:900;
-    background:var(--mui-bg); padding:14px 16px 12px; border-bottom:1px solid var(--mui-line);
-  }
-  #muiTop .mui-t{ flex:1; font:600 17px/1.2 'Lora',Georgia,serif; color:var(--mui-ink); }
-  #muiTop .mui-av{ width:34px; height:34px; border-radius:11px; background:var(--mui-soft);
+  /* The phone ALREADY has a top bar (.m-topbar — the "Current page" picker and +). Adding another
+     put three strips of chrome above the content, and mine, being last in the document, rendered
+     at the BOTTOM of the page. Use the one that exists; the shell only supplies the bottom bar. */
+  #muiTop{ display:none !important; }
+  /* The "Logged in as … / Logout" strip is redundant on a phone — More carries both. */
+  :root.mui #appTopbar{ display:none !important; }
+  .mui-av{ width:34px; height:34px; border-radius:11px; background:var(--mui-soft);
     display:flex; align-items:center; justify-content:center; font:600 14px/1 'Lora',Georgia,serif; color:var(--mui-acc); }
   #muiBar{ display:none; }
   :root.mui #muiBar{
@@ -16730,7 +16730,6 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
 }
 @media (min-width: 769px){ #muiTop, #muiBar{ display:none !important; } }
 </style>
-<div id="muiTop"><div class="mui-av" id="muiAv">A</div><div class="mui-t" id="muiTitle">Staycation Haven</div></div>
 <div class="page" id="page-mhome"><div class="mui-wrap" id="muiHome"></div></div>
 <div class="page" id="page-mmore"><div class="mui-wrap" id="muiMore"></div></div>
 <div id="muiBar"></div>
@@ -16776,8 +16775,6 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
   window.muiSync = function(p){
     var bar = document.getElementById("muiBar"); if(!bar) return;
     [].forEach.call(bar.querySelectorAll("button"), function(b){ b.classList.toggle("on", b.dataset.p === p); });
-    var t = document.getElementById("muiTitle");
-    if(t) t.textContent = (p === "mhome") ? "Staycation Haven" : (p === "mmore" ? "More" : (typeof pageLabel === "function" ? pageLabel(p) : p));
     if(p === "mhome") muiHome();
     if(p === "mmore") muiMore();
   };
@@ -16845,9 +16842,6 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
   }
   function start(){
     bar();
-    var av = document.getElementById("muiAv");
-    var who = (typeof _whoami === "function" ? _whoami() : "A") || "A";
-    if(av) av.textContent = who.charAt(0).toUpperCase();
     muiGo("mhome");
   }
   if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
