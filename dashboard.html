@@ -13980,16 +13980,17 @@ function renderPayout(){
                 <td>${fmt(b.checkin)}<div class="po-sub">${escHtml(primaryName(b))}</div></td>
                 <td>${money(p.gross)}</td>
                 <td class="po-ded">−${money(p.depo)}</td>
-                <td class="po-ded">−${money(p.cleaning + p.tissue)}<div class="po-sub">${money(p.cleaning)} + ${money(p.tissue)}</div></td>
+                <td class="po-ded">−${money(p.cleaning)}</td>
+                <td class="po-ded">−${money(p.tissue)}</td>
                 <td class="po-ded">${p.towels ? "−" + money(p.towels) : "—"}</td>
                 <td class="po-ded">${p.pool ? "−" + money(p.pool) : "—"}</td>
                 <td class="po-ded">−${money(p.commission)}</td>
                 <td><b>${money(p.net)}</b></td>
             </tr>`).join("")
-            : `<tr><td colspan="8" class="muted" style="padding:14px 10px;">No bookings this week.</td></tr>`;
+            : `<tr><td colspan="9" class="muted" style="padding:14px 10px;">No bookings this week.</td></tr>`;
         const settle = isLast && (billTot || expTot) ? `
-            <tr><td colspan="7" style="text-align:right;">Bills for ${new Date(poMonth+"-01T00:00:00").toLocaleDateString("en-PH",{month:"long"})}</td><td class="po-ded">−${money(billTot)}</td></tr>
-            <tr><td colspan="7" style="text-align:right;">Expenses</td><td class="po-ded">−${money(expTot)}</td></tr>` : "";
+            <tr><td colspan="8" style="text-align:right;">Bills for ${new Date(poMonth+"-01T00:00:00").toLocaleDateString("en-PH",{month:"long"})}</td><td class="po-ded">−${money(billTot)}</td></tr>
+            <tr><td colspan="8" style="text-align:right;">Expenses</td><td class="po-ded">−${money(expTot)}</td></tr>` : "";
         const payLines = wPaid.map(p => `
             <div style="display:flex; gap:10px; align-items:flex-start; margin-top:8px;">
                 <span class="po-pill ${p.confirmedAt ? "po-paid" : "po-wait"}">${p.confirmedAt ? "✓ Received" : "Sent — awaiting confirmation"}</span>
@@ -14009,7 +14010,7 @@ function renderPayout(){
                 </div>
             </div>
             <div style="overflow-x:auto;"><table>
-                <thead><tr><th>Booking</th><th>Gross</th><th>Deposit</th><th>Clean + tissue</th><th>Towels</th><th>Pool</th><th>Commission</th><th>Net</th></tr></thead>
+                <thead><tr><th>Booking</th><th>Gross</th><th>Deposit</th><th>Housekeeping</th><th>Tissue</th><th>Towels</th><th>Pool</th><th>Commission</th><th>Net</th></tr></thead>
                 <tbody>${bookingRows}${settle}</tbody>
             </table></div>
             ${payLines}
