@@ -35,7 +35,8 @@
     "shph_partners",
     "shph_partner_board",
     "shph_partner_inventory",
-    "shph_violations_v1"
+    "shph_violations_v1",
+    "shph_payouts_v1"
   ];
   // keys that used to be browser-only: the first time the server copy is still
   // empty, migrate this browser's existing data UP instead of letting the empty
@@ -49,7 +50,7 @@
   var MIGRATE = ["shph_poolpass_v1", "shph_guestform_units", "shph_employee_nicole", "shph_partners", "shph_partner_inventory"];
   // id-keyed list stores that MERGE (never overwrite) on load + save → no lost records,
   // multi-user safe. Must match server.js MERGE_LIST_KEYS. (id-less stores must NOT be here.)
-  var MERGE_KEYS = ["shph_bookings_v3", "shph_bills_v1", "shph_expenses_v1", "shph_users", "shph_staff_v1", "staycation_havens", "shph_violations_v1", "shph_partners"];
+  var MERGE_KEYS = ["shph_bookings_v3", "shph_bills_v1", "shph_expenses_v1", "shph_users", "shph_staff_v1", "staycation_havens", "shph_violations_v1", "shph_partners", "shph_payouts_v1"];
   var isShared = function (k) { return SHARED.indexOf(k) !== -1; };
   function isEmptyVal(v) {
     return v == null

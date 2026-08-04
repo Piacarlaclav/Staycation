@@ -1799,6 +1799,42 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
   </div>
 </div><!-- /page-website -->
 
+<!-- ===== Payout (partner earnings, weekly) ===== -->
+<style>
+  #page-payout .po-wrap{ display:grid; gap:16px; }
+  #page-payout .po-card{ background:#fff; border:1px solid var(--hv-line); border-radius:14px; padding:18px 20px; }
+  #page-payout .po-week{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
+  #page-payout .po-week h3{ font-family:'Playfair Display',serif; font-size:19px; margin:0; }
+  #page-payout .po-net{ font-family:'Playfair Display',serif; font-size:26px; font-weight:800; color:#2e7d4f; }
+  #page-payout table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  #page-payout th{ text-align:left; font-size:10.5px; letter-spacing:.4px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; padding:8px 10px; border-bottom:1px solid var(--hv-line); }
+  #page-payout td{ padding:10px; border-bottom:1px solid var(--hv-line); vertical-align:top; }
+  #page-payout tr:last-child td{ border-bottom:none; }
+  #page-payout .po-ded{ color:#c0283d; }
+  #page-payout .po-sub{ font-size:11.5px; color:var(--hv-muted); }
+  #page-payout .po-pill{ display:inline-block; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:700; }
+  #page-payout .po-paid{ background:#e7f4ec; color:#2e7d4f; }
+  #page-payout .po-wait{ background:#fdf1e3; color:#a56b2e; }
+  #page-payout .po-qr img{ max-width:190px; border:1px solid var(--hv-line); border-radius:10px; display:block; }
+  #page-payout .po-rcpt img{ max-width:130px; border:1px solid var(--hv-line); border-radius:8px; display:block; margin-top:6px; }
+</style>
+<div class="page" id="page-payout">
+    <div class="panel">
+        <div class="panel-head">
+            <h2>Payout <span class="muted" style="font-weight:400;" id="poWho"></span></h2>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button class="btn secondary" onclick="poShiftMonth(-1)">‹ Prev</button>
+                <b id="poMonthLabel" style="min-width:120px; text-align:center;"></b>
+                <button class="btn secondary" onclick="poShiftMonth(1)">Next ›</button>
+                <button class="btn secondary" onclick="poThisMonth()">This month</button>
+                <select id="poPartnerSel" onchange="renderPayout()" style="padding:9px 12px;border:1px solid var(--hv-line);border-radius:10px;background:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;"></select>
+            </div>
+        </div>
+        <p class="muted" style="margin:0 0 14px;">Paid <b>every week</b>. Each booking pays out its room rate less cleaning, tissue, towels, pool pass and commission — the security deposit is the guest's money and is never included. <b>Bills and expenses are taken out of the last week of the month.</b></p>
+        <div class="po-wrap" id="poBody"></div>
+    </div>
+</div>
+
 <!-- ===== Finance ===== -->
 <div class="page" id="page-finance">
     <!-- finance header + date filter -->
@@ -9414,7 +9450,7 @@ const PAGE_SLUGS = {
     deposit:"security-deposit", violations:"violations-damages",
     partners:"partner-list", commissions:"commissions", partnerbookings:"bookings-by-partner",
     prrooms:"pr-rooms", addpartner:"add-partner", applications:"applications", affiliates:"affiliates", havens:"havens", booking:"rates-addons",
-    qrcodes:"guest-guide-qr",
+    qrcodes:"guest-guide-qr", payout:"payout",
     cleaners:"housekeeping", inventory:"inventory", finance:"finance", payments:"payments",
     payroll:"payroll", bills:"bills", expenses:"expenses", analytics:"analytics",
     users:"users", employees:"employees", assist:"assist", log:"log", notes:"notes"
@@ -9475,6 +9511,7 @@ function showPage(page, _nav){
         today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"], guestform:["Main","Guest Form"], collections:["Main","Collection Reports"], website:["Main","Website"], approval:["Front Desk","Booking Approval"], deposit:["Front Desk","Security Deposit"], violations:["Front Desk","Violations & Damages"],
         havens:["Property","Havens"], booking:["Property","Rates & Add-ons"], cleaners:["Property","Housekeeping"],
         qrcodes:["Property","Guest Guide QR"],
+        payout:["Finance","Payout"],
         finance:["Finance","Finance"], payments:["Finance","Payments"], payroll:["Finance","Payroll"],
         bills:["Finance","Bills"], expenses:["Finance","Expenses"], analytics:["Finance","Analytics"],
         users:["Team","Users"], employees:["Team","Employees"], assist:["Assistant","Trav"], log:["Team","Log"]
@@ -9497,6 +9534,7 @@ function showPage(page, _nav){
     if(typeof partnersOnShowPage === "function") partnersOnShowPage(page);   // Partners sub-module (partners.js)
     if(page === "expenses" && typeof renderExpenses === "function") renderExpenses();
     if(page === "analytics" && typeof renderAnalytics === "function") renderAnalytics();
+    if(page === "payout" && typeof renderPayout === "function") renderPayout();
     if(page === "users" && typeof renderUsers === "function") renderUsers();
     if(page === "employees" && typeof renderEmployees === "function") renderEmployees();
     if(page === "log" && typeof renderLog === "function"){ renderLog(); if(typeof loadFullActivityLog === "function") loadFullActivityLog(); }
@@ -13832,6 +13870,206 @@ function anDelta(d){
 }
 
 let anPeriod = "month";   // day | week | month | year | custom
+/* ============================================================
+   PAYOUT — what a partner earns, paid weekly.
+   Per booking the partner keeps the room rate less: cleaning, tissue, towels, pool pass and the
+   commission. The security deposit is NEVER theirs — it is the guest's money held and returned —
+   so it comes off the gross. Bills and expenses are settled once a month, out of the LAST week.
+   ============================================================ */
+const PAYOUT_RATES = { cleaning: 100, tissue: 15 };   // per booking; towel/pool come from PRICING
+const PAYOUT_KEY = "shph_payouts_v1";
+let poMonth = null;        // "YYYY-MM" being viewed
+let poPartnerId = null;    // which partner the owner is looking at (partners see only themselves)
+
+function loadPayouts(){ try{ return JSON.parse(localStorage.getItem(PAYOUT_KEY)) || []; }catch(e){ return []; } }
+// dashboard.html has no loadPartners() — partners.js owns that page and reads the key directly.
+function poPartners(){ try{ return (JSON.parse(localStorage.getItem("shph_partners")) || []).filter(p => p && !p.deleted); }catch(e){ return []; } }
+const _poNorm = s => String(s || "").replace(/\s+/g, "").toLowerCase();
+// Monday-start week containing `iso`
+function poWeekStart(iso){
+    const d = new Date(iso + "T00:00:00");
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return isoOf(d);
+}
+function isoOf(d){ return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+// One booking's payout lines. Mirrors Pia's worked example: 21h at 1,599 + 1,000 deposit,
+// nothing availed → 1,599 − 100 − 15 − 100 = 1,384.
+function payoutForBooking(b, commissionRate){
+    const gross = Number(b.total) || 0;
+    const depo  = Number(b.deposit) || 0;
+    const towels = (Number(b.towels) || 0) * (PRICING.towel || 50);
+    const poolRate = (b.holiday || (typeof bookingIsHoliday === "function" && bookingIsHoliday(b))) ? PRICING.swimHoliday : PRICING.swimRegular;
+    const pool = (Number(b.swimpass) || 0) * poolRate;
+    const commission = Number(commissionRate) || 0;
+    const ded = depo + towels + pool + PAYOUT_RATES.cleaning + PAYOUT_RATES.tissue + commission;
+    return { gross, depo, towels, pool, cleaning: PAYOUT_RATES.cleaning, tissue: PAYOUT_RATES.tissue, commission, ded, net: gross - ded };
+}
+// Is this Monday-start week the one that carries the month's bills & expenses? The last week whose
+// Monday falls inside the month — so a week straddling into the next month still settles this one.
+function poIsLastWeek(weekStartIso, ym){
+    if(weekStartIso.slice(0,7) !== ym) return false;
+    const nxt = new Date(weekStartIso + "T00:00:00"); nxt.setDate(nxt.getDate() + 7);
+    return isoOf(nxt).slice(0,7) !== ym;
+}
+function poShiftMonth(n){
+    if(!poMonth) poMonth = iso(today()).slice(0,7);
+    const d = new Date(poMonth + "-01T00:00:00"); d.setMonth(d.getMonth() + n);
+    poMonth = isoOf(d).slice(0,7); renderPayout();
+}
+function poThisMonth(){ poMonth = iso(today()).slice(0,7); renderPayout(); }
+// The partner this page is about: a scoped partner only ever sees themselves.
+function poActivePartner(){
+    const list = poPartners();
+    const ps = window.__PARTNER__;
+    if(ps && !ps.superAdmin) return list.find(p => String(p.id) === String(ps.id)) || { id: ps.id, name: ps.name, haven: ps.haven, rate: 0 };
+    return list.find(p => String(p.id) === String(poPartnerId)) || list[0] || null;
+}
+function renderPayout(){
+    const body = document.getElementById("poBody"); if(!body) return;
+    if(!poMonth) poMonth = iso(today()).slice(0,7);
+    const scoped = !!(window.__PARTNER__ && !window.__PARTNER__.superAdmin);
+    const partner = poActivePartner();
+    // owner's partner picker (hidden for a scoped partner — there is nothing to choose)
+    const sel = document.getElementById("poPartnerSel");
+    if(sel){
+        if(scoped){ sel.style.display = "none"; }
+        else {
+            const list = poPartners();
+            if(partner && !poPartnerId) poPartnerId = partner.id;
+            sel.innerHTML = list.map(p => `<option value="${p.id}" ${String(p.id)===String(poPartnerId)?"selected":""}>${escHtml(p.name || p.haven || "Partner")}</option>`).join("");
+            sel.onchange = function(){ poPartnerId = this.value; renderPayout(); };
+        }
+    }
+    const lbl = document.getElementById("poMonthLabel");
+    if(lbl) lbl.textContent = new Date(poMonth + "-01T00:00:00").toLocaleDateString("en-PH", { month:"long", year:"numeric" });
+    const who = document.getElementById("poWho");
+    if(who) who.textContent = partner ? "— " + (partner.name || "") + " · " + (partner.haven || "") : "";
+    if(!partner){ body.innerHTML = `<p class="muted">No partner selected.</p>`; return; }
+
+    const hv = _poNorm(partner.haven);
+    const rate = Number(partner.rate) || 0;
+    const mine = (bookings || []).filter(b => b && !b.deleted && !b.cancelled && _poNorm(b.haven) === hv
+        && String(b.checkin || "").slice(0,7) === poMonth);
+    // group by Monday-start week
+    const weeks = {};
+    mine.forEach(b => { const w = poWeekStart(b.checkin); (weeks[w] = weeks[w] || []).push(b); });
+    // every Monday in the month, so an empty week still shows (and can still carry the month's bills)
+    const first = new Date(poMonth + "-01T00:00:00");
+    const lastDay = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+    for(let d = 1; d <= lastDay; d++){
+        const w = poWeekStart(poMonth + "-" + String(d).padStart(2,"0"));
+        if(w.slice(0,7) === poMonth && !weeks[w]) weeks[w] = [];
+    }
+    const monthBills = (bills || []).filter(x => x && !x.deleted && _poNorm(x.haven) === hv && String(x.due || "").slice(0,7) === poMonth);
+    const monthExp   = (expenses || []).filter(x => x && !x.deleted && String(x.date || "").slice(0,7) === poMonth && (x.type || "") !== "Add Funds");
+    const paid = loadPayouts().filter(p => p && !p.deleted && _poNorm(p.haven) === hv);
+
+    const money = n => peso(Math.round(n));
+    const rows = Object.keys(weeks).sort().map(w => {
+        const end = new Date(w + "T00:00:00"); end.setDate(end.getDate() + 6);
+        const isLast = poIsLastWeek(w, poMonth);
+        const lines = weeks[w].map(b => ({ b, p: payoutForBooking(b, rate) }));
+        const sub = lines.reduce((s,x) => s + x.p.net, 0);
+        const billTot = isLast ? monthBills.reduce((s,x) => s + (Number(x.amount)||0), 0) : 0;
+        const expTot  = isLast ? monthExp.reduce((s,x) => s + (Number(x.amount)||0), 0) : 0;
+        const net = sub - billTot - expTot;
+        const wPaid = paid.filter(p => p.weekStart === w);
+        const paidTot = wPaid.reduce((s,p) => s + (Number(p.amount)||0), 0);
+        const bookingRows = lines.length ? lines.map(({b,p}) => `
+            <tr>
+                <td>${fmt(b.checkin)}<div class="po-sub">${escHtml(primaryName(b))}</div></td>
+                <td>${money(p.gross)}</td>
+                <td class="po-ded">−${money(p.depo)}</td>
+                <td class="po-ded">−${money(p.cleaning + p.tissue)}<div class="po-sub">${money(p.cleaning)} + ${money(p.tissue)}</div></td>
+                <td class="po-ded">${p.towels ? "−" + money(p.towels) : "—"}</td>
+                <td class="po-ded">${p.pool ? "−" + money(p.pool) : "—"}</td>
+                <td class="po-ded">−${money(p.commission)}</td>
+                <td><b>${money(p.net)}</b></td>
+            </tr>`).join("")
+            : `<tr><td colspan="8" class="muted" style="padding:14px 10px;">No bookings this week.</td></tr>`;
+        const settle = isLast && (billTot || expTot) ? `
+            <tr><td colspan="7" style="text-align:right;">Bills for ${new Date(poMonth+"-01T00:00:00").toLocaleDateString("en-PH",{month:"long"})}</td><td class="po-ded">−${money(billTot)}</td></tr>
+            <tr><td colspan="7" style="text-align:right;">Expenses</td><td class="po-ded">−${money(expTot)}</td></tr>` : "";
+        const payLines = wPaid.map(p => `
+            <div style="display:flex; gap:10px; align-items:flex-start; margin-top:8px;">
+                <span class="po-pill ${p.confirmedAt ? "po-paid" : "po-wait"}">${p.confirmedAt ? "✓ Received" : "Sent — awaiting confirmation"}</span>
+                <div class="po-sub">${money(p.amount)}${p.mop ? " · " + escHtml(p.mop) : ""} · ${fmt(String(p.at||"").slice(0,10))}
+                    ${p.confirmedAt ? `<br>confirmed ${fmt(String(p.confirmedAt).slice(0,10))}` : ""}
+                    ${p.receipt ? `<div class="po-rcpt"><a href="${escAttr(p.receipt)}" target="_blank"><img src="${escAttr(p.receipt)}" alt="receipt"></a></div>` : ""}
+                </div>
+                ${(!p.confirmedAt && scoped) ? `<button class="btn" onclick="poConfirm('${p.id}')">Mark received</button>` : ""}
+                ${(!scoped) ? `<button class="btn secondary" onclick="poDelete('${p.id}')">Delete</button>` : ""}
+            </div>`).join("");
+        return `<div class="po-card">
+            <div class="po-week">
+                <h3>${fmt(w)} – ${fmt(isoOf(end))}${isLast ? ` <span class="po-sub">· month settled here</span>` : ""}</h3>
+                <div style="text-align:right;">
+                    <div class="po-net">${money(net)}</div>
+                    <div class="po-sub">${paidTot ? "paid " + money(paidTot) + (net - paidTot > 0 ? " · " + money(net - paidTot) + " to go" : "") : "not yet paid"}</div>
+                </div>
+            </div>
+            <div style="overflow-x:auto;"><table>
+                <thead><tr><th>Booking</th><th>Gross</th><th>Deposit</th><th>Clean + tissue</th><th>Towels</th><th>Pool</th><th>Commission</th><th>Net</th></tr></thead>
+                <tbody>${bookingRows}${settle}</tbody>
+            </table></div>
+            ${payLines}
+            ${!scoped ? `<button class="btn" style="margin-top:12px;" onclick="poAddPayment('${w}')">+ Record payout</button>` : ""}
+        </div>`;
+    }).join("");
+    body.innerHTML = rows || `<p class="muted">Nothing for this month.</p>`;
+}
+// Owner records a payout for one week, with the transfer receipt attached. Saved per-record so a
+// second device can't overwrite it, and logged so there is an audit trail of money leaving.
+async function poAddPayment(weekStart){
+    if(window.__PARTNER__ && !window.__PARTNER__.superAdmin) return;   // partners never record payouts
+    const partner = poActivePartner(); if(!partner) return;
+    const amtRaw = prompt("Magkano ang ipinadala kay " + (partner.name || partner.haven) + "?\n(linggo ng " + fmt(weekStart) + ")");
+    if(amtRaw == null) return;
+    const amount = Number(String(amtRaw).replace(/[^\d.]/g, "")) || 0;
+    if(amount <= 0){ alert("Kailangan ng halaga."); return; }
+    const mop = prompt("Paraan ng padala? (GCash / Maya / BDO / Cash)", "GCash") || "";
+    const rec = {
+        id: uid(), partnerId: partner.id, haven: partner.haven, weekStart,
+        amount, mop: mop.trim(), note: "",
+        at: new Date().toISOString(), by: currentUser(),
+        receipt: null, confirmedAt: null, confirmedBy: null
+    };
+    const list = loadPayouts(); list.push(rec);
+    const ok = await saveOneRecord(PAYOUT_KEY, rec);
+    if(!ok){ alert("⚠️ Hindi na-save sa server. Pakisubukan ulit."); return; }
+    if(typeof window.shphSetLocal === "function") window.shphSetLocal(PAYOUT_KEY, JSON.stringify(list));
+    logActivity(`recorded payout — ${partner.name || partner.haven} · ${peso(amount)}${mop ? " ("+mop+")" : ""} · week of ${fmt(weekStart)}`);
+    renderPayout();
+    alert("Naitala. Mag-attach ka na ng resibo sa pamamagitan ng 'Attach receipt'.");
+}
+// The partner confirms the money actually arrived. Only they can do this — that is the whole point
+// of the confirmation, so an owner marking it themselves would make the record meaningless.
+async function poConfirm(id){
+    const ps = window.__PARTNER__;
+    if(!ps || ps.superAdmin){ alert("Ang partner lang ang makakakumpirma na natanggap nila ito."); return; }
+    if(!confirm("Kumpirmahin na natanggap mo na ang bayad na ito?")) return;
+    const list = loadPayouts();
+    const r = list.find(x => String(x.id) === String(id)); if(!r) return;
+    r.confirmedAt = new Date().toISOString();
+    r.confirmedBy = ps.name || ps.login || "partner";
+    const ok = await saveOneRecord(PAYOUT_KEY, r);
+    if(!ok){ alert("⚠️ Hindi na-save sa server. Pakisubukan ulit."); return; }
+    if(typeof window.shphSetLocal === "function") window.shphSetLocal(PAYOUT_KEY, JSON.stringify(list));
+    logActivity(`confirmed payout received — ${r.haven} · ${peso(Number(r.amount)||0)} · week of ${fmt(r.weekStart)}`);
+    renderPayout();
+}
+async function poDelete(id){
+    if(window.__PARTNER__ && !window.__PARTNER__.superAdmin) return;
+    const list = loadPayouts();
+    const r = list.find(x => String(x.id) === String(id)); if(!r) return;
+    if(!confirm("Burahin ang naitalang bayad na " + peso(Number(r.amount)||0) + "?")) return;
+    r.deleted = true; r.deletedAt = new Date().toISOString();
+    const ok = await saveOneRecord(PAYOUT_KEY, r);
+    if(!ok){ alert("⚠️ Hindi na-save sa server."); return; }
+    if(typeof window.shphSetLocal === "function") window.shphSetLocal(PAYOUT_KEY, JSON.stringify(list));
+    logActivity(`deleted payout record — ${r.haven} · ${peso(Number(r.amount)||0)}`);
+    renderPayout();
+}
 /* ---------- partner running-balance carry-over ---------- */
 // Net for ONE month (partner-scoped: bookings/bills/expenses are already filtered to their haven).
 // Mirrors the window computation so a month's standalone net matches what its own window shows.

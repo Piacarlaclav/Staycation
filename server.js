@@ -291,6 +291,9 @@ const MERGE_LIST_KEYS = new Set([
   "shph_applications_v1",  // partner/affiliate applications (id-keyed; written via /api/apply + /api/list)
   "shph_affiliates_v1",    // approved affiliates: personal code + credit ledger (session-gated writes)
   "shph_notes_v1",         // owner's private notes (admin-only; see ADMIN_ONLY_KEYS)
+  // Partner payout ledger — what the owner actually paid, and the partner's confirmation that it
+  // arrived. Money plus a receipt photo, so it merges per record like everything else here.
+  "shph_payouts_v1",
   // Activity log = employee audit trail. Every device's entries must survive, so it MERGES here
   // (store.js gives it a special content-key merge so even legacy id-less entries are never dropped
   // and it's trimmed to a safe size). Was a plain whole-array write → concurrent devices (Nicole,
@@ -1766,6 +1769,20 @@ function renderPage(name) {
     res.set("Expires", "0");
     // guest pages get a minimal, PII-free projection; the dashboard/admin pages get the full store
     const pageSeed = PUBLIC_PAGES.has(name) ? publicSeed(seed) : seed;
+    // A partner must never receive another partner's payout records — that is someone else's money.
+    // The seed is per-request, so scope it here rather than trusting every page not to render it.
+    // Admins keep the full list. A partner session carries the haven it is bound to.
+    if (Array.isArray(pageSeed.shph_payouts_v1)) {
+      const _ps = readSession(req);
+      const _scopedPartner = _ps && _ps.t === "partner" && !_ps.sa && _ps.haven;   // sa = super-admin signed in through the partner login
+      if (_scopedPartner) {
+        const mine = String(_ps.haven).replace(/\s+/g, "").toLowerCase();
+        pageSeed.shph_payouts_v1 = pageSeed.shph_payouts_v1.filter(p =>
+          p && String(p.haven || "").replace(/\s+/g, "").toLowerCase() === mine);
+      } else if (!isAdminSession(req) && !(_ps && _ps.t === "partner" && _ps.sa)) {
+        pageSeed.shph_payouts_v1 = [];   // staff have no business seeing partner payouts at all
+      }
+    }
     // The activity log is an append-only audit trail that only grows — it is already 2,000+ entries
     // and was being shipped WHOLE on every single page load, for a page most visits never open.
     // Send a recent tail; the Log page fetches the full history on demand (loadFullActivityLog).
