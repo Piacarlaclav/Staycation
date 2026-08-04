@@ -1833,7 +1833,12 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             </div>
         </div>
         <p class="muted" style="margin:0 0 14px;">Paid <b>every week</b>. Each booking pays out its room rate less cleaning, tissue, towels, pool pass and commission — the security deposit is the guest's money and is never included. <b>Bills and expenses are taken out of the last week of the month.</b></p>
+        <!-- Where to send the money. The partner's own GCash/Maya QR, so the owner can scan it
+             straight from this page instead of hunting for it in a chat thread. -->
+        <div class="po-card" id="poQrCard" style="margin-bottom:16px;"></div>
         <div class="po-wrap" id="poBody"></div>
+        <input type="file" id="poQrFile" accept="image/*" style="display:none;" onchange="poQrPick(this)">
+        <input type="file" id="poRcptFile" accept="image/*" style="display:none;" onchange="poRcptPick(this)">
     </div>
 </div>
 
@@ -13946,6 +13951,7 @@ function renderPayout(){
     if(lbl) lbl.textContent = new Date(poMonth + "-01T00:00:00").toLocaleDateString("en-PH", { month:"long", year:"numeric" });
     const who = document.getElementById("poWho");
     if(who) who.textContent = partner ? "— " + (partner.name || "") + " · " + (partner.haven || "") : "";
+    poRenderQr(partner);
     if(!partner){ body.innerHTML = `<p class="muted">No partner selected.</p>`; return; }
 
     const hv = _poNorm(partner.haven);
@@ -14001,6 +14007,7 @@ function renderPayout(){
                     ${p.receipt ? `<div class="po-rcpt"><a href="${escAttr(p.receipt)}" target="_blank"><img src="${escAttr(p.receipt)}" alt="receipt"></a></div>` : ""}
                 </div>
                 ${(!p.confirmedAt && scoped) ? `<button class="btn" onclick="poConfirm('${p.id}')">Mark received</button>` : ""}
+                ${(!scoped) ? `<button class="btn secondary" onclick="poAttachReceipt('${p.id}')">${p.receipt ? "Replace receipt" : "Attach receipt"}</button>` : ""}
                 ${(!scoped) ? `<button class="btn secondary" onclick="poDelete('${p.id}')">Delete</button>` : ""}
             </div>`).join("");
         return `<div class="po-card">
@@ -14020,6 +14027,69 @@ function renderPayout(){
         </div>`;
     }).join("");
     body.innerHTML = rows || `<p class="muted">Nothing for this month.</p>`;
+}
+/* ---- Partner payment QR + transfer receipts ----
+   The QR lives on the partner's own record so it follows them, and either side can set it: the
+   partner knows their QR, the owner is the one who needs to scan it. Receipts hang off the payout
+   record. Both are offloaded to /img refs before saving — a raw phone photo would bloat the row. */
+function poRenderQr(partner){
+    const el = document.getElementById("poQrCard"); if(!el) return;
+    if(!partner){ el.style.display = "none"; return; }
+    el.style.display = "";
+    const qr = partner.payQr || "";
+    el.innerHTML = `
+        <div style="display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap;">
+            <div class="po-qr">${qr
+                ? `<a href="${escAttr(qr)}" target="_blank"><img src="${escAttr(qr)}" alt="payment QR"></a>`
+                : `<div class="muted" style="width:190px;height:190px;border:1px dashed var(--hv-line);border-radius:10px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:12px;padding:10px;">No payment QR yet</div>`}</div>
+            <div>
+                <div style="font-weight:700; margin-bottom:4px;">Send payouts here</div>
+                <div class="po-sub" style="max-width:340px;">${qr
+                    ? "Scan this to transfer. Tap the code to open it full size."
+                    : "Upload the GCash / Maya QR so transfers can be sent straight from this page."}</div>
+                <button class="btn secondary" style="margin-top:10px;" onclick="document.getElementById('poQrFile').click()">${qr ? "Replace QR" : "Upload QR"}</button>
+            </div>
+        </div>`;
+}
+async function poQrPick(input){
+    const f = input.files && input.files[0]; input.value = "";
+    if(!f) return;
+    const partner = poActivePartner(); if(!partner) return;
+    compressImageTo(f, 700 * 1024, async function(dataUrl){
+        if(!dataUrl){ alert("Hindi mabasa ang larawan."); return; }
+        let ref = dataUrl;
+        try{ ref = await _offloadImg(dataUrl); }catch(e){}
+        const list = poPartners();
+        const rec = list.find(p => String(p.id) === String(partner.id));
+        if(!rec){ alert("Hindi nahanap ang partner record."); return; }
+        rec.payQr = ref; rec.updatedAt = new Date().toISOString();
+        const ok = await saveOneRecord("shph_partners", rec);
+        if(!ok){ alert("⚠️ Hindi na-save sa server. Pakisubukan ulit."); return; }
+        if(typeof window.shphSetLocal === "function") window.shphSetLocal("shph_partners", JSON.stringify(list));
+        logActivity(`updated payment QR — ${rec.name || rec.haven}`);
+        renderPayout();
+    });
+}
+// Attach the transfer receipt to one payout. Remembered while the file picker is open.
+let _poRcptFor = null;
+function poAttachReceipt(id){ _poRcptFor = id; document.getElementById("poRcptFile").click(); }
+async function poRcptPick(input){
+    const f = input.files && input.files[0]; input.value = "";
+    const id = _poRcptFor; _poRcptFor = null;
+    if(!f || !id) return;
+    compressImageTo(f, 700 * 1024, async function(dataUrl){
+        if(!dataUrl){ alert("Hindi mabasa ang larawan."); return; }
+        let ref = dataUrl;
+        try{ ref = await _offloadImg(dataUrl); }catch(e){}
+        const list = loadPayouts();
+        const r = list.find(x => String(x.id) === String(id)); if(!r) return;
+        r.receipt = ref;
+        const ok = await saveOneRecord(PAYOUT_KEY, r);
+        if(!ok){ alert("⚠️ Hindi na-save sa server. Pakisubukan ulit."); return; }
+        if(typeof window.shphSetLocal === "function") window.shphSetLocal(PAYOUT_KEY, JSON.stringify(list));
+        logActivity(`attached payout receipt — ${r.haven} · ${peso(Number(r.amount)||0)}`);
+        renderPayout();
+    });
 }
 // Owner records a payout for one week, with the transfer receipt attached. Saved per-record so a
 // second device can't overwrite it, and logged so there is an audit trail of money leaving.
