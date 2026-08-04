@@ -16232,6 +16232,11 @@ function isAdminOnlyPage(page){
     return page === "users" || page === "log" || page === "notes" || page === "qrcodes";
 }
 function pageAllowed(page){
+    // The mobile shell's own two screens (home + the More list). They belong to no role and hold no
+    // data of their own — More only ever lists pages this same function has already allowed — so
+    // anyone who can open the dashboard at all can see them. Without this showPage refuses them and
+    // a phone lands on a blank screen.
+    if(page === "mhome" || page === "mmore") return true;
     // KEEP IN SYNC with public/partners.js applyPartnerChrome's ALLOW — that one decides which nav
     // items a partner SEES, this one decides which pages they may OPEN. A page missing from either
     // is invisible, which is how Payout shipped without appearing.
@@ -16663,5 +16668,184 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
     <span class="dot"></span> Listening for “Hey Trav”
 </div>
 
+<!-- ============================================================
+     MOBILE SHELL  (phones only — desktop is untouched)
+     Pia's mobile redesign: a warm cream/terracotta shell with a role-aware home and a bottom bar.
+     It is a LAYER over the existing pages, not a replacement — every one of the 23 pages stays
+     exactly where it was and keeps its own code. "More" lists all of them, which is what keeps the
+     promise that nothing is lost.
+     Escape hatch: localStorage shph_mobile_ui = "off" turns the whole thing off and hands the phone
+     back the old layout. This runs the business daily; a redesign must never be a one-way door.
+     ============================================================ -->
+<style>
+@media (max-width: 768px){
+  :root.mui{
+    --mui-bg:#faf7f2; --mui-card:#ffffff; --mui-line:#ece3d8; --mui-ink:#2a201a;
+    --mui-mut:#8b7868; --mui-acc:#b4673c; --mui-soft:#f0e6da;
+  }
+  :root.mui body{ background:var(--mui-bg); }
+  /* the desktop sidebar and topbar step aside; the shell provides its own chrome */
+  :root.mui .sidebar{ display:none !important; }
+  :root.mui .main, :root.mui .content{ margin-left:0 !important; padding-left:0 !important; padding-right:0 !important; }
+  :root.mui .page{ padding:0 14px 92px; }
+  #muiTop{ display:none; }
+  :root.mui #muiTop{
+    display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:900;
+    background:var(--mui-bg); padding:14px 16px 12px; border-bottom:1px solid var(--mui-line);
+  }
+  #muiTop .mui-t{ flex:1; font:600 17px/1.2 'Lora',Georgia,serif; color:var(--mui-ink); }
+  #muiTop .mui-av{ width:34px; height:34px; border-radius:11px; background:var(--mui-soft);
+    display:flex; align-items:center; justify-content:center; font:600 14px/1 'Lora',Georgia,serif; color:var(--mui-acc); }
+  #muiBar{ display:none; }
+  :root.mui #muiBar{
+    display:flex; position:fixed; left:0; right:0; bottom:0; z-index:950;
+    background:#fff; border-top:1px solid var(--mui-line);
+    padding:7px 6px calc(7px + env(safe-area-inset-bottom,0px));
+  }
+  #muiBar button{
+    flex:1; background:none; border:0; cursor:pointer; padding:6px 2px;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    font:600 10.5px/1 Outfit,system-ui,sans-serif; color:var(--mui-mut); font-family:inherit;
+  }
+  #muiBar button.on{ color:var(--mui-acc); }
+  #muiBar svg{ width:21px; height:21px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+  /* home + more */
+  .mui-wrap{ display:grid; gap:13px; padding:16px 0 0; }
+  .mui-card{ background:var(--mui-card); border:1px solid var(--mui-line); border-radius:18px; padding:15px 16px; }
+  .mui-k{ font:500 11.5px/1 Outfit,system-ui,sans-serif; color:var(--mui-mut); letter-spacing:.02em; }
+  .mui-v{ font:700 27px/1.1 'Lora',Georgia,serif; color:var(--mui-ink); margin-top:5px; }
+  .mui-grid{ display:grid; grid-template-columns:1fr 1fr; gap:11px; }
+  .mui-row{ display:flex; align-items:center; gap:12px; padding:13px 4px; border-bottom:1px solid var(--mui-line); cursor:pointer; }
+  .mui-row:last-child{ border-bottom:0; }
+  .mui-row .n{ flex:1; font:600 14.5px/1.3 Outfit,system-ui,sans-serif; color:var(--mui-ink); }
+  .mui-row .c{ font:600 12px/1 Outfit,system-ui,sans-serif; color:var(--mui-acc); }
+  .mui-sec{ font:600 11px/1 Outfit,system-ui,sans-serif; letter-spacing:.09em; text-transform:uppercase; color:var(--mui-mut); margin:16px 4px 2px; }
+}
+@media (min-width: 769px){ #muiTop, #muiBar{ display:none !important; } }
+</style>
+<div id="muiTop"><div class="mui-av" id="muiAv">A</div><div class="mui-t" id="muiTitle">Staycation Haven</div></div>
+<div class="page" id="page-mhome"><div class="mui-wrap" id="muiHome"></div></div>
+<div class="page" id="page-mmore"><div class="mui-wrap" id="muiMore"></div></div>
+<div id="muiBar"></div>
+<script>
+/* Mobile shell. Reuses the existing pages and functions — it only decides what a phone SEES. */
+(function(){
+  "use strict";
+  var OFF = false;
+  try{ OFF = localStorage.getItem("shph_mobile_ui") === "off"; }catch(e){}
+  if(OFF) return;
+  if(!window.matchMedia || !window.matchMedia("(max-width: 768px)").matches) return;
+  document.documentElement.classList.add("mui");
+
+  var ico = {
+    home:'<svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>',
+    today:'<svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>',
+    cal:'<svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18"/><circle cx="12" cy="15" r="1.8"/></svg>',
+    clean:'<svg viewBox="0 0 24 24"><path d="M18.5 3.5 11 11"/><path d="M8.5 11h6.2l-1.1 6.4A3 3 0 0 1 10.7 20H8a3.5 3.5 0 0 1-3.4-4.3c1.6-.2 3-1.4 3.9-3.2Z"/></svg>',
+    more:'<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>'
+  };
+  function role(){
+    try{
+      if(window.__PARTNER__ && !window.__PARTNER__.superAdmin) return "partner";
+      if(typeof isAdminUser === "function" && isAdminUser()) return "admin";
+    }catch(e){}
+    return "staff";
+  }
+  // Bottom bar per role — only pages that role can actually open.
+  function bar(){
+    var r = role(), items;
+    if(r === "partner")      items = [["mhome","Home",ico.home],["today","Today",ico.today],["calendar","Calendar",ico.cal],["mmore","More",ico.more]];
+    else if(r === "staff")   items = [["mhome","Home",ico.home],["today","Today",ico.today],["cleaners","Clean",ico.clean],["mmore","More",ico.more]];
+    else                     items = [["mhome","Home",ico.home],["today","Today",ico.today],["calendar","Calendar",ico.cal],["cleaners","Clean",ico.clean],["mmore","More",ico.more]];
+    var el = document.getElementById("muiBar");
+    el.innerHTML = items.map(function(i){
+      return '<button data-p="'+i[0]+'" onclick="muiGo(\''+i[0]+'\')">'+i[2]+'<span>'+i[1]+'</span></button>';
+    }).join("");
+  }
+  window.muiGo = function(p){
+    if(typeof showPage === "function") showPage(p);
+    muiSync(p);
+  };
+  window.muiSync = function(p){
+    var bar = document.getElementById("muiBar"); if(!bar) return;
+    [].forEach.call(bar.querySelectorAll("button"), function(b){ b.classList.toggle("on", b.dataset.p === p); });
+    var t = document.getElementById("muiTitle");
+    if(t) t.textContent = (p === "mhome") ? "Staycation Haven" : (p === "mmore" ? "More" : (typeof pageLabel === "function" ? pageLabel(p) : p));
+    if(p === "mhome") muiHome();
+    if(p === "mmore") muiMore();
+  };
+  // ---- home, per role ----
+  function muiHome(){
+    var el = document.getElementById("muiHome"); if(!el) return;
+    var r = role(), t = (typeof iso === "function" && typeof today === "function") ? iso(today()) : "";
+    var live = (typeof bookings !== "undefined" ? bookings : []).filter(function(b){ return b && !b.deleted && !b.cancelled; });
+    var arriving = live.filter(function(b){ return b.checkin === t; }).length;
+    var leaving  = live.filter(function(b){ return b.checkout === t; }).length;
+    var inhouse  = live.filter(function(b){ return b.checkin <= t && b.checkout >= t; }).length;
+    var money = function(n){ return (typeof peso === "function") ? peso(n) : "P" + n; };
+    var cards = '<div class="mui-grid">' +
+      '<div class="mui-card"><div class="mui-k">Arriving today</div><div class="mui-v">' + arriving + '</div></div>' +
+      '<div class="mui-card"><div class="mui-k">Departing</div><div class="mui-v">' + leaving + '</div></div>' +
+      '<div class="mui-card"><div class="mui-k">In-house</div><div class="mui-v">' + inhouse + '</div></div>' +
+      '<div class="mui-card"><div class="mui-k">Havens</div><div class="mui-v">' + ((typeof HAVENS !== "undefined" ? HAVENS : []).length) + '</div></div>' +
+      '</div>';
+    var quick = { admin:[["today","Today's Booking"],["calendar","Calendar"],["deposit","Security Deposit"],["cleaners","Housekeeping"],["analytics","Analytics"],["payout","Payout"]],
+                  partner:[["today","Today's Booking"],["calendar","Calendar"],["deposit","Security Deposit"],["payout","Payout"],["analytics","Analytics"]],
+                  staff:[["today","Today's Booking"],["cleaners","Housekeeping"],["guestform","Guest Form"]] }[r] || [];
+    var allow = function(p){ try{ return typeof pageAllowed !== "function" || pageAllowed(p); }catch(e){ return true; } };
+    var list = quick.filter(function(q){ return allow(q[0]) && document.getElementById("page-" + q[0]); })
+      .map(function(q){ return '<div class="mui-row" onclick="muiGo(\''+q[0]+'\')"><span class="n">'+q[1]+'</span><span class="c">›</span></div>'; }).join("");
+    el.innerHTML = cards + '<div class="mui-sec">Shortcuts</div><div class="mui-card" style="padding:2px 12px;">' + list + '</div>';
+  }
+  // ---- More: EVERY page this user may open. This is the "nothing is lost" guarantee. ----
+  function muiMore(){
+    var el = document.getElementById("muiMore"); if(!el) return;
+    var groups = {}, order = [];
+    [].forEach.call(document.querySelectorAll(".sidebar .nav-group, .sidebar .nav-item"), function(n){
+      if(n.classList.contains("nav-group")){ order.push(n.textContent.trim()); groups[n.textContent.trim()] = []; return; }
+      var p = n.dataset.page; if(!p) return;
+      try{ if(typeof pageAllowed === "function" && !pageAllowed(p)) return; }catch(e){}
+      if(getComputedStyle(n).display === "none") return;      // hidden for this user — respect it
+      var g = order.length ? order[order.length-1] : "Pages";
+      (groups[g] = groups[g] || []).push([p, n.textContent.trim()]);
+    });
+    var who = (typeof _whoami === "function" ? _whoami() : (typeof currentUser === "function" ? currentUser() : "")) || "";
+    var html = '<div class="mui-card"><div class="mui-k">Naka-sign in bilang</div>' +
+      '<div style="display:flex;align-items:center;gap:11px;margin-top:9px;">' +
+      '<div class="mui-av">' + (who.charAt(0) || "A").toUpperCase() + '</div>' +
+      '<div style="flex:1"><div style="font:600 15px/1 Outfit,system-ui,sans-serif;color:var(--mui-ink)">' + who + '</div>' +
+      '<div style="font:400 11.5px/1.4 Outfit,system-ui,sans-serif;color:var(--mui-mut);margin-top:4px;">' + role() + '</div></div></div></div>';
+    order.forEach(function(g){
+      var rows = (groups[g] || []);
+      if(!rows.length) return;
+      html += '<div class="mui-sec">' + g + '</div><div class="mui-card" style="padding:2px 12px;">' +
+        rows.map(function(r){ return '<div class="mui-row" onclick="muiGo(\''+r[0]+'\')"><span class="n">'+r[1]+'</span><span class="c">›</span></div>'; }).join("") +
+        '</div>';
+    });
+    html += '<div class="mui-sec">Display</div><div class="mui-card" style="padding:2px 12px;">' +
+      '<div class="mui-row" onclick="muiOff()"><span class="n">Use the old layout</span><span class="c">›</span></div></div>';
+    el.innerHTML = html;
+  }
+  window.muiOff = function(){
+    if(!confirm("Balik sa lumang layout sa telepono?")) return;
+    try{ localStorage.setItem("shph_mobile_ui", "off"); }catch(e){}
+    location.reload();
+  };
+  // keep the bar in step with navigation that happens elsewhere (deep links, redirects)
+  var _sp = window.showPage;
+  if(typeof _sp === "function"){
+    window.showPage = function(p){ var r = _sp.apply(this, arguments); try{ muiSync(p); }catch(e){} return r; };
+  }
+  function start(){
+    bar();
+    var av = document.getElementById("muiAv");
+    var who = (typeof _whoami === "function" ? _whoami() : "A") || "A";
+    if(av) av.textContent = who.charAt(0).toUpperCase();
+    muiGo("mhome");
+  }
+  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  else setTimeout(start, 0);
+})();
+</script>
 </body>
 </html>
