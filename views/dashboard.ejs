@@ -9501,7 +9501,7 @@ function showPage(page, _nav){
     if(page === "analytics" && typeof renderAnalytics === "function") renderAnalytics();
     if(page === "users" && typeof renderUsers === "function") renderUsers();
     if(page === "employees" && typeof renderEmployees === "function") renderEmployees();
-    if(page === "log" && typeof renderLog === "function") renderLog();
+    if(page === "log" && typeof renderLog === "function"){ renderLog(); if(typeof loadFullActivityLog === "function") loadFullActivityLog(); }
     if(page === "notes" && typeof renderNotes === "function") renderNotes();
     if(page === "qrcodes" && typeof renderStayQR === "function") renderStayQR();
     if(page === "assist" && typeof renderAssist === "function") renderAssist();
@@ -12975,6 +12975,30 @@ function renderLog(){
     if(full) full.innerHTML = log.length ? rows(log) : empty;
     const cal = document.getElementById("logListCal");               // compact copy on the Calendar page (last 40)
     if(cal){ cal.innerHTML = log.length ? rows(log.slice(-40)) : empty; applyCalLogState(); }
+}
+/* The page seed carries only a recent tail of the activity log — it grows without limit and was
+   being shipped whole on every page load. Pull the full history the first time the Log page is
+   actually opened. Merges into what's already local (never replaces), so an entry logged on this
+   device that hasn't synced yet can't be wiped by the fetch. */
+let _fullLogLoaded = false;
+async function loadFullActivityLog(){
+    if(_fullLogLoaded) return;
+    _fullLogLoaded = true;                       // one attempt per page load; renderLog still shows the tail
+    try{
+        const r = await fetch("/api/kv/" + ACTIVITY_KEY, { cache:"no-store" });
+        if(!r.ok) return;
+        const server = await r.json();
+        if(!Array.isArray(server) || !server.length) return;
+        let local = [];
+        try{ local = JSON.parse(localStorage.getItem(ACTIVITY_KEY)) || []; }catch(e){}
+        const key = e => (e && e.id != null) ? "id:" + e.id
+            : "c:" + String((e && e.at) || "") + "|" + String((e && e.user) || "") + "|" + String((e && e.action) || "");
+        const seen = Object.create(null), merged = [];
+        [...server, ...local].forEach(e => { if(!e) return; const k = key(e); if(!(k in seen)){ seen[k] = 1; merged.push(e); } });
+        merged.sort((a,b) => String((a && a.at) || "").localeCompare(String((b && b.at) || "")));
+        if(typeof window.shphSetLocal === "function") window.shphSetLocal(ACTIVITY_KEY, JSON.stringify(merged));
+        renderLog();
+    }catch(e){}
 }
 // minimize / expand the inline Activity Log on the Calendar page (state remembered)
 function applyCalLogState(){

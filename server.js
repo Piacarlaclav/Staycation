@@ -304,6 +304,9 @@ const MERGE_LIST_KEYS = new Set([
 // /stay/<token> during a stay, so it is admin-only for the same reason (and it is deliberately
 // NOT in PUBLIC_SEED_KEYS, so no guest page ever ships it).
 const ADMIN_ONLY_KEYS = new Set(["shph_notes_v1", "shph_stay_tokens_v1"]);
+// How much of the activity log rides along in a page's data seed. Enough for the Calendar's inline
+// "last 40" strip and a first screenful of the Log page; the rest is fetched only when asked for.
+const ACTIVITY_SEED_TAIL = 200;
 const isAdminSession = (req) => { const s = readSession(req); return !!(s && s.t === "staff" && s.adm); };
 
 // write one key (body is the raw JSON value the browser stored)
@@ -1718,21 +1721,29 @@ function renderPage(name) {
     // record saved via another serverless instance (a partner, user, haven, booking…) is missing
     // from this warm instance's cache and "vanishes" on the next page load. Read them fresh (in
     // parallel, so it's ~one round-trip) and fall back to the cached copy per-key on failure.
-    await Promise.all([...MERGE_LIST_KEYS].map(async (_key) => {
-      try {
-        const fresh = await store.readFreshList(_key);
-        if (Array.isArray(fresh)) seed[_key] = fresh;
-      } catch (e) {
-        console.warn("[render] fresh read failed for", _key, "—", e.message);
-      }
-    }));
-    // The housekeeping log is an OBJECT key (bookingId → entry), so the list loop above doesn't
-    // cover it — read it fresh too, or a warm instance shows "Not started" for cleaning work
-    // already saved through another instance.
-    try {
-      const freshClean = await store.readFreshKey("shph_cleaning_v1");
-      if (freshClean && typeof freshClean === "object" && !Array.isArray(freshClean)) seed.shph_cleaning_v1 = freshClean;
-    } catch (e) { console.warn("[render] fresh read failed for shph_cleaning_v1 —", e.message); }
+    // The activity log is deliberately NOT refreshed here. It is an append-only audit trail, the
+    // seed only carries a recent tail anyway, and the Log page fetches the current list the moment
+    // it is opened — so paying ~330ms of Firestore for it on every page load bought nothing.
+    const RENDER_FRESH_KEYS = [...MERGE_LIST_KEYS].filter(k => k !== "shph_activity_log");
+    // The housekeeping log is an OBJECT key (bookingId → entry) so the list reads don't cover it,
+    // but it belongs in the SAME parallel batch — awaiting it afterwards added its full latency
+    // (~330ms) to every page load instead of overlapping with the rest.
+    await Promise.all([
+      ...RENDER_FRESH_KEYS.map(async (_key) => {
+        try {
+          const fresh = await store.readFreshList(_key);
+          if (Array.isArray(fresh)) seed[_key] = fresh;
+        } catch (e) {
+          console.warn("[render] fresh read failed for", _key, "—", e.message);
+        }
+      }),
+      (async () => {
+        try {
+          const freshClean = await store.readFreshKey("shph_cleaning_v1");
+          if (freshClean && typeof freshClean === "object" && !Array.isArray(freshClean)) seed.shph_cleaning_v1 = freshClean;
+        } catch (e) { console.warn("[render] fresh read failed for shph_cleaning_v1 —", e.message); }
+      })()
+    ]);
     // Website Maintenance switch: guest-facing pages show a "back soon" notice while it's on. Read
     // the flag FRESH so a stale per-instance cache can't keep the site up after the owner takes it
     // down. The dashboard/admin pages are NOT gated, so the owner can always flip it back.
@@ -1755,6 +1766,12 @@ function renderPage(name) {
     res.set("Expires", "0");
     // guest pages get a minimal, PII-free projection; the dashboard/admin pages get the full store
     const pageSeed = PUBLIC_PAGES.has(name) ? publicSeed(seed) : seed;
+    // The activity log is an append-only audit trail that only grows — it is already 2,000+ entries
+    // and was being shipped WHOLE on every single page load, for a page most visits never open.
+    // Send a recent tail; the Log page fetches the full history on demand (loadFullActivityLog).
+    if (Array.isArray(pageSeed.shph_activity_log) && pageSeed.shph_activity_log.length > ACTIVITY_SEED_TAIL) {
+      pageSeed.shph_activity_log = pageSeed.shph_activity_log.slice(-ACTIVITY_SEED_TAIL);
+    }
     // The owner's private notes are stripped from the seed unless an ADMIN is signed in — a
     // staff or partner browser must never receive them, even though they load the same view.
     if (!PUBLIC_PAGES.has(name) && !isAdminSession(req)) {
