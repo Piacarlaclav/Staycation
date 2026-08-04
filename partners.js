@@ -341,7 +341,10 @@ function applyPartnerChrome(){
     const DASH = ["analytics", "finance", "bills", "expenses"];  // move under a new "Dashboard" header
     const BOARD = ["board"];                                     // move under a new "Board" header
     const INVENTORY = ["inventory"];                            // move under a new "Inventory" header
-    const ALLOW = MAIN.concat(DASH).concat(BOARD).concat(INVENTORY).concat(["account"]);   // "account" = My Account (a modal action; keep it visible)
+    const PAYOUT = ["payout"];                                  // move under a new "Payout" header
+    // KEEP IN SYNC with dashboard.html pageAllowed()'s partner list — this decides what a partner
+    // SEES, that one decides what they may OPEN. A page missing from either never appears.
+    const ALLOW = MAIN.concat(DASH).concat(BOARD).concat(INVENTORY).concat(PAYOUT).concat(["account"]);   // "account" = My Account (a modal action; keep it visible)
     const sb = document.querySelector(".sidebar");
 
     // show only the allowed nav items
@@ -362,6 +365,7 @@ function applyPartnerChrome(){
             if(item){ item.style.display = "flex"; sb.appendChild(item); }
         });
     };
+    buildGroup("partnerPayoutGroup", "Payout", PAYOUT);   // what they're owed and what's been paid
     buildGroup("partnerDashGroup", "Dashboard", DASH);
     buildGroup("partnerBoardGroup", "Board", BOARD);
 
