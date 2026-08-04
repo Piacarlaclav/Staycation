@@ -117,7 +117,23 @@
   }
   var KEY_LABEL = { shph_bookings_v3: "booking/payment", shph_users: "user", shph_partners: "partner", shph_expenses_v1: "expense", shph_bills_v1: "bill" };
 
-  function unsavedCount() { var n = 0; for (var k in pending) if (pending.hasOwnProperty(k)) n++; return n; }
+  // A normal save lands in well under a second. Flashing a red "not saved — check your internet"
+  // alarm for that is frightening for something that is simply working, so a write only counts as
+  // a problem once it has been stuck for a few seconds. Anything genuinely failing keeps retrying
+  // past this and still gets reported.
+  var BANNER_GRACE_MS = 4000;
+  var pendingSince = {};   // key -> when it first went unsaved
+  function unsavedCount() {
+    var n = 0, now = Date.now();
+    for (var k in pending) {
+      if (!pending.hasOwnProperty(k)) continue;
+      // `=== undefined`, not a falsy check: a write carried over from an earlier session is marked
+      // with 0, and `0 || now` would quietly reset its clock and hide a genuinely overdue save.
+      var since = pendingSince[k] === undefined ? now : pendingSince[k];
+      if (now - since >= BANNER_GRACE_MS) n++;
+    }
+    return n;
+  }
 
   // This banner is an ADMIN tool: it tells whoever is signed in that their work hasn't reached the
   // server yet. Guest pages share the same browser and the same queue, so a pending dashboard write
@@ -165,7 +181,7 @@
     }).then(function (res) {
       if (res.ok) {
         delete lastErr[key];
-        if (pending[key] === body) { delete pending[key]; delete delay[key]; persistPending(); updateBanner(); }
+        if (pending[key] === body) { delete pending[key]; delete delay[key]; delete pendingSince[key]; persistPending(); updateBanner(); }
         else { delay[key] = 200; flush(key); }      // a newer value queued meanwhile → save it
       } else {
         // 401/403 = signed out (or not allowed), not a connection problem. Telling someone on the
@@ -196,6 +212,7 @@
 
   // queue the LATEST value for a key and (re)start flushing — never gives up
   function _queue(key, jsonString) {
+    if (pendingSince[key] === undefined) pendingSince[key] = Date.now();   // first moment this key went unsaved
     pending[key] = jsonString;
     persistPending();
     delay[key] = 600;
@@ -246,7 +263,7 @@
   // (e.g. the housekeeping log after rescuing entries) — stops a doomed too-large retry loop.
   window.shphDropPending = function (key) {
     if (pending[key] === undefined) return;
-    delete pending[key]; delete lastErr[key]; delete delay[key];
+    delete pending[key]; delete lastErr[key]; delete delay[key]; delete pendingSince[key];
     if (timer[key]) { clearTimeout(timer[key]); timer[key] = null; }
     persistPending(); updateBanner();
   };
@@ -404,8 +421,12 @@
     Object.keys(unsynced).forEach(function (k) {
       if (!isShared(k) || typeof unsynced[k] !== "string") return;
       try { localStorage.setItem(k, unsynced[k]); } catch (e) {}   // wrapped setItem → restores the local copy AND re-queues the push
+      pendingSince[k] = 0;   // carried over from an earlier session — already overdue, no grace period
     });
   } catch (e) {}
+  // A write can sit in flight with no retry scheduled, so the banner would never re-evaluate and a
+  // genuinely stuck save could stay silent. Re-check on a slow tick; unsavedCount does the timing.
+  setInterval(updateBanner, 3000);
 
   // 4) the moment the network comes back (or the tab is refocused), stop waiting on the
   //    backoff timer and retry everything still unsaved immediately.
