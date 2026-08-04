@@ -225,6 +225,10 @@ apiRouter.use((req, res, next) => {
     return next();   // staff / partner → full back-office access
   }
   if (req.method === "POST" && (p === "/visit" || p === "/send-confirmation" || p === "/conflict-alert" || p === "/apply")) return next();
+  // Read-only availability feed. Public on purpose — it is what an outside reader (Meta's Business
+  // Agent via a Drive document, a spreadsheet, anything) asks for, and it carries no guest data:
+  // haven name, date, and whether the day is still bookable. Nothing more leaves through it.
+  if (req.method === "GET" && p === "/availability") return next();
   if (req.method === "POST" && p.startsWith("/list/")) return next();   // per-route hardening below
   if (p === "/backup" || p === "/restore" || p === "/retention") return next();  // own token guards
   return res.status(401).json({ error: "login required" });
