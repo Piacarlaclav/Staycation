@@ -1873,6 +1873,53 @@ for (const slug in ADMIN_PAGE_ROUTES) {
   app.get("/:user/" + slug, renderPage(ADMIN_PAGE_ROUTES[slug]));
 }
 
+/* ---------------- Public availability feed ----------------
+   Which havens are still bookable, for the next N days. PUBLIC and deliberately free of guest
+   data: haven name, date, and whether anything can still be booked — nothing about who is staying.
+   Built so an outside system can read it. Meta Business Agent can't be pointed at a database, but
+   it CAN read a Google Drive document, so ?format=text returns something a person (or an AI) can
+   read straight, and a Google Apps Script can refresh that document on a schedule.
+   Answers from the LIVE list and the same booking-rules the site itself uses, so it can never
+   disagree with what the booking page shows. */
+app.get("/api/availability", async (req, res) => {
+  try {
+    const days = Math.min(60, Math.max(1, Number(req.query.days) || 14));
+    const list = (await store.readFreshList("shph_bookings_v3")) || [];
+    const settings = (await store.readFreshKey("shph_settings")) || {};
+    const pricing = settings.pricing || {};
+    const havens = ((await store.readFreshList("staycation_havens")) || [])
+      .filter(h => h && !h.deleted && h.name).map(h => h.name);
+    const startIso = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);   // PH day
+    const out = [];
+    for (let i = 0; i < days; i++) {
+      const iso = rules.addDaysIso(startIso, i);
+      const free = havens.filter(h => rules.dayHasAnyFreeTime(list, h, iso, pricing, null));
+      out.push({ date: iso, available: free, fullyBooked: havens.filter(h => !free.includes(h)) });
+    }
+    const stamp = new Date(Date.now() + 8 * 3600 * 1000).toISOString().replace("T", " ").slice(0, 16);
+    res.set("Cache-Control", "public, max-age=300");   // 5 min is plenty; bookings don't land that fast
+    if (String(req.query.format || "").toLowerCase() === "text") {
+      const lines = [
+        "STAYCATION HAVEN PH — AVAILABILITY",
+        "Mplace Tower D, Panay Ave, Quezon City",
+        "As of " + stamp + " (Philippine time). Updated automatically.",
+        "Always confirm before promising a slot — a booking can come in at any moment.",
+        ""
+      ];
+      out.forEach(d => {
+        lines.push(d.date + (d.available.length ? "  AVAILABLE: " + d.available.join(", ") : "  FULLY BOOKED"));
+        if (d.available.length && d.fullyBooked.length) lines.push("            full: " + d.fullyBooked.join(", "));
+      });
+      lines.push("", "To book: https://www.staycationhaven-ph.com");
+      return res.type("text/plain; charset=utf-8").send(lines.join("\n"));
+    }
+    res.json({ generatedAt: stamp, timezone: "Asia/Manila", days, havens, availability: out });
+  } catch (e) {
+    console.error("[availability] failed:", e.message);
+    res.status(502).json({ error: "availability unavailable" });
+  }
+});
+
 /* ---------------- Static assets ---------------- */
 // Client JS/CSS live in /public; images stay in /images.
 // The project root is intentionally NOT served, so server.js / data
