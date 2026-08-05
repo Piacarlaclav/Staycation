@@ -162,10 +162,13 @@
           document.body.appendChild(banner);
         }
         if (banner) {
+          // Always name WHAT is stuck, even when no attempt has recorded an error yet. A bare
+          // "1 change not yet saved" is impossible to act on or report — Pia saw exactly that.
           var reason = "", what = "";
           for (var k in lastErr) { if (pending[k] !== undefined && lastErr[k]) { reason = lastErr[k]; what = KEY_LABEL[k] || k; break; } }
+          if (!what) { for (var k2 in pending) { if (pending.hasOwnProperty(k2)) { what = KEY_LABEL[k2] || k2; break; } } }
           banner.textContent = "⚠️ " + n + " " + (what ? what + " " : "") + "change" + (n > 1 ? "s" : "") +
-            " not yet saved to the server" + (reason ? " — " + reason : "") +
+            " not yet saved to the server" + (reason ? " — " + reason : " — still trying") +
             ". Keep this tab open & check your internet; it will keep retrying.";
           banner.style.display = "block";
         }
