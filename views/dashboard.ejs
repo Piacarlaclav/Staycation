@@ -1477,6 +1477,17 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
    the shell script runs) or OFF (where it returns early) — the way back must exist in both. */
 (function(){
   if(!window.matchMedia || !window.matchMedia("(max-width: 768px)").matches) return;
+  // The new layout is the default. Anyone who switched to the old one while it was still rough is
+  // moved back ONCE — bump this stamp to repeat that after a future round of changes. A one-time
+  // reset, not a lock: switching off after this is respected and stays respected. It runs here,
+  // in the first script to read the flag, so the switch and the shell never disagree.
+  try{
+    var RESET = "2026-08-05";
+    if(localStorage.getItem("shph_mobile_ui_reset") !== RESET){
+      localStorage.removeItem("shph_mobile_ui");
+      localStorage.setItem("shph_mobile_ui_reset", RESET);
+    }
+  }catch(e){}
   var off = false;
   try{ off = localStorage.getItem("shph_mobile_ui") === "off"; }catch(e){}
   function paint(){
@@ -16880,11 +16891,20 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
   // revealed dashboard's own cramped table version of the same screen. navTo knows the difference.
   window.muiGo = function(p){
     if(p === "mhome" || p === "mmore"){ if(typeof showPage === "function") showPage(p); muiSync(p); return; }
+    if(p === "guestform"){ muiShellFor(p); if(typeof showPage === "function") showPage(p); return; }
     if(typeof navTo === "function") return navTo(p);
     if(typeof showPage === "function") showPage(p);
     muiSync(p);
   };
+  // Guest Form is left ENTIRELY alone. Its photo tools stopped responding to drags under the shell
+  // and re-padding the page wasn't enough, so rather than keep guessing at which rule breaks them,
+  // the shell steps off that screen completely — the class comes off, every override with it, and
+  // the page behaves exactly as it did before. The bar returns on the way out.
+  function muiShellFor(p){
+    document.documentElement.classList.toggle("mui", p !== "guestform");
+  }
   window.muiSync = function(p){
+    muiShellFor(p);
     var bar = document.getElementById("muiBar"); if(!bar) return;
     [].forEach.call(bar.querySelectorAll("button"), function(b){ b.classList.toggle("on", b.dataset.p === p); });
     if(p === "mhome") muiHome();
