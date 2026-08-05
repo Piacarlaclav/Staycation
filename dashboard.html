@@ -1453,7 +1453,46 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
         <span class="switch-slider"></span>
       </label>
     </div>
+    <!-- Mobile layout switch. Lives in the menu, beside the Website toggle, rather than floating
+         over the page — this is where someone looks for a setting. Shown on phones only; the
+         script below decides which way it points. -->
+    <div class="maint-box" id="muiSwitchBox" style="display:none;">
+      <div class="maint-info">
+        <span class="maint-dot" id="muiSwitchDot"></span>
+        <div>
+          <div class="maint-lbl">Mobile layout</div>
+          <div class="maint-state" id="muiSwitchState">New</div>
+        </div>
+      </div>
+      <label class="switch" title="Switch between the new and old mobile layout">
+        <input type="checkbox" id="muiSwitchCheck" onchange="muiSetLayout(this.checked)">
+        <span class="switch-slider"></span>
+      </label>
+    </div>
 </div>
+<script>
+/* The mobile-layout switch in the sidebar. Standalone so it works whether the shell is ON (where
+   the shell script runs) or OFF (where it returns early) — the way back must exist in both. */
+(function(){
+  if(!window.matchMedia || !window.matchMedia("(max-width: 768px)").matches) return;
+  var off = false;
+  try{ off = localStorage.getItem("shph_mobile_ui") === "off"; }catch(e){}
+  function paint(){
+    var box = document.getElementById("muiSwitchBox"); if(!box) return;
+    box.style.display = "flex";
+    var on = !off;
+    document.getElementById("muiSwitchCheck").checked = on;
+    document.getElementById("muiSwitchState").textContent = on ? "New" : "Old";
+    document.getElementById("muiSwitchDot").classList.toggle("is-on", on);
+  }
+  window.muiSetLayout = function(useNew){
+    try{ useNew ? localStorage.removeItem("shph_mobile_ui") : localStorage.setItem("shph_mobile_ui", "off"); }catch(e){}
+    location.reload();
+  };
+  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", paint);
+  else paint();
+})();
+</script>
 
 <div class="topbar" id="appTopbar">
     <div class="crumb"><span id="crumbGroup">Main</span> / <b id="crumbPage">Today's Booking</b></div>
@@ -16778,22 +16817,9 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
   var isPhone = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
   // Turning the shell OFF used to be a one-way door: the switch back lived inside More, which is
   // part of the shell you just turned off. Offer a small way back on the old layout instead.
-  if(OFF){
-    if(!isPhone) return;
-    document.addEventListener("DOMContentLoaded", function(){
-      var b = document.createElement("button");
-      b.textContent = "Try the new layout";
-      b.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));" +
-        "z-index:2147482000;background:#241d1a;color:#fff;border:0;border-radius:999px;padding:10px 18px;" +
-        "font:600 12.5px/1 system-ui,Segoe UI,Arial,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.28);cursor:pointer;";
-      b.onclick = function(){
-        try{ localStorage.removeItem("shph_mobile_ui"); }catch(e){}
-        location.reload();
-      };
-      document.body.appendChild(b);
-    });
-    return;
-  }
+  // Off: the way back is the "Mobile layout" switch in the sidebar (wired up near the markup),
+  // where a setting belongs. No floating button over the page.
+  if(OFF) return;
   if(!isPhone) return;
   document.documentElement.classList.add("mui");
 
