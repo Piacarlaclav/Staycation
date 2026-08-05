@@ -16870,7 +16870,12 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
   function muiPeso(n){ return (typeof peso === "function") ? peso(Math.round(n)) : "P" + Math.round(n); }
   function muiPaid(b){ return (typeof paidOf === "function") ? paidOf(b) : ((Number(b.downpayment)||0) + ((b.payments||[]).reduce(function(s,p){ return s + (Number(p.amount)||0); },0))); }
   function muiBal(b){ return Math.max(0, (Number(b.total)||0) - muiPaid(b)); }
+  // Go through navTo, NOT showPage. Some entries are not pages inside this document at all —
+  // "today" lives in todaysbooking.html, which is the proper card layout; showPage() instead
+  // revealed dashboard's own cramped table version of the same screen. navTo knows the difference.
   window.muiGo = function(p){
+    if(p === "mhome" || p === "mmore"){ if(typeof showPage === "function") showPage(p); muiSync(p); return; }
+    if(typeof navTo === "function") return navTo(p);
     if(typeof showPage === "function") showPage(p);
     muiSync(p);
   };
