@@ -16736,6 +16736,9 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
   .mui-hd .h1{ font:700 21px/1.15 'Lora',Georgia,serif; color:var(--mui-ink); }
   .mui-hd .sub{ font:400 12.5px/1.3 Outfit,system-ui,sans-serif; color:var(--mui-mut); margin-top:2px; }
   .mui-hd .mui-av{ width:42px; height:42px; border-radius:14px; background:#241d1a; color:#c98a4b; font-size:17px; }
+  /* the real mark, not a letter — white plate so the gold reads at this size */
+  .mui-logo{ background:#fff !important; padding:5px; overflow:hidden; }
+  .mui-logo img{ width:100%; height:100%; object-fit:contain; display:block; }
   /* three figures in the overview card */
   .mui-3{ display:flex; gap:14px; margin-top:12px; }
   .mui-3 > div{ flex:1; }
@@ -16860,7 +16863,7 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
     }).join("");
 
     el.innerHTML =
-      '<div class="mui-hd"><div class="mui-av">' + (who.charAt(0) || "S").toUpperCase() + '</div>' +
+      '<div class="mui-hd"><div class="mui-av mui-logo"><img src="/images/logo.png" alt="Staycation Haven PH"></div>' +
         '<div style="flex:1"><div class="h1">Staycation Haven</div><div class="sub">' + dateTxt + '</div></div></div>' +
 
       '<div class="mui-card" onclick="muiGo(\'analytics\')">' +
