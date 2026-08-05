@@ -16697,8 +16697,14 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
      put three strips of chrome above the content, and mine, being last in the document, rendered
      at the BOTTOM of the page. Use the one that exists; the shell only supplies the bottom bar. */
   #muiTop{ display:none !important; }
-  /* The "Logged in as … / Logout" strip is redundant on a phone — More carries both. */
+  /* The old dark "Current page" bar and the "Logged in as … / Logout" strip both go. The shell's
+     own header names the page, the bottom bar navigates, and More carries the user and the way
+     out — so those two only stole height at the top of every screen. */
+  :root.mui .m-topbar{ display:none !important; }
   :root.mui #appTopbar{ display:none !important; }
+  /* .m-topbar was fixed at the top and the layout reserved room for it — reclaim that space. */
+  :root.mui body{ padding-top:0 !important; }
+  :root.mui .main, :root.mui .content{ padding-top:0 !important; margin-top:0 !important; }
   .mui-av{ width:34px; height:34px; border-radius:11px; background:var(--mui-soft);
     display:flex; align-items:center; justify-content:center; font:600 14px/1 'Lora',Georgia,serif; color:var(--mui-acc); }
   #muiBar{ display:none; }
