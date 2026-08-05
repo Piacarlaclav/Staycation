@@ -16991,8 +16991,11 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
         rows.map(function(r){ return '<div class="mui-row" onclick="muiGo(\''+r[0]+'\')"><span class="n">'+r[1]+'</span><span class="c">›</span></div>'; }).join("") +
         '</div>';
     });
-    html += '<div class="mui-sec">Display</div><div class="mui-card" style="padding:2px 12px;">' +
-      '<div class="mui-row" onclick="muiOff()"><span class="n">Use the old layout</span><span class="c">›</span></div></div>';
+    // Logout MUST live here — hiding the desktop appbar on phones took away the only other way out,
+    // and this list was where I said it would be.
+    html += '<div class="mui-sec">Account</div><div class="mui-card" style="padding:2px 12px;">' +
+      '<div class="mui-row" onclick="muiOff()"><span class="n">Use the old layout</span><span class="c">›</span></div>' +
+      '<div class="mui-row" onclick="if(typeof logout===\'function\')logout()"><span class="n" style="color:#c0392b">Log out</span><span class="c">›</span></div></div>';
     el.innerHTML = html;
   }
   window.muiOff = function(){
