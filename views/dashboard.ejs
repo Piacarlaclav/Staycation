@@ -16727,6 +16727,27 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
   .mui-row .n{ flex:1; font:600 14.5px/1.3 Outfit,system-ui,sans-serif; color:var(--mui-ink); }
   .mui-row .c{ font:600 12px/1 Outfit,system-ui,sans-serif; color:var(--mui-acc); }
   .mui-sec{ font:600 11px/1 Outfit,system-ui,sans-serif; letter-spacing:.09em; text-transform:uppercase; color:var(--mui-mut); margin:16px 4px 2px; }
+  /* greeting */
+  .mui-hd{ display:flex; align-items:center; gap:12px; padding:2px 2px 4px; }
+  .mui-hd .h1{ font:700 21px/1.15 'Lora',Georgia,serif; color:var(--mui-ink); }
+  .mui-hd .sub{ font:400 12.5px/1.3 Outfit,system-ui,sans-serif; color:var(--mui-mut); margin-top:2px; }
+  .mui-hd .mui-av{ width:42px; height:42px; border-radius:14px; background:#241d1a; color:#c98a4b; font-size:17px; }
+  /* three figures in the overview card */
+  .mui-3{ display:flex; gap:14px; margin-top:12px; }
+  .mui-3 > div{ flex:1; }
+  .mui-3 .n{ font:700 21px/1.1 'Lora',Georgia,serif; color:var(--mui-ink); margin-bottom:3px; }
+  /* task rows */
+  .mui-badge{ min-width:22px; height:22px; padding:0 6px; border-radius:11px; background:#c0392b; color:#fff;
+    font:700 12px/22px Outfit,system-ui,sans-serif; text-align:center; margin-right:8px; }
+  /* 2x2 quick actions */
+  .mui-act{ cursor:pointer; }
+  .mui-act .s{ font:600 19px/1 'Lora',Georgia,serif; color:var(--mui-acc); }
+  .mui-act .l{ font:600 13.5px/1.3 Outfit,system-ui,sans-serif; color:var(--mui-ink); margin-top:9px; }
+  /* collected-by-method chips */
+  .mui-chips{ display:flex; gap:9px; overflow-x:auto; padding-bottom:2px; }
+  .mui-chip{ flex:0 0 auto; min-width:96px; background:var(--mui-bg); border:1px solid var(--mui-line); border-radius:13px; padding:10px 12px; }
+  .mui-chip .m{ font:500 11.5px/1 Outfit,system-ui,sans-serif; color:var(--mui-mut); }
+  .mui-chip .a{ font:700 15px/1.1 'Lora',Georgia,serif; color:var(--mui-ink); margin-top:5px; }
 }
 @media (min-width: 769px){ #muiTop, #muiBar{ display:none !important; } }
 </style>
@@ -16748,7 +16769,9 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
     today:'<svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>',
     cal:'<svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18"/><circle cx="12" cy="15" r="1.8"/></svg>',
     clean:'<svg viewBox="0 0 24 24"><path d="M18.5 3.5 11 11"/><path d="M8.5 11h6.2l-1.1 6.4A3 3 0 0 1 10.7 20H8a3.5 3.5 0 0 1-3.4-4.3c1.6-.2 3-1.4 3.9-3.2Z"/></svg>',
-    more:'<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>'
+    more:'<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>',
+    peso:'<svg viewBox="0 0 24 24"><path d="M7 20V5h5a4.5 4.5 0 0 1 0 9H7"/><path d="M5 9.5h10M5 12.5h10"/></svg>',
+    form:'<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>'
   };
   function role(){
     try{
@@ -16761,13 +16784,31 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
   function bar(){
     var r = role(), items;
     if(r === "partner")      items = [["mhome","Home",ico.home],["today","Today",ico.today],["calendar","Calendar",ico.cal],["mmore","More",ico.more]];
-    else if(r === "staff")   items = [["mhome","Home",ico.home],["today","Today",ico.today],["cleaners","Clean",ico.clean],["mmore","More",ico.more]];
-    else                     items = [["mhome","Home",ico.home],["today","Today",ico.today],["calendar","Calendar",ico.cal],["cleaners","Clean",ico.clean],["mmore","More",ico.more]];
+    else if(r === "staff")   items = [["mhome","Home",ico.home],["today","Today",ico.today],["cleaners","Clean",ico.clean],["guestform","Guest form",ico.form],["mmore","More",ico.more]];
+    else                     items = [["mhome","Home",ico.home],["today","Today",ico.today],["calendar","Calendar",ico.cal],["collections","Collect",ico.peso],["guestform","Guest form",ico.form],["mmore","More",ico.more]];
+    items = items.filter(function(i){
+      if(i[0] === "mhome" || i[0] === "mmore") return true;
+      if(!document.getElementById("page-" + i[0])) return false;
+      try{ return typeof pageAllowed !== "function" || pageAllowed(i[0]); }catch(e){ return true; }
+    });
     var el = document.getElementById("muiBar");
     el.innerHTML = items.map(function(i){
-      return '<button data-p="'+i[0]+'" onclick="muiGo(\''+i[0]+'\')">'+i[2]+'<span>'+i[1]+'</span></button>';
+      var badge = (i[0] === "today") ? muiArriving().length : 0;
+      return '<button data-p="'+i[0]+'" onclick="muiGo(\''+i[0]+'\')">' +
+        '<span style="position:relative;display:inline-block;">'+i[2] +
+        (badge ? '<b style="position:absolute;top:-5px;right:-9px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;background:#c0392b;color:#fff;font:700 10px/16px Outfit,sans-serif;text-align:center;">'+badge+'</b>' : '') +
+        '</span><span>'+i[1]+'</span></button>';
     }).join("");
   }
+  // ---- shared little helpers over the real booking list ----
+  function muiToday(){ return (typeof iso === "function" && typeof today === "function") ? iso(today()) : ""; }
+  function muiLive(){ return (typeof bookings !== "undefined" ? bookings : []).filter(function(b){ return b && !b.deleted && !b.cancelled; }); }
+  function muiArriving(){ var t = muiToday(); return muiLive().filter(function(b){ return b.checkin === t; }); }
+  function muiInHouse(){ var t = muiToday(); return muiLive().filter(function(b){ return b.checkin <= t && b.checkout >= t; }); }
+  function muiDeparting(){ var t = muiToday(); return muiLive().filter(function(b){ return b.checkout === t; }); }
+  function muiPeso(n){ return (typeof peso === "function") ? peso(Math.round(n)) : "P" + Math.round(n); }
+  function muiPaid(b){ return (typeof paidOf === "function") ? paidOf(b) : ((Number(b.downpayment)||0) + ((b.payments||[]).reduce(function(s,p){ return s + (Number(p.amount)||0); },0))); }
+  function muiBal(b){ return Math.max(0, (Number(b.total)||0) - muiPaid(b)); }
   window.muiGo = function(p){
     if(typeof showPage === "function") showPage(p);
     muiSync(p);
@@ -16778,29 +16819,82 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
     if(p === "mhome") muiHome();
     if(p === "mmore") muiMore();
   };
-  // ---- home, per role ----
+  // ---- home: Pia's layout — greeting, daily overview, tasks, quick actions, collected by method
   function muiHome(){
     var el = document.getElementById("muiHome"); if(!el) return;
-    var r = role(), t = (typeof iso === "function" && typeof today === "function") ? iso(today()) : "";
-    var live = (typeof bookings !== "undefined" ? bookings : []).filter(function(b){ return b && !b.deleted && !b.cancelled; });
-    var arriving = live.filter(function(b){ return b.checkin === t; }).length;
-    var leaving  = live.filter(function(b){ return b.checkout === t; }).length;
-    var inhouse  = live.filter(function(b){ return b.checkin <= t && b.checkout >= t; }).length;
-    var money = function(n){ return (typeof peso === "function") ? peso(n) : "P" + n; };
-    var cards = '<div class="mui-grid">' +
-      '<div class="mui-card"><div class="mui-k">Arriving today</div><div class="mui-v">' + arriving + '</div></div>' +
-      '<div class="mui-card"><div class="mui-k">Departing</div><div class="mui-v">' + leaving + '</div></div>' +
-      '<div class="mui-card"><div class="mui-k">In-house</div><div class="mui-v">' + inhouse + '</div></div>' +
-      '<div class="mui-card"><div class="mui-k">Havens</div><div class="mui-v">' + ((typeof HAVENS !== "undefined" ? HAVENS : []).length) + '</div></div>' +
-      '</div>';
-    var quick = { admin:[["today","Today's Booking"],["calendar","Calendar"],["deposit","Security Deposit"],["cleaners","Housekeeping"],["analytics","Analytics"],["payout","Payout"]],
-                  partner:[["today","Today's Booking"],["calendar","Calendar"],["deposit","Security Deposit"],["payout","Payout"],["analytics","Analytics"]],
-                  staff:[["today","Today's Booking"],["cleaners","Housekeeping"],["guestform","Guest Form"]] }[r] || [];
-    var allow = function(p){ try{ return typeof pageAllowed !== "function" || pageAllowed(p); }catch(e){ return true; } };
-    var list = quick.filter(function(q){ return allow(q[0]) && document.getElementById("page-" + q[0]); })
-      .map(function(q){ return '<div class="mui-row" onclick="muiGo(\''+q[0]+'\')"><span class="n">'+q[1]+'</span><span class="c">›</span></div>'; }).join("");
-    el.innerHTML = cards + '<div class="mui-sec">Shortcuts</div><div class="mui-card" style="padding:2px 12px;">' + list + '</div>';
+    var t = muiToday(), live = muiLive();
+    var arr = muiArriving(), dep = muiDeparting(), inh = muiInHouse();
+    // money collected TODAY, by method — from the payment records themselves, not from totals
+    var byMop = {}, collected = 0;
+    live.forEach(function(b){
+      (b.payments || []).forEach(function(p){
+        if(!p || String(p.at || "").slice(0, 10) !== t) return;
+        var a = Number(p.amount) || 0; collected += a;
+        var m = (p.mop || "Other").trim() || "Other";
+        byMop[m] = (byMop[m] || 0) + a;
+      });
+      if(b.checkin === t) collected += 0;   // downpayments already counted on their own booking date
+    });
+    var toCollect = arr.reduce(function(s, b){ return s + muiBal(b); }, 0);
+    var balances = live.filter(function(b){ return b.checkin <= t && muiBal(b) > 0; });
+    var deposits = live.filter(function(b){ return Number(b.deposit) > 0 && !b.depositReturned
+      && (typeof depReturnDate === "function" ? (depReturnDate(b) && depReturnDate(b) <= t) : b.checkout < t); });
+    var verify = live.filter(function(b){ return (b.payments || []).some(function(p){ return p && !p.approved && p.proof; }); });
+    var who = (typeof _whoami === "function" ? _whoami() : "") || "";
+    var dateTxt = new Date().toLocaleDateString("en-PH", { weekday:"long", month:"long", day:"numeric", year:"numeric" });
+    var timeTxt = new Date().toLocaleTimeString("en-PH", { hour:"numeric", minute:"2-digit" });
+
+    var task = function(label, n, page){
+      return '<div class="mui-row"' + (page ? ' onclick="muiGo(\''+page+'\')"' : "") + '><span class="n">' + label + '</span>' +
+        (n ? '<b class="mui-badge">' + n + '</b>' : '<span class="c" style="color:var(--mui-mut)">0</span>') + '<span class="c">›</span></div>';
+    };
+    var act = function(sym, label, fn){
+      return '<div class="mui-card mui-act" onclick="' + fn + '"><div class="s">' + sym + '</div><div class="l">' + label + '</div></div>';
+    };
+    var chips = Object.keys(byMop).sort().map(function(m){
+      return '<div class="mui-chip"><div class="m">' + m + '</div><div class="a">' + muiPeso(byMop[m]) + '</div></div>';
+    }).join("");
+
+    el.innerHTML =
+      '<div class="mui-hd"><div class="mui-av">' + (who.charAt(0) || "S").toUpperCase() + '</div>' +
+        '<div style="flex:1"><div class="h1">Staycation Haven</div><div class="sub">' + dateTxt + '</div></div></div>' +
+
+      '<div class="mui-card" onclick="muiGo(\'analytics\')">' +
+        '<div style="display:flex;align-items:center;"><div style="flex:1;font:600 16px/1.2 \'Lora\',Georgia,serif;">Daily overview</div><span class="c">›</span></div>' +
+        '<div class="mui-k" style="margin-top:3px;">Updated ' + timeTxt + ' (GMT+8)</div>' +
+        '<div class="mui-3">' +
+          '<div><div class="n" style="color:#2e7d4f">' + muiPeso(collected) + '</div><div class="mui-k">Collected</div></div>' +
+          '<div><div class="n" style="color:var(--mui-acc)">' + muiPeso(toCollect) + '</div><div class="mui-k">To collect</div></div>' +
+          '<div><div class="n">' + inh.length + '</div><div class="mui-k">In-house</div></div>' +
+        '</div></div>' +
+
+      '<div class="mui-card" style="padding:14px 16px 4px;">' +
+        '<div style="font:600 16px/1.2 \'Lora\',Georgia,serif;margin-bottom:2px;">Tasks</div>' +
+        task("Arriving today", arr.length, "today") +
+        task("Departing today", dep.length, "today") +
+        task("Balances to collect", balances.length, "collections") +
+        task("Deposits to return", deposits.length, "deposit") +
+        task("Payments to verify", verify.length, "collections") +
+      '</div>' +
+
+      '<div class="mui-grid">' +
+        act("+", "Add booking", "muiAdd()") +
+        act("₱", "Collect payment", "muiGo('collections')") +
+        act("▦", "Availability", "muiAvail()") +
+        act("✎", "Post notice", "muiGo('board')") +
+      '</div>' +
+
+      (chips ? '<div class="mui-card"><div style="font:600 15px/1.2 \'Lora\',Georgia,serif;margin-bottom:10px;">Collected today by method</div><div class="mui-chips">' + chips + '</div></div>' : "");
   }
+  // openModal() with no id is the dashboard's own "new booking" path — same as the + in the topbar.
+  window.muiAdd = function(){
+    if(typeof openModal === "function") return openModal();
+    muiGo("today");
+  };
+  window.muiAvail = function(){
+    muiGo("calendar");
+    try{ if(typeof calTab === "function") calTab("availability"); }catch(e){}
+  };
   // ---- More: EVERY page this user may open. This is the "nothing is lost" guarantee. ----
   function muiMore(){
     var el = document.getElementById("muiMore"); if(!el) return;

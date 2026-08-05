@@ -15,43 +15,72 @@
         }
 
         body{
-            background:#f5f5f5;
+            /* Pia's mobile design: warm cream, terracotta accent, serif wordmark. */
+            background:#f7f3ee;
             display:flex;
             justify-content:center;
             align-items:center;
-            height:100vh;
+            min-height:100vh;
+            min-height:100dvh;
+            margin:0;
+            padding:24px 18px calc(24px + env(safe-area-inset-bottom,0px));
+            box-sizing:border-box;
+            font-family:'Outfit',system-ui,-apple-system,'Segoe UI',sans-serif;
+            color:#2a201a;
         }
 
         .login-box{
-            background:white;
-            padding:40px;
-            border-radius:20px;
-            width:400px;
-            box-shadow:0 10px 30px rgba(0,0,0,.1);
+            background:transparent;
+            width:100%;
+            max-width:360px;
         }
 
-        h1{
-            text-align:center;
-            margin-bottom:30px;
+        .brand{ text-align:center; margin-bottom:30px; }
+        .brand .mark{
+            width:74px; height:74px; margin:0 auto 16px; border-radius:20px;
+            background:#241d1a; color:#c98a4b;
+            display:flex; align-items:center; justify-content:center;
+            font:600 34px/1 'Lora',Georgia,serif;
         }
+        .brand .wordmark{ font:600 30px/1.1 'Lora',Georgia,serif; color:#2a201a; }
+        .brand .sub{ font-size:11.5px; letter-spacing:.34em; color:#b4673c; margin-top:5px; font-weight:600; }
+
+        .lbl{ font-size:12.5px; color:#8b7868; margin:0 0 9px 2px; }
+        .who-row{ display:flex; gap:9px; margin-bottom:20px; flex-wrap:wrap; }
+        .who{
+            flex:1 1 0; min-width:96px; padding:11px 10px; cursor:pointer; text-align:center;
+            background:#fff; border:1px solid #ece3d8; border-radius:14px;
+            font:600 14px/1.2 inherit; color:#2a201a;
+        }
+        .who small{ display:block; font-weight:400; font-size:11px; color:#8b7868; margin-top:3px; }
+        .who.on{ background:#241d1a; color:#fff; border-color:#241d1a; }
+        .who.on small{ color:#c9b8a8; }
 
         input{
             width:100%;
-            padding:15px;
-            margin-bottom:15px;
-            border:1px solid #ddd;
-            border-radius:10px;
+            padding:15px 16px;
+            margin-bottom:12px;
+            border:1px solid #ece3d8;
+            border-radius:14px;
+            background:#fff;
+            font:400 15px/1.2 inherit;
+            color:#2a201a;
+            box-sizing:border-box;
         }
+        input:focus{ outline:none; border-color:#b4673c; }
 
         button{
             width:100%;
             padding:15px;
             border:none;
-            background:#ff385c;
+            background:#b4673c;
             color:white;
-            border-radius:10px;
+            border-radius:14px;
             cursor:pointer;
+            font:600 15px/1.2 inherit;
+            margin-top:6px;
         }
+        button:active{ background:#9c552f; }
 
     </style>
 </head>
@@ -59,13 +88,27 @@
 
     <div class="login-box">
 
-        <h1>Admin Login</h1>
+        <div class="brand">
+            <div class="mark">S</div>
+            <div class="wordmark">Staycation</div>
+            <div class="sub">HAVEN PH</div>
+        </div>
 
-        <input type="text" id="username" placeholder="Username" onkeydown="if(event.key==='Enter') login()">
+        <!-- "Sign in as" — names REMEMBERED ON THIS DEVICE only, never fetched from the server.
+             Pia's design listed the staff on the login screen, but this page is public: publishing
+             who works here tells a stranger exactly which usernames to try. A name appears here
+             only after someone has already signed in successfully on this phone, which gives the
+             same one-tap convenience and reveals nothing to anyone who hasn't. -->
+        <div id="whoWrap" style="display:none;">
+            <div class="lbl">Sign in as</div>
+            <div class="who-row" id="whoRow"></div>
+        </div>
 
-        <input type="password" id="password" placeholder="Password" onkeydown="if(event.key==='Enter') login()">
+        <input type="text" id="username" placeholder="Username" autocomplete="username" onkeydown="if(event.key==='Enter') document.getElementById('password').focus()">
 
-        <button onclick="login()">Login</button>
+        <input type="password" id="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter') login()">
+
+        <button onclick="login()">Sign in</button>
 
         <!-- REMOVED 2026-07-17: a "Locked out? Reset admin access" link that called recoverAdmin().
              It was public, on a public page, and needed no authentication of any kind: it read
@@ -81,6 +124,33 @@
 
 // recoverAdmin() lived here until 2026-07-17 — see the note in the markup above. Locked out now?
 // Run  node tools/reset-admin.js  on the machine that holds serviceAccountKey.json.
+
+/* "Sign in as" chips. Sourced ONLY from names that have already signed in successfully on THIS
+   device — never from the server. This page is public, so listing the real staff would hand a
+   stranger the usernames to try. Same one-tap convenience, nothing revealed. */
+var WHO_KEY = "shph_recent_logins";
+function whoList(){ try{ return JSON.parse(localStorage.getItem(WHO_KEY)) || []; }catch(e){ return []; } }
+function whoRemember(name){
+    if(!name) return;
+    var l = whoList().filter(function(x){ return x && x.toLowerCase() !== name.toLowerCase(); });
+    l.unshift(name);
+    try{ localStorage.setItem(WHO_KEY, JSON.stringify(l.slice(0, 3))); }catch(e){}
+}
+function whoPick(name){
+    document.getElementById("username").value = name;
+    [].forEach.call(document.querySelectorAll(".who"), function(b){ b.classList.toggle("on", b.dataset.n === name); });
+    document.getElementById("password").focus();
+}
+(function whoRender(){
+    var l = whoList(); if(!l.length) return;
+    var wrap = document.getElementById("whoWrap"), row = document.getElementById("whoRow");
+    if(!wrap || !row) return;
+    row.innerHTML = l.map(function(n){
+        var e = String(n).replace(/[&<>"']/g, function(c){ return { "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]; });
+        return '<div class="who" data-n="' + e + '" onclick="whoPick(\'' + e.replace(/'/g, "\\'") + '\')">' + e + '</div>';
+    }).join("");
+    wrap.style.display = "block";
+})();
 
 async function login(){
 
@@ -104,6 +174,7 @@ async function login(){
         const j = await res.json().catch(() => ({}));
         localStorage.removeItem("shph_partner_session");   // the two sessions are mutually exclusive
         localStorage.setItem("shph_current_user", j.name || username);
+        whoRemember(j.name || username);   // offer this name as a one-tap chip next time, on THIS device only
         logLogin(j.name || username);
         window.location.href = "/dashboard.html";
     } else if(res.status === 401){
