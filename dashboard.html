@@ -16765,6 +16765,14 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
 /* Mobile shell. Reuses the existing pages and functions — it only decides what a phone SEES. */
 (function(){
   "use strict";
+  // A link anyone can tap to flip the shell on or off, from any device, without hunting for a
+  // button: ?ui=new turns it on, ?ui=old turns it off. The in-page pill can be missed or not yet
+  // deployed; a URL always works, and it can be sent in a message.
+  try{
+    var _ui = new URLSearchParams(location.search).get("ui");
+    if(_ui === "new") localStorage.removeItem("shph_mobile_ui");
+    if(_ui === "old") localStorage.setItem("shph_mobile_ui", "off");
+  }catch(e){}
   var OFF = false;
   try{ OFF = localStorage.getItem("shph_mobile_ui") === "off"; }catch(e){}
   var isPhone = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
