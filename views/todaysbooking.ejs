@@ -2467,7 +2467,12 @@
     padding:7px 6px calc(7px + env(safe-area-inset-bottom,0px));
   }
   :root.mui2 .m-topbar{ display:none !important; }
+  /* The desktop appbar — breadcrumb, "+ Add booking", the [A] Logout pill — left a white strip and
+     an empty band above the content on a phone. Logout lives in More; + Add booking is a quick
+     action on Home. Both are reachable, so the strip only cost height. */
+  :root.mui2 .appbar{ display:none !important; }
   :root.mui2 body{ padding-top:0 !important; padding-bottom:86px !important; }
+  :root.mui2 .wrap, :root.mui2 .container{ padding-top:10px !important; }
   #muiBar2 a{
     flex:1; text-decoration:none; padding:6px 2px;
     display:flex; flex-direction:column; align-items:center; gap:4px;
