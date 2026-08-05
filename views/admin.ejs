@@ -66,7 +66,9 @@
             border:1px solid #ece3d8;
             border-radius:14px;
             background:#fff;
-            font:400 15px/1.2 inherit;
+            /* 16px is not a style choice: iOS Safari zooms the page whenever a focused input is
+               smaller than that, which is why tapping the box jumped the whole screen. */
+            font:400 16px/1.2 inherit;
             color:#2a201a;
             box-sizing:border-box;
         }
@@ -95,16 +97,6 @@
             <div class="mark"><img src="/images/logo.png" alt="Staycation Haven PH"></div>
             <div class="wordmark">Staycation</div>
             <div class="sub">HAVEN PH</div>
-        </div>
-
-        <!-- "Sign in as" — names REMEMBERED ON THIS DEVICE only, never fetched from the server.
-             Pia's design listed the staff on the login screen, but this page is public: publishing
-             who works here tells a stranger exactly which usernames to try. A name appears here
-             only after someone has already signed in successfully on this phone, which gives the
-             same one-tap convenience and reveals nothing to anyone who hasn't. -->
-        <div id="whoWrap" style="display:none;">
-            <div class="lbl">Sign in as</div>
-            <div class="who-row" id="whoRow"></div>
         </div>
 
         <input type="text" id="username" placeholder="Username" autocomplete="username" onkeydown="if(event.key==='Enter') document.getElementById('password').focus()">
@@ -139,20 +131,12 @@ function whoRemember(name){
     l.unshift(name);
     try{ localStorage.setItem(WHO_KEY, JSON.stringify(l.slice(0, 3))); }catch(e){}
 }
-function whoPick(name){
-    document.getElementById("username").value = name;
-    [].forEach.call(document.querySelectorAll(".who"), function(b){ b.classList.toggle("on", b.dataset.n === name); });
-    document.getElementById("password").focus();
-}
-(function whoRender(){
+// The most recent name is put straight into the username box — no chips. The row of them was
+// redundant next to a field that already showed the same name.
+(function prefill(){
     var l = whoList(); if(!l.length) return;
-    var wrap = document.getElementById("whoWrap"), row = document.getElementById("whoRow");
-    if(!wrap || !row) return;
-    row.innerHTML = l.map(function(n){
-        var e = String(n).replace(/[&<>"']/g, function(c){ return { "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]; });
-        return '<div class="who" data-n="' + e + '" onclick="whoPick(\'' + e.replace(/'/g, "\\'") + '\')">' + e + '</div>';
-    }).join("");
-    wrap.style.display = "block";
+    var u = document.getElementById("username");
+    if(u && !u.value) u.value = l[0];
 })();
 
 async function login(){
