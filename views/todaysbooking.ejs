@@ -2453,5 +2453,65 @@
     if(e.key === "shph_activity_log") renderTodayLog();
   });
 </script>
+<!-- Mobile shell bottom bar. This page lives outside dashboard.html, so it does not get that
+     document's shell — without this, tapping Today from the bottom bar landed here and the bar
+     vanished. Same look and same destinations; navigation is by URL because these are separate
+     documents. Off entirely when the shell is switched off, and on phones only. -->
+<div id="muiBar2"></div>
+<style>
+@media (max-width: 768px){
+  #muiBar2{ display:none; }
+  :root.mui2 #muiBar2{
+    display:flex; position:fixed; left:0; right:0; bottom:0; z-index:950;
+    background:#fff; border-top:1px solid #ece3d8;
+    padding:7px 6px calc(7px + env(safe-area-inset-bottom,0px));
+  }
+  :root.mui2 .m-topbar{ display:none !important; }
+  :root.mui2 body{ padding-top:0 !important; padding-bottom:86px !important; }
+  #muiBar2 a{
+    flex:1; text-decoration:none; padding:6px 2px;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    font:600 10.5px/1 Outfit,system-ui,sans-serif; color:#8b7868;
+  }
+  #muiBar2 a.on{ color:#b4673c; }
+  #muiBar2 svg{ width:21px; height:21px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+}
+@media (min-width: 769px){ #muiBar2{ display:none !important; } }
+</style>
+<script>
+(function(){
+  if(!window.matchMedia || !window.matchMedia("(max-width: 768px)").matches) return;
+  try{ if(localStorage.getItem("shph_mobile_ui") === "off") return; }catch(e){}
+  document.documentElement.classList.add("mui2");
+  var base = "/dashboard.html";
+  try{
+    // keep the signed-in user's own URL prefix (/Piaganda/…) so the links match the rest of the app
+    var seg = location.pathname.split("/").filter(Boolean);
+    if(seg.length > 1) base = "/" + seg[0] + "/";
+  }catch(e){}
+  var go = function(slug){ return (base === "/dashboard.html") ? ("/dashboard.html?p=" + slug) : (base + slug); };
+  var I = {
+    home:'<svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>',
+    today:'<svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>',
+    cal:'<svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18"/><circle cx="12" cy="15" r="1.8"/></svg>',
+    peso:'<svg viewBox="0 0 24 24"><path d="M7 20V5h5a4.5 4.5 0 0 1 0 9H7"/><path d="M5 9.5h10M5 12.5h10"/></svg>',
+    form:'<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
+    more:'<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>'
+  };
+  var items = [
+    ["", "Home", I.home, "/dashboard.html"],
+    ["todays-booking", "Today", I.today, null],
+    ["calendar-bookings", "Calendar", I.cal, null],
+    ["collection-reports", "Collect", I.peso, null],
+    ["guest-form", "Guest form", I.form, null],
+    ["", "More", I.more, "/dashboard.html"]
+  ];
+  document.getElementById("muiBar2").innerHTML = items.map(function(it){
+    var href = it[3] ? it[3] : (base === "/dashboard.html" ? "/admin/" + it[0] : base + it[0]);
+    var on = it[1] === "Today" ? " on" : "";
+    return '<a class="' + on.trim() + '" href="' + href + '">' + it[2] + '<span>' + it[1] + '</span></a>';
+  }).join("");
+})();
+</script>
 </body>
 </html>
