@@ -360,7 +360,11 @@
       aMerged.sort(function (a, b) { return String((a && a.at) || "").localeCompare(String((b && b.at) || "")); });
       if (aMerged.length > 800) aMerged = aMerged.slice(-800);   // recent window for this device; server keeps the full log
       safeSet(k, JSON.stringify(aMerged));
-      if (aAddedLocal) push(k, JSON.stringify(aMerged));         // re-send local-only entries so the server absorbs them
+      // Deliberately NO re-push here. The seed carries only a recent TAIL of the log (the full
+      // history is fetched on demand by the Log page), so this browser will always hold entries the
+      // seed lacks — re-pushing on that basis queued the whole log on every single page load and
+      // left a permanent "not yet saved" banner. New entries still reach the server: logActivity
+      // writes through the wrapped setItem, and the server merges them per entry.
       return;
     }
     // Merged list stores: NEVER let the server copy silently drop a record this browser saved
