@@ -2458,9 +2458,23 @@
      vanished. Same look and same destinations; navigation is by URL because these are separate
      documents. Off entirely when the shell is switched off, and on phones only. -->
 <div id="muiBar2"></div>
+<button id="muiAdd2" onclick="openAdd()" aria-label="Add booking">+</button>
 <style>
 @media (max-width: 768px){
   #muiBar2{ display:none; }
+  /* The + that used to live in .m-topbar. Hiding that bar took Add Booking off this page entirely
+     — the Home quick action was the only one left, so from Today's Booking there was no way to
+     add anything. Same action, floating above the bottom bar. */
+  #muiAdd2{ display:none; }
+  :root.mui2 #muiAdd2{
+    display:flex; align-items:center; justify-content:center;
+    position:fixed; right:15px; bottom:calc(76px + env(safe-area-inset-bottom,0px)); z-index:940;
+    width:54px; height:54px; border:0; border-radius:50%; cursor:pointer;
+    background:var(--hv-terra,#b4673c); color:#fff; font:300 31px/1 Arial,Helvetica,sans-serif;
+    box-shadow:0 6px 18px rgba(180,103,60,.4);
+  }
+  /* this page's modals sit at z-index 60 — below the bar, which then covered their buttons */
+  :root.mui2 .overlay{ z-index:1000; }
   :root.mui2 #muiBar2{
     display:flex; position:fixed; left:0; right:0; bottom:0; z-index:950;
     background:#fff; border-top:1px solid #ece3d8;
@@ -2481,7 +2495,7 @@
   #muiBar2 a.on{ color:#b4673c; }
   #muiBar2 svg{ width:21px; height:21px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
 }
-@media (min-width: 769px){ #muiBar2{ display:none !important; } }
+@media (min-width: 769px){ #muiBar2, #muiAdd2{ display:none !important; } }
 </style>
 <script>
 (function(){
@@ -2516,6 +2530,14 @@
     var on = it[1] === "Today" ? " on" : "";
     return '<a class="' + on.trim() + '" href="' + href + '">' + it[2] + '<span>' + it[1] + '</span></a>';
   }).join("");
+  // don't offer the + to someone who would only be told "no" — checked once the lists are loaded
+  setTimeout(function(){
+    try{
+      if(typeof canAddBooking === "function" && !canAddBooking()){
+        var f = document.getElementById("muiAdd2"); if(f) f.style.visibility = "hidden";
+      }
+    }catch(e){}
+  }, 1200);
 })();
 </script>
 </body>

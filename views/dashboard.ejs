@@ -16764,12 +16764,31 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
   :root.mui .main, :root.mui .content{ padding-top:0 !important; margin-top:0 !important; }
   .mui-av{ width:34px; height:34px; border-radius:11px; background:var(--mui-soft);
     display:flex; align-items:center; justify-content:center; font:600 14px/1 Arial,Helvetica,sans-serif; color:var(--mui-acc); }
+  /* The bar hangs off .muib, NOT .mui. Guest Form takes the .mui layout overrides off (see
+     muiShellFor) — and while that class carried the bar too, that screen lost its navigation
+     entirely with no way back out. .muib says "the shell is on"; .mui says "restyle this page". */
   #muiBar{ display:none; }
-  :root.mui #muiBar{
+  :root.muib #muiBar{
     display:flex; position:fixed; left:0; right:0; bottom:0; z-index:950;
     background:#fff; border-top:1px solid var(--mui-line);
     padding:7px 6px calc(7px + env(safe-area-inset-bottom,0px));
   }
+  /* Add booking, reachable from EVERY screen. The old .m-topbar carried a + on every page and the
+     shell hides that bar, which left the Home quick action as the only way in — so the moment Pia
+     was on Today's Booking or anywhere else, adding a booking was simply gone. This puts the same
+     action back, floating just above the bottom bar. */
+  #muiAdd{ display:none; }
+  :root.muib #muiAdd{
+    display:flex; align-items:center; justify-content:center;
+    position:fixed; right:15px; bottom:calc(76px + env(safe-area-inset-bottom,0px)); z-index:940;
+    width:54px; height:54px; border:0; border-radius:50%; cursor:pointer;
+    background:var(--mui-acc,#b4673c); color:#fff; font:300 31px/1 Arial,Helvetica,sans-serif;
+    box-shadow:0 6px 18px rgba(180,103,60,.4);
+  }
+  :root.muib #muiAdd:active{ background:#9c552f; }
+  /* Modals must sit ABOVE the bottom bar and the + — at z-index 50 the bar covered the Add Booking
+     form's Save row, so the form opened but could not be finished. */
+  :root.muib .overlay{ z-index:1000; }
   #muiBar button{
     flex:1; background:none; border:0; cursor:pointer; padding:6px 2px;
     display:flex; flex-direction:column; align-items:center; gap:4px;
@@ -16813,10 +16832,11 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
   .mui-chip .m{ font:500 11.5px/1 Arial,Helvetica,sans-serif; color:var(--mui-mut); }
   .mui-chip .a{ font:700 15px/1.1 Arial,Helvetica,sans-serif; color:var(--mui-ink); margin-top:5px; }
 }
-@media (min-width: 769px){ #muiTop, #muiBar{ display:none !important; } }
+@media (min-width: 769px){ #muiTop, #muiBar, #muiAdd{ display:none !important; } }
 </style>
 <div class="page" id="page-mhome"><div class="mui-wrap" id="muiHome"></div></div>
 <div class="page" id="page-mmore"><div class="mui-wrap" id="muiMore"></div></div>
+<button id="muiAdd" onclick="muiAdd()" aria-label="Add booking">+</button>
 <div id="muiBar"></div>
 <script>
 /* Mobile shell. Reuses the existing pages and functions — it only decides what a phone SEES. */
@@ -16840,6 +16860,7 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
   if(OFF) return;
   if(!isPhone) return;
   document.documentElement.classList.add("mui");
+  document.documentElement.classList.add("muib");   // "shell is on" — survives pages that drop .mui
 
   var ico = {
     home:'<svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>',
@@ -16903,8 +16924,20 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
   function muiShellFor(p){
     document.documentElement.classList.toggle("mui", p !== "guestform");
   }
+  // The + is hidden for anyone who may not create a booking, and on the two screens that are
+  // already a form of their own (Guest Form) or where it would cover the page's own controls.
+  var _muiPage = "";
+  function muiFab(p){
+    _muiPage = p;
+    var b = document.getElementById("muiAdd"); if(!b) return;
+    var ok = true;
+    try{ if(typeof canAddBooking === "function") ok = !!canAddBooking(); }catch(e){}
+    if(p === "guestform") ok = false;
+    b.style.visibility = ok ? "" : "hidden";
+  }
   window.muiSync = function(p){
     muiShellFor(p);
+    muiFab(p);
     var bar = document.getElementById("muiBar"); if(!bar) return;
     [].forEach.call(bar.querySelectorAll("button"), function(b){ b.classList.toggle("on", b.dataset.p === p); });
     if(p === "mhome") muiHome();
@@ -17031,6 +17064,9 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
   function start(){
     bar();
     muiGo("mhome");
+    // canAddBooking() reads the payroll/permission lists, which may not be loaded on the very first
+    // paint — re-ask once they are, so the + doesn't stay hidden from someone who is allowed it.
+    setTimeout(function(){ muiFab(_muiPage); }, 1500);
   }
   if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else setTimeout(start, 0);
