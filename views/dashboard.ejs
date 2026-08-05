@@ -16734,6 +16734,11 @@ try{ if(typeof applyPermissions === "function") applyPermissions(); }catch(e){}
   :root.mui .sidebar{ display:none !important; }
   :root.mui .main, :root.mui .content{ margin-left:0 !important; padding-left:0 !important; padding-right:0 !important; }
   :root.mui .page{ padding:0 14px 92px; }
+  /* Guest Form keeps its ORIGINAL geometry. Its photo tools measure touch positions against their
+     own container, and re-padding the page moved those coordinates out from under the drag — photos
+     stopped being editable on the new layout and worked on the old. The bottom bar stays; only the
+     layout overrides are lifted here, so nothing about that screen is second-guessed. */
+  :root.mui #page-guestform{ padding:0 0 92px !important; }
   /* The phone ALREADY has a top bar (.m-topbar — the "Current page" picker and +). Adding another
      put three strips of chrome above the content, and mine, being last in the document, rendered
      at the BOTTOM of the page. Use the one that exists; the shell only supplies the bottom bar. */
