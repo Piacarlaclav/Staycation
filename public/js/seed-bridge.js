@@ -124,6 +124,7 @@
   // past this and still gets reported.
   var BANNER_GRACE_MS = 4000;
   var pendingSince = {};   // key -> when it first went unsaved
+  var bannerHidden = false;   // dismissed for this page view; retries carry on regardless
   function unsavedCount() {
     var n = 0, now = Date.now();
     for (var k in pending) {
@@ -153,12 +154,20 @@
     } catch (e) { return true; }
   }
   function updateBanner() {
-    var n = bannerAllowed() ? unsavedCount() : 0;
+    var n = (bannerAllowed() && !bannerHidden) ? unsavedCount() : 0;
     try {
       if (n > 0) {
         if (!banner && document.body) {
+          // Compact, and TAPPABLE TO DISMISS. It used to be a full-width block pinned to bottom:0
+          // with the highest z-index in the document, so on a phone it covered the bottom
+          // navigation entirely and — for a write that stays stuck — never went away. A warning
+          // that hides the controls and cannot be closed stops being a warning.
           banner = document.createElement("div");
-          banner.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:2147483647;background:#c0283d;color:#fff;font:600 13px/1.45 system-ui,Segoe UI,Arial,sans-serif;padding:11px 16px;text-align:center;box-shadow:0 -2px 12px rgba(0,0,0,.25)";
+          banner.style.cssText = "position:fixed;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));" +
+            "z-index:2147483000;background:#c0283d;color:#fff;font:600 12px/1.35 system-ui,Segoe UI,Arial,sans-serif;" +
+            "padding:9px 34px 9px 12px;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.25);cursor:pointer;";
+          banner.title = "Tap to hide — it keeps saving in the background";
+          banner.onclick = function(){ bannerHidden = true; banner.style.display = "none"; };
           document.body.appendChild(banner);
         }
         if (banner) {
