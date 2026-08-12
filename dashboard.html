@@ -11479,6 +11479,7 @@ function openDepReturn(id){
     depReturnId = id;
     depCurrentDeposit = Number(b.deposit || 0);
     depProofData = b.depositProof || null;   // keep existing proof when managing a returned one
+    depStartProofUpload(depProofData);       // an existing proof is already a link — nothing to send
     document.getElementById("depRetEyebrow").textContent = "Booking #" + bookingCode(bookings.find(x => x.id === id));
     document.getElementById("depRetTitle").textContent = returned ? "Manage Security Deposit" : "Return Security Deposit";
     document.getElementById("depRetInfo").innerHTML =
@@ -11516,7 +11517,26 @@ function undoFromModal(){
 }
 function closeDepReturn(){
     depReturnId = null; depProofData = null;
+    depProofRef = null; _depProofUp = null;
     document.getElementById("depOverlay").classList.remove("show");
+}
+// The refund photo is uploaded the MOMENT it is attached, not when "Mark returned" is tapped.
+// Both used to happen on the button press — upload the photo, then save the booking — so Pia sat
+// through two round trips with the button still reading "Mark returned". It looked frozen and got
+// tapped again. By the time the form is filled in, the upload is normally already done.
+let _depProofUp = null;    // promise for the in-flight upload
+let depProofRef  = null;   // the tiny /img link, once it lands
+function depStartProofUpload(dataUrl){
+    depProofRef = null; _depProofUp = null;
+    if(!dataUrl) return;
+    if(dataUrl.indexOf("data:image") !== 0){ depProofRef = dataUrl; return; }   // already a link
+    _depProofUp = (async () => {
+        try{
+            const r = await fetch("/api/img", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ data: dataUrl }) });
+            if(r.ok){ const j = await r.json(); if(j && j.url){ depProofRef = j.url; return; } }
+        }catch(e){}
+        depProofRef = null;   // failed — confirmDepReturn falls back to uploading at save time
+    })();
 }
 function applyDepProof(f){
     if(!f || !/^image\//.test(f.type)) return;
@@ -11526,6 +11546,7 @@ function applyDepProof(f){
         const prev = document.getElementById("depProofPreview");
         prev.src = dataUrl; prev.style.display = "block";
         document.getElementById("depConfirmBtn").disabled = false;
+        depStartProofUpload(dataUrl);   // get it onto the server while she finishes the form
     });
 }
 function onDepProofChange(input){ if(input.files[0]) applyDepProof(input.files[0]); }
@@ -11542,11 +11563,19 @@ async function confirmDepReturn(){
     const add = Number(document.getElementById("depAddAmt").value) || 0;
     const refund = Math.max(0, Number(b.deposit || 0) - cost + add);
     _depSaving = true;
+    // Say something IMMEDIATELY. This does two network round trips; with the label unchanged the
+    // whole wait read as "nothing happened" and the button got tapped again.
+    const _btn = document.getElementById("depConfirmBtn");
+    const _btnTxt = _btn ? _btn.textContent : "";
+    if(_btn){ _btn.disabled = true; _btn.textContent = "Saving…"; }
     try{
-        // 1) offload the refund-proof photo to a tiny /img link
-        let proofRef = depProofData;
-        if(depProofData && depProofData.indexOf("data:image") === 0){
-            try{ const r = await fetch("/api/img", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ data: depProofData }) }); if(r.ok){ const j = await r.json(); if(j && j.url) proofRef = j.url; } }catch(e){}
+        // 1) the photo went up when it was attached — normally this is already resolved
+        let proofRef = depProofRef;
+        if(!proofRef && _depProofUp){ try{ await _depProofUp; }catch(e){} proofRef = depProofRef; }
+        // fallback: the early upload never ran or failed, so send it now
+        if(!proofRef) proofRef = depProofData;
+        if(proofRef && proofRef.indexOf("data:image") === 0){
+            try{ const r = await fetch("/api/img", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ data: proofRef }) }); if(r.ok){ const j = await r.json(); if(j && j.url) proofRef = j.url; } }catch(e){}
         }
         const set = {
             depositReturned: true, depositProof: proofRef,
@@ -11570,7 +11599,10 @@ async function confirmDepReturn(){
         logActivity(`returned security deposit — booking #${bookingCode(b)} ${b.haven} (${primaryName(b)}) · refunded ${peso(refund)}${dedTxt}${addTxt} via ${set.depositMop}`);
         closeDepReturn();
         renderDeposit();
-    } finally { _depSaving = false; }
+    } finally {
+        _depSaving = false;
+        if(_btn){ _btn.disabled = false; _btn.textContent = _btnTxt; }   // usable again if it failed
+    }
 }
 // drag & drop onto the refund-proof card
 (function initDepDnd(){
