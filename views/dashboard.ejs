@@ -7385,13 +7385,15 @@ function readGuests(){
 function stayOptions(){
     const s = ((typeof loadSettings === "function" ? loadSettings() : null) || {}).pricing || {};
     const on = k => s[k] !== false;   // offered unless explicitly turned off
+    // Label each day-use tier with the rate that will ACTUALLY be charged for the chosen
+    // check-in date. A flat "₱999" on a Saturday (or a holiday) reads as plainly wrong next
+    // to a bill that says something else — baseRate() is the very function that bills, so
+    // the dropdown and the total can never disagree.
+    const ci = (document.getElementById("f_checkin") || {}).value || "";
+    const dayUse = h => peso(ci ? baseRate(h, ci) : (h === 6 ? PRICING.stay6 : PRICING.stay10));
     const out = [];
-    if(on("offer6"))  out.push([6,  `6 hrs — ${peso(PRICING.stay6)}`]);
-    if(on("offer10")){
-        out.push([10, PRICING.stay10Sat !== PRICING.stay10
-            ? `10 hrs — ${peso(PRICING.stay10)} / ${peso(PRICING.stay10Sat)} (Sabado)`
-            : `10 hrs — ${peso(PRICING.stay10)}`]);
-    }
+    if(on("offer6"))  out.push([6,  `6 hrs — ${dayUse(6)}`]);
+    if(on("offer10")) out.push([10, `10 hrs — ${dayUse(10)}`]);
     if(on("offer21")){
         out.push([21, `21 hrs — ${peso(PRICING.stay21Weekday)} / ${peso(PRICING.stay21Weekend)} (Fri–Sat)`]);
         out.push(["multi", "Multiple nights — set check-out date"]);
