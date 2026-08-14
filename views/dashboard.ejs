@@ -2565,7 +2565,8 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <h3><span class="sec-ico"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span>Stay rates <span class="unit">(₱)</span></h3>
         <div class="settings-form">
             <label>6 hours<span class="peso"><input type="number" id="s_stay6"></span></label>
-            <label>10 hours<span class="peso"><input type="number" id="s_stay10"></span></label>
+            <label>10 hours · Sun–Fri<span class="peso"><input type="number" id="s_stay10"></span></label>
+            <label>10 hours · Sabado<span class="peso"><input type="number" id="s_stay10Sat"></span></label>
             <label>21 hours · Sun–Thu<span class="peso"><input type="number" id="s_stay21Weekday"></span></label>
             <label>21 hours · Fri/Sat<span class="peso"><input type="number" id="s_stay21Weekend"></span></label>
             <label>3+ nights · Sun–Thu (per night)<span class="peso"><input type="number" id="s_longWeekday"></span></label>
@@ -4723,7 +4724,8 @@ function checkoutSortKey(b){
 /* ---------- pricing ---------- */
 const PRICING = {
     stay6: 999,            // legacy day-use tier (kept for old bookings; hidden via offer6=false)
-    stay10: 999,           // Jul–Aug promo: 10-hour day-use
+    stay10: 999,           // Jul–Aug promo: 10-hour day-use (Sun–Fri)
+    stay10Sat: 1599,       // 10-hour day-use on a SATURDAY only — Friday stays on stay10
     stay21Weekday: 1599,   // Sunday–Thursday
     stay21Weekend: 2099,   // Friday or Saturday (based on check-in day)
     longWeekday: 1599,     // 3+ nights · Sunday–Thursday (per night)
@@ -4751,6 +4753,12 @@ const HOLIDAYS = new Set([
     "2026-12-08", "2026-12-25", "2026-12-30", "2026-12-31"
 ]);
 function isHoliday(dIso){ return HOLIDAYS.has(dIso); }
+// Is this YYYY-MM-DD a Saturday? Day-use is priced differently on Saturdays.
+function isSatIso(dIso){
+    if(!dIso) return false;
+    const d = new Date(dIso + "T00:00:00");
+    return !isNaN(d) && d.getDay() === 6;
+}
 // does any night (or the day-use date) of this booking fall on a holiday?
 function bookingIsHoliday(b){
     if(!b || !b.checkin) return false;
@@ -4767,7 +4775,7 @@ function syncPricingFromSettings(){
     try{
         const p = ((typeof loadSettings === "function" ? loadSettings() : null) || {}).pricing || {};
         const map = {
-            stay6:"stay6", stay10:"stay10", stay21Weekday:"stay21Weekday", stay21Weekend:"stay21Weekend",
+            stay6:"stay6", stay10:"stay10", stay10Sat:"stay10Sat", stay21Weekday:"stay21Weekday", stay21Weekend:"stay21Weekend",
             longWeekday:"longWeekday", longWeekend:"longWeekend", holidayNight:"holidayNight", holidayDayUse:"holidayDayUse",
             deposit:"deposit", includedPax:"baseIncludedPax", addPax:"addPax",
             poolRegular:"swimRegular", poolHoliday:"swimHoliday", extraHour:"extendPerHr", towelRate:"towel"
@@ -4894,7 +4902,10 @@ function baseRate(stayHours, checkinIso, checkoutIso){
     stayHours = Number(stayHours);
     if(stayHours === 6 || stayHours === 10){
         if(isHoliday(checkinIso)) return PRICING.holidayDayUse;   // day-use on a holiday
-        return stayHours === 6 ? PRICING.stay6 : PRICING.stay10;
+        if(stayHours === 6) return PRICING.stay6;
+        // Saturday 10-hour day-use has its own rate (Pia, 2026-08-05). Saturday ONLY —
+        // Friday is a weekend night for the 21h tier but not for day-use.
+        return isSatIso(checkinIso) ? PRICING.stay10Sat : PRICING.stay10;
     }
     if(stayHours === 21){
         const co = checkoutIso || iso(addDays(new Date(checkinIso + "T00:00:00"), 1));
@@ -7367,17 +7378,20 @@ function readGuests(){
     }).filter(g => g.name);
 }
 
-// limit time-of-stay options by check-in day: Sat = 21h only; Sun–Fri = 6/10/21h
-// (admins are exempt — they may book 6h/10h on Saturdays too, e.g. for a free morning slot)
 // Stay options are built from the LIVE rates (PRICING, synced from the Rates & Add-ons
 // settings) and which durations the owner offers (offer6/offer10/offer21 toggles), so the
 // prices shown always match what's charged and a disabled duration (e.g. 6-hour) drops out.
+// Saturday no longer restricts the list — 10-hour day-use is sold every day (Pia, 2026-08-05).
 function stayOptions(){
     const s = ((typeof loadSettings === "function" ? loadSettings() : null) || {}).pricing || {};
     const on = k => s[k] !== false;   // offered unless explicitly turned off
     const out = [];
     if(on("offer6"))  out.push([6,  `6 hrs — ${peso(PRICING.stay6)}`]);
-    if(on("offer10")) out.push([10, `10 hrs — ${peso(PRICING.stay10)}`]);
+    if(on("offer10")){
+        out.push([10, PRICING.stay10Sat !== PRICING.stay10
+            ? `10 hrs — ${peso(PRICING.stay10)} / ${peso(PRICING.stay10Sat)} (Sabado)`
+            : `10 hrs — ${peso(PRICING.stay10)}`]);
+    }
     if(on("offer21")){
         out.push([21, `21 hrs — ${peso(PRICING.stay21Weekday)} / ${peso(PRICING.stay21Weekend)} (Fri–Sat)`]);
         out.push(["multi", "Multiple nights — set check-out date"]);
@@ -7387,13 +7401,15 @@ function stayOptions(){
 }
 function updateStayOptions(keep){
     const sel = document.getElementById("f_stay");
-    const checkin = document.getElementById("f_checkin").value;
-    const wd = checkin ? new Date(checkin + "T00:00:00").getDay() : 1; // 6 = Saturday
-    let opts = stayOptions();
-    if(wd === 6 && !isAdminUser()) opts = opts.filter(o => o[0] === 21 || o[0] === "multi");
+    // Saturday used to be filtered down to 21h for anyone who wasn't an admin. 10-hour
+    // day-use is now sold on Saturdays too (at PRICING.stay10Sat), so CSRs get the full list.
+    const opts = stayOptions();
     const want = String(keep != null ? keep : sel.value);
     sel.innerHTML = opts.map(o => `<option value="${o[0]}">${o[1]}</option>`).join("");
     sel.value = opts.some(o => String(o[0]) === want) ? want : String(opts[0][0]);
+    // the check-in list depends on the duration (10h = two fixed schedules), and this runs
+    // AFTER f_stay has its real value — openModal calls fillCheckinTimes before that
+    fillCheckinTimes();
 }
 function onCheckinChange(){
     updateStayOptions();
@@ -7405,15 +7421,29 @@ function onCheckinChange(){
 // END of the stored date (dashCheckinMin coerces 0 → 1440), so "Aug 10 · 12:00 MN" actually means
 // Aug 11 00:00 — the booking then vanishes from Aug 10 on the Timeline and confuses staff. One
 // minute past midnight carries the obvious meaning and dodges the coercion entirely.
+// The 10-hour tier sells on two fixed schedules only (8:00 AM → 6:00 PM, or 7:00/8:00 PM →
+// 5:00/6:00 AM), so the picker offers those and nothing else. "Custom time…" is kept on
+// purpose: this is the back office, and a walk-in or a make-good still has to be recordable.
+// Every other duration keeps the full 24-hour list it always had.
 function fillCheckinTimes(){
     const sel = document.getElementById("f_checkinTime");
+    const keep = sel.value;
+    const stay = document.getElementById("f_stay");
+    const tenOnly = stay && String(stay.value) === "10";
     let html = "";
-    for(let h = 0; h < 24; h++){
-        const t = h === 0 ? "12:01 MN" : minToTime(h * 60);
-        html += `<option value="${t}">${t}</option>`;
+    if(tenOnly){
+        const T = (typeof SHB !== "undefined" && SHB.TEN_HOUR_TIMES) ? SHB.TEN_HOUR_TIMES : ["8:00 AM", "7:00 PM", "8:00 PM"];
+        html = T.map(t => `<option value="${t}">${t}</option>`).join("");
+    } else {
+        for(let h = 0; h < 24; h++){
+            const t = h === 0 ? "12:01 MN" : minToTime(h * 60);
+            html += `<option value="${t}">${t}</option>`;
+        }
     }
     html += `<option value="__custom__">Custom time…</option>`;
     sel.innerHTML = html;
+    // keep the admin's current choice when it is still on offer
+    if(keep && [].some.call(sel.options, o => o.value === keep)) sel.value = keep;
 }
 function dashCheckinMin(timeStr){ const m = parseTimeMin(timeStr); if(m == null) return 540; return m === 0 ? 1440 : m; }
 // toggle the free time input when "Custom time…" is picked
@@ -7689,6 +7719,7 @@ function setActualCheckout(min){
 function onActualCheckoutChange(){ updateHavenOptions(); }
 
 function onStayChange(){
+    fillCheckinTimes();          // 10h offers only its two schedules — rebuild before pricing reads the time
     setCheckoutEditable(stayIsMulti());
     recomputeDashCheckout();
     recalc();
@@ -8881,12 +8912,8 @@ async function saveBooking(){
         alert("For multiple nights, the check-out date must be at least one day after check-in.");
         return;
     }
-    // Saturday check-ins are 21 hours only — admins are exempt (may book 6h/10h too)
-    const checkinWd = new Date(checkin + "T00:00:00").getDay();
-    if(checkinWd === 6 && stayHours !== 21 && !isAdminUser()){
-        alert("Saturday check-ins are 21 hours only.");
-        return;
-    }
+    // The old "Saturday check-ins are 21 hours only" block is gone (Pia, 2026-08-05):
+    // 10-hour day-use is sold on Saturdays now, at its own rate (PRICING.stay10Sat).
     // Dashboard staff (admins and front desk alike) may book ANY check-in time — there is no
     // 9:00 AM floor here. The public website (booknow) keeps its own 9:00 AM minimum separately.
 
@@ -15777,6 +15804,7 @@ function fillBookingSettings(){
     const p = s.pricing;
     setVal("s_stay6", p.stay6);
     setVal("s_stay10", p.stay10);
+    setVal("s_stay10Sat", p.stay10Sat);
     setVal("s_stay21Weekday", p.stay21Weekday);
     setVal("s_stay21Weekend", p.stay21Weekend);
     setVal("s_longWeekday", p.longWeekday);
@@ -15957,6 +15985,7 @@ function saveBookingSettings(){
     Object.assign(s.pricing, {
         stay6: getNum("s_stay6"),
         stay10: getNum("s_stay10"),
+        stay10Sat: getNum("s_stay10Sat"),
         stay21Weekday: getNum("s_stay21Weekday"),
         stay21Weekend: getNum("s_stay21Weekend"),
         longWeekday: getNum("s_longWeekday"),

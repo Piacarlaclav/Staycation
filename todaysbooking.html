@@ -2213,7 +2213,7 @@
     var out = [[6,"offer6"],[10,"offer10"],[21,"offer21"]].filter(function(x){ return p[x[1]] !== false; }).map(function(x){ return x[0]; });
     return out.length ? out : [21];
   }
-  const PRICING = { stay6:999, stay10:1599, stay21Weekday:1799, stay21Weekend:2099, swimRegular:150, swimHoliday:300,
+  const PRICING = { stay6:999, stay10:1599, stay10Sat:1599, stay21Weekday:1799, stay21Weekend:2099, swimRegular:150, swimHoliday:300,
     towel:50, extendPerHr:150, deposit:1000, baseIncludedPax:2, addPax:300, addPaxMinAge:5, maxPax:5, maxAdults:4, maxKids:2, kidMaxAge:13 };
   const STAY_OPTIONS = [[6,"6 hrs — ₱999"],[10,"10 hrs — ₱1,599"],[21,"21 hrs — ₱1,799 / ₱2,099 (Fri–Sat)"]];
 
@@ -2223,7 +2223,8 @@
   function baseRate(stayHours, checkinIso){
     stayHours = Number(stayHours);
     if(stayHours === 6) return PRICING.stay6;
-    if(stayHours === 10) return PRICING.stay10;
+    // 10-hour day-use on a SATURDAY has its own rate (Pia, 2026-08-05) — Saturday only
+    if(stayHours === 10){ const wd = new Date(checkinIso + "T00:00:00").getDay(); return wd === 6 ? PRICING.stay10Sat : PRICING.stay10; }
     if(stayHours === 21){ const wd = new Date(checkinIso + "T00:00:00").getDay(); return (wd === 5 || wd === 6) ? PRICING.stay21Weekend : PRICING.stay21Weekday; }
     return 0;
   }
@@ -2376,7 +2377,7 @@
     if(kids > PRICING.maxKids){ alert(`Maximum of ${PRICING.maxKids} kids (0–13 yrs) per unit.`); return; }
     if(!checkin || !checkout || checkout < checkin){ alert("Please enter a valid check-in and check-out date."); return; }
     const stayHours = Number(document.getElementById("a_stay").value);
-    if(new Date(checkin + "T00:00:00").getDay() === 6 && stayHours !== 21){ alert("Saturday check-ins are 21 hours only."); return; }
+    // Saturday is no longer overnight-only — 10-hour day-use sells then too (Pia, 2026-08-05)
     const checkinTime = aCheckinTimeValue();
     const data = {
       haven: document.getElementById("a_haven").value,

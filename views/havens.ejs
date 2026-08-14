@@ -547,11 +547,16 @@ function computeBooking() {
             days = nights;
             lines.push([`21 hours × ${nights} night${nights > 1 ? "s" : ""}`, base]);
         } else {
-            // 6 or 10 hour short stay (may cross midnight) — flat rate
+            // 6 or 10 hour short stay (may cross midnight) — flat rate.
+            // A 10-hour stay checking in on a SATURDAY has its own rate (Pia, 2026-08-05).
+            // Saturday only — Friday is a weekend night for the 21h tier, not for day-use.
             const holiday = isHoliday(selStart);
-            base = holiday ? PRICE.holidayDayUse : (hours === 6 ? PRICE.stay6 : PRICE.stay10);
+            const sat = isoToDate(selStart).getDay() === 6;
+            const dayUse = hours === 6 ? PRICE.stay6
+                         : (sat && PRICE.stay10Sat != null ? PRICE.stay10Sat : PRICE.stay10);
+            base = holiday ? PRICE.holidayDayUse : dayUse;
             days = 1;
-            lines.push([`${hours} hours${holiday ? " (holiday)" : ""}`, base]);
+            lines.push([`${hours} hours${holiday ? " (holiday)" : sat && hours === 10 ? " (Saturday)" : ""}`, base]);
         }
     }
 
@@ -603,18 +608,10 @@ function updateHoursOptions() {
         return;
     }
 
-    // Saturday check-ins are 21-hour (overnight) only — no 6h or 10h
-    if (isoToDate(selStart).getDay() === 6) {
-        sel.disabled = false;
-        if (freeCheckinTimes(21, selStart, addons.hours).length) {
-            sel.innerHTML = `<option value="21">21 hours (overnight)</option>`;
-            sel.value = "21";
-        } else {
-            sel.innerHTML = `<option value="">Fully booked for this date</option>`;
-            sel.disabled = true;
-        }
-        return;
-    }
+    // Saturday used to be forced to 21-hour overnight here — no 6h or 10h day-use at all.
+    // Pia opened Saturday to 10-hour bookings on 2026-08-05 (priced at PRICE.stay10Sat), so
+    // Saturday now goes through the same "does any check-in time still fit?" test as any
+    // other day. Nothing special about it any more.
 
     // only offer a duration if at least one check-in time still fits it
     // (respecting existing bookings + the 2-hour cleaning gap)
@@ -663,13 +660,9 @@ function updateCheckinTimeOptions() {
         return;
     }
 
-    // Saturday 21-hour overnight uses the haven's single standard check-in time
-    const day = checkinDateDay();
-    if (hours === 21 && day === 6 && free.length === 1) {
-        sel.innerHTML = `<option value="${free[0]}">${free[0]} (standard)</option>`;
-        sel.disabled = true;
-        return;
-    }
+    // Saturday 21-hour overnight used to be pinned to the haven's one standard check-in time
+    // and the dropdown was disabled. Pia made 21 hours flexible every day (2026-08-05), so the
+    // guest picks their own hour on a Saturday too — the list below is the whole rule now.
 
     const prev = sel.value;
     sel.disabled = false;
@@ -810,16 +803,18 @@ function renderCheckinInfo() {
     const el = document.getElementById("checkinInfo");
     if (!selStart) { el.innerHTML = ""; return; }
 
-    const day = isoToDate(selStart).getDay();                 // 0 Sun … 6 Sat
-    const overnight = manualRange || Number(document.getElementById("hoursOfStay").value) === 21;
+    const hours = Number(document.getElementById("hoursOfStay").value);
 
-    if (overnight && (day === 0 || day === 6)) {
-        // standard fixed schedule for weekend overnight stays
+    if (manualRange) {
+        // a multi-night range still runs on the haven's fixed standard schedule
         const t = havenTimes(currentHavenName);
         const out = t ? t.out : "standard time";
-        el.innerHTML = `<span class="ci-time">Standard weekend schedule — check-out <strong>${out}</strong>.</span>`;
+        el.innerHTML = `<span class="ci-time">Standard schedule — check-out <strong>${out}</strong>.</span>`;
+    } else if (hours === 10) {
+        // two fixed schedules, ten hours each (Pia, 2026-08-05)
+        el.innerHTML = `<span class="ci-time">Two schedules only — <strong>8:00 AM–6:00 PM</strong>, or <strong>7:00 PM–5:00 AM</strong> / <strong>8:00 PM–6:00 AM</strong>.</span>`;
     } else {
-        // flexible window
+        // flexible window — 21 hours is now flexible on every day, Saturdays included
         el.innerHTML = `<span class="ci-time">Flexible check-in/out, 8:00 AM–10:00 PM. Check the allotted time on the calendar.</span>`;
     }
 }

@@ -13,6 +13,7 @@ const DEFAULT_SETTINGS = {
     pricing: {
         stay6: 999,
         stay10: 999,           // Jul–Aug promo
+        stay10Sat: 1599,       // 10-hour day-use on a SATURDAY (Sat only — Friday keeps stay10)
         stay21Weekday: 1599,   // Sun–Thu
         stay21Weekend: 2099,   // Fri/Sat
         longWeekday: 1599,     // 3+ nights, Sun–Thu

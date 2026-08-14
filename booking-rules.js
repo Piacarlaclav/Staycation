@@ -170,15 +170,24 @@ const FLEX_TIMES = [
 const SIX_HOUR_MORNING = ["8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "12:00 NN"];
 const SIX_HOUR_EVENING = ["7:00 PM", "8:00 PM", "9:00 PM", "10:00 PM", "11:00 PM", "12:00 MN"];
 const SIX_HOUR_TIMES = SIX_HOUR_MORNING.concat(SIX_HOUR_EVENING);
+// ── PIA'S CALL 2026-08-05 — 10-hour day-use runs on TWO fixed schedules, not the
+// flexible hourly window it used to share with the overnight tier:
+//     Morning  8:00 AM → 6:00 PM
+//     Evening  7:00 PM → 5:00 AM   or   8:00 PM → 6:00 AM
+// Both are EXACTLY ten hours, so check-out stays "check-in + stayHours" everywhere and
+// nothing downstream (billing, the timeline, housekeeping) needs to know about slots.
+const TEN_HOUR_MORNING = ["8:00 AM"];
+const TEN_HOUR_EVENING = ["7:00 PM", "8:00 PM"];
+const TEN_HOUR_TIMES = TEN_HOUR_MORNING.concat(TEN_HOUR_EVENING);
 
+// `havenName` is no longer read — kept in the signature because callers pass it and the
+// Saturday rule that used it may come back.
 function rawTimesForHours(hours, checkinIso, havenName) {
     if (hours === 6) return SIX_HOUR_TIMES;
-    if (hours === 21 && isoWeekday(checkinIso) === 6) {
-        // Saturday overnight → the haven's single standard check-in time
-        const t = havenTimes(havenName);
-        return [t ? t.in : "3:00 PM"];
-    }
-    return FLEX_TIMES;   // 10h, and non-Saturday 21h
+    if (hours === 10) return TEN_HOUR_TIMES;
+    // 21h is flexible EVERY day. It used to be pinned to the haven's one standard time on
+    // Saturdays; Pia lifted that on 2026-08-05 so a guest picks their own hour all week.
+    return FLEX_TIMES;
 }
 
 // The check-in times that actually fit on `checkinIso` for this haven: no clash with a
@@ -219,9 +228,10 @@ function offeredHours(pricing) {
 // different things (listing "available", panel "Fully booked") precisely because they used
 // to answer this question with two different implementations.
 function dayHasAnyFreeTime(list, havenName, iso, pricing, minStartMin) {
-    let hours = offeredHours(pricing);
-    // Saturday check-ins are 21-hour (overnight) only — no 6h or 10h day-use
-    if (isoWeekday(iso) === 6) hours = hours.filter(h => h === 21);
+    // Saturday used to be filtered down to 21h only — no day-use at all. Pia opened Saturday
+    // to 10-hour bookings on 2026-08-05 (at the Saturday rate), so every offered length is
+    // sellable on every day and the only thing that closes a slot is a real clash.
+    const hours = offeredHours(pricing);
     return hours.some(h => freeCheckinTimes(list, havenName, h, iso, 0, minStartMin).length > 0);
 }
 
@@ -241,6 +251,7 @@ return {
     bookingCheckinMin, bookingInterval, isLive,
     CLEAN_BUFFER_MIN, findClash, BOOKING_LEAD_MIN, earliestLeadMin,
     FLEX_TIMES, SIX_HOUR_MORNING, SIX_HOUR_EVENING, SIX_HOUR_TIMES,
+    TEN_HOUR_MORNING, TEN_HOUR_EVENING, TEN_HOUR_TIMES,
     rawTimesForHours, freeCheckinTimes, offeredHours, dayHasAnyFreeTime, rangeHasBooking
 };
 });

@@ -81,7 +81,8 @@ function havenAvailable(havenName, startIso, endIso, hours){
     if(!hours) return SHB.dayHasAnyFreeTime(list, havenName, startIso, searchPricing(), lead);
     // an explicit duration was chosen: it must be offered AND still fit somewhere that day
     if(SHB.offeredHours(searchPricing()).indexOf(hours) < 0) return false;
-    if(SHB.isoWeekday(startIso) === 6 && hours !== 21) return false;   // Saturday = overnight only
+    // Saturday used to be overnight-only here. 10-hour day-use is sold on Saturdays now
+    // (Pia, 2026-08-05) — booking-rules.js is the single place that decides what fits.
     return SHB.freeCheckinTimes(list, havenName, hours, startIso, 0, lead).length > 0;
 }
 
