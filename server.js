@@ -13,6 +13,7 @@
 "use strict";
 
 const express = require("express");
+const compression = require("compression");
 const path = require("path");
 const store = require("./lib/store");
 // The SAME availability module the public pages <script> in. Requiring it here (rather than
@@ -25,6 +26,16 @@ const PORT = process.env.PORT || 3000;
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
+
+/* Gzip every response the server sends (2026-08-15).
+   The dashboard renders to ~987 KB of HTML — 88% of it the same JavaScript and CSS on every
+   single load — and it was leaving this server UNCOMPRESSED. The browser saw a compressed page
+   only because Vercel's edge compresses on the way out; the expensive hop, function → edge
+   ("Fast Origin Transfer"), carried the full 987 KB. That meter hit its 10 GB ceiling and blocked
+   every deployment for ten days. Compressing here cuts that hop by roughly 85% on EVERY page,
+   guest site included, with no change to any markup.
+   Images and /img photos are already compressed formats — the default filter skips them. */
+app.use(compression());
 
 app.use(express.json({ limit: "25mb" })); // QR images are base64 data URLs → allow large bodies
 
