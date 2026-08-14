@@ -2315,7 +2315,11 @@
     const ci = document.getElementById("a_checkin").value;
     // Saturday used to be filtered down to 21h here too. 10-hour day-use sells on Saturdays now
     // (Pia, 2026-08-05), priced at PRICING.stay10Sat — every tier on every day.
-    const opts = STAY_OPTIONS.map(o => [o[0], aStayLabel(Number(o[0]), ci)]);
+    // Honour the OFFER ON WEBSITE toggles: offeredStays() already reads them for the availability
+    // table, but this dropdown ignored them, so a retired tier (6 hours) was still bookable here.
+    const on = offeredStays();
+    const opts = STAY_OPTIONS.filter(o => on.indexOf(Number(o[0])) >= 0)
+                             .map(o => [o[0], aStayLabel(Number(o[0]), ci)]);
     const want = String(keep != null ? keep : sel.value);
     sel.innerHTML = opts.map(o => `<option value="${o[0]}">${o[1]}</option>`).join("");
     sel.value = opts.some(o => String(o[0]) === want) ? want : String(opts[0][0]);

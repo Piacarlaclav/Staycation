@@ -2359,7 +2359,11 @@
     const sel = document.getElementById("a_stay");
     const ci = document.getElementById("a_checkin").value;
     // Every tier on every day, Saturday included — priced for the date that was picked.
-    const opts = STAY_OPTIONS.map(o => [o[0], aStayLabel(Number(o[0]), ci)]);
+    // Honour the OFFER ON WEBSITE toggles: offeredStays() already reads them for the availability
+    // table, but this dropdown ignored them, so a retired tier stayed bookable here.
+    const on = offeredStays();
+    const opts = STAY_OPTIONS.filter(o => on.indexOf(Number(o[0])) >= 0)
+                             .map(o => [o[0], aStayLabel(Number(o[0]), ci)]);
     const want = String(keep != null ? keep : sel.value);
     sel.innerHTML = opts.map(o => `<option value="${o[0]}">${o[1]}</option>`).join("");
     sel.value = opts.some(o => String(o[0]) === want) ? want : String(opts[0][0]);
