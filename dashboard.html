@@ -4277,7 +4277,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <div class="modal-actions">
             <span class="modal-foot-note" id="bkFootNote"></span>
             <button class="btn secondary" onclick="closeModal()">Cancel</button>
-            <button class="btn" onclick="saveBooking()">Save Booking</button>
+            <button class="btn" id="bkSaveBtn" onclick="saveBooking()">Save Booking</button>
         </div>
     </div>
 </div>
@@ -9038,13 +9038,26 @@ async function saveBooking(){
     // are preserved. Proof photos are offloaded to durable refs first. ----
     if(_savingBooking) return;
     _savingBooking = true;
+    // Say something IMMEDIATELY. This does several network round trips; with the label unchanged
+    // the whole wait read as "nothing happened" and the button got tapped again — the second tap
+    // was swallowed silently by the _savingBooking guard.
+    const _saveBtn = document.getElementById("bkSaveBtn");
+    const _saveTxt = _saveBtn ? _saveBtn.textContent : "";
+    if(_saveBtn){ _saveBtn.disabled = true; _saveBtn.textContent = "Saving…"; }
     try{
-        // offload the booking-level proof photos to /img refs (tiny request; image never lost)
-        data.downProof   = await _offloadImg(data.downProof);
-        data.addonProof  = await _offloadImg(data.addonProof);
-        data.extendProof = await _offloadImg(data.extendProof);
-        data.reschedProof= await _offloadImg(data.reschedProof);
-        data.balanceProof= await _offloadImg(data.balanceProof);
+        // Offload the booking-level proof photos to /img refs (tiny request; image never lost).
+        // These used to run one after another — five sequential round trips before the save even
+        // started. They are independent, so they go together now: the wait is the slowest single
+        // upload instead of the sum of all five. _offloadImg returns non-photos untouched, so a
+        // booking with no new pictures still costs nothing here.
+        [data.downProof, data.addonProof, data.extendProof, data.reschedProof, data.balanceProof] =
+            await Promise.all([
+                _offloadImg(data.downProof),
+                _offloadImg(data.addonProof),
+                _offloadImg(data.extendProof),
+                _offloadImg(data.reschedProof),
+                _offloadImg(data.balanceProof)
+            ]);
 
         if(editingId){
             const idx = bookings.findIndex(b => b.id === editingId);
@@ -9112,6 +9125,7 @@ async function saveBooking(){
         renderAll();
     } finally {
         _savingBooking = false;
+        if(_saveBtn){ _saveBtn.disabled = false; _saveBtn.textContent = _saveTxt; }   // usable again if it failed
     }
 }
 
